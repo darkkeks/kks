@@ -20,7 +20,9 @@ pip install .
 
 - `kks auth` &mdash; авторизация
     
-    Сохраняет логин/пароль/группу в `~/.kks/config.ini`, а также куки в `~/.kks/cookies.pickle`
+    Сохраняет логин/пароль/группу в `~/.kks/config.ini`, а также куки в `~/.kks/cookies.pickle`.
+    
+    Используется для вывода табличек из ejudge и загрузки списка задач.
     
 - `kks init` &mdash; создание workspace
 

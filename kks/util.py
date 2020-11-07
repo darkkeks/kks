@@ -54,3 +54,22 @@ def find_workspace(path=None):
         if path == path.parent:
             return None
         path = path.parent
+
+
+def get_solution_directory(contest, task):
+    workspace = find_workspace()
+
+    if contest is not None and task is not None:
+        if workspace is not None:
+            result = workspace / contest / task
+
+            if not result.is_dir():
+                click.secho(f'Path {result} is not a directory', fg='red', err=True)
+                return None
+
+            return result
+        else:
+            click.secho('Could not find workspace', fg='red', err=True)
+            return None
+
+    return Path().absolute()
