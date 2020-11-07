@@ -8,6 +8,9 @@ verify_ssl = true
 [packages]
 click = "*"
 requests = "*"
+colorama = "*"
+configparser = "*"
+beautifulsoup4 = "*"
 
 [requires]
 python_version = "3.9"
