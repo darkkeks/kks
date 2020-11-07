@@ -39,3 +39,18 @@ def load_session():
         session.cookies.update(pickle.load(f))
 
     return session
+
+
+def find_workspace(path=None):
+    if path is None:
+        path = Path()
+
+    path = path.resolve()
+
+    while path.is_dir():
+        file = path / '.kks-workspace'
+        if file.exists():
+            return path
+        if path == path.parent:
+            return None
+        path = path.parent

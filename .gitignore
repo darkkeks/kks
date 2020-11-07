@@ -1,3 +1,5 @@
+workspace
+
 *.egg-info
 
 *.iml
