@@ -2,6 +2,7 @@ import difflib
 import subprocess
 
 import click
+from tqdm import tqdm
 
 from kks.binary import compile_solution
 from kks.util import get_solution_directory
@@ -10,19 +11,13 @@ from kks.util import get_solution_directory
 @click.command(short_help='Test solutions')
 @click.option('-m', '--mode', default='auto', type=click.Choice(['auto'], case_sensitive=False))
 def test(mode):
-    """Test solution
-
-    Example usage:
-
-    """
+    """Test solution"""
 
     directory = get_solution_directory()
-
     if directory is None:
         return
 
     binary = compile_solution(directory, mode)
-
     if binary is None:
         return
 
@@ -34,20 +29,24 @@ def test(mode):
     input_files = tests_dir.glob('*.in')
     input_files = sorted(input_files, key=lambda file: file.name)
 
-    for input_file in input_files:
+    t = tqdm(input_files, leave=False)
+    for input_file in t:
         test_name = input_file.stem
         output_file = tests_dir / (test_name + '.out')
 
         styled_file = click.style(input_file.name, fg='blue', bold=True)
 
         if not output_file.is_file():
-            click.secho('No output file for test ' + styled_file, fg='yellow', err=True)
+            click.secho(f'No output file for test {styled_file}, skipping', fg='yellow', err=True)
             continue
 
-        click.secho('Running test ' + styled_file + '\t', err=True, nl=False)
+        t.set_description(f'Running {styled_file}')
 
         if not run_test(binary, input_file, output_file):
-            break
+            t.close()
+            return
+
+    click.secho('All tests passed!', fg='green')
 
 
 def run_test(binary, input_file, output_file):
@@ -78,7 +77,6 @@ def run_test(binary, input_file, output_file):
         click.secho()
         return False
 
-    click.secho('OK', fg='green', bold=True)
     return True
 
 

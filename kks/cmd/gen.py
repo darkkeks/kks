@@ -1,20 +1,40 @@
 import subprocess
-from pathlib import Path
 
 import click
+from tqdm import tqdm
 
 from kks.util import get_solution_directory
 
 
 @click.command(short_help='Run solution')
-@click.option('-o', '--output-only', is_flag=True)
-@click.option('-g', '--generator', type=click.Path(exists=True))
-@click.option('-s', '--solution', type=click.Path(exists=True))
-@click.option('-t', '--tests', type=click.IntRange(min=0, max=999), default=(1, 1000), nargs=2)
-@click.option('-f', '--force', is_flag=True)
+@click.option('-o', '--output-only', is_flag=True,
+              help='If specified, only solution will be run. Useful to generate output for manually created tests')
+@click.option('-g', '--generator', type=click.Path(exists=True),
+              help='Script, used to generate .in files')
+@click.option('-s', '--solution', type=click.Path(exists=True),
+              help='Script, used to generate .out files')
+@click.option('-t', '--test', type=int,
+              help='Test number to generate')
+@click.option('-r', '--range', 'test_range', type=int, nargs=2,
+              help='Tests to generate')
+@click.option('-f', '--force', is_flag=True,
+              help='Overwrite .in files')
 @click.argument('gen_args', nargs=-1, type=click.UNPROCESSED)
-def gen(output_only, generator, solution, tests, force, gen_args):
-    """Generate tests"""
+def gen(output_only, generator, solution, test, test_range, force, gen_args):
+    """
+    Generate tests
+
+    Generate script is run with arguments "TEST_NUMBER GEN_ARGS". It's output is saved into .in file.
+
+    Solution script is run with test number as argument, and .in file as stdin. It's output is saved into .out file.
+
+    \b
+    Example usage:
+      kks gen -t 1337
+      kks gen -r 1 100
+      kks gen -t 1 -o
+      kks gen -g gen.py -s solve.py -r 1 50 -f
+    """
 
     directory = get_solution_directory()
 
@@ -29,16 +49,22 @@ def gen(output_only, generator, solution, tests, force, gen_args):
         click.secho(f'Solution {solution} does not exist', fg='red', err=True)
         return
 
-    l, r = tests
-    if r < l:
-        r, l = l, r
+    if test is not None and len(test_range) != 0:
+        click.secho(f'Either test or range should be specified', fg='red', err=True)
+        return
+
+    if test is not None:
+        test_numbers = [test]
+    else:
+        l, r = sorted(test_range or (1, 100))
+        test_numbers = list(range(l, r + 1))
 
     tests_dir = directory / 'tests'
     tests_dir.mkdir(exist_ok=True)
 
-    for i in range(l, r + 1):
+    t = tqdm(test_numbers, leave=False)
+    for i in t:
         name = str(i).rjust(3, '0')
-        click.secho('Generating test ' + click.style(name, fg='blue', bold=True))
 
         input_file = tests_dir / (name + '.in')
         output_file = tests_dir / (name + '.out')
@@ -59,6 +85,8 @@ def gen(output_only, generator, solution, tests, force, gen_args):
                             ' already exists, skipping. Specify -f to overwrite')
                 continue
 
+        t.set_description('Generating test ' + click.style(name, fg='blue', bold=True))
+
         if not output_only:
             with input_file.open('w') as f:
                 args = [str(i)] + list(gen_args)
@@ -75,3 +103,5 @@ def gen(output_only, generator, solution, tests, force, gen_args):
                 click.secho('Solution exited with code ' +
                             click.style(str(process.returncode), fg='red', bold=True) +
                             ' (args: ' + ' '.join(args) + ')', fg='yellow')
+
+    click.secho('Generated tests!', fg='green', err=True)

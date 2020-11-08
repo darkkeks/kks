@@ -3,6 +3,7 @@ import click
 from kks.cmd.auth import auth
 from kks.cmd.gen import gen
 from kks.cmd.init import init
+from kks.cmd.lint import lint
 from kks.cmd.run import run
 from kks.cmd.test import test
 
@@ -17,3 +18,4 @@ cli.add_command(init)
 cli.add_command(run)
 cli.add_command(test)
 cli.add_command(gen)
+cli.add_command(lint)

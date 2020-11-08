@@ -41,6 +41,31 @@ def load_session():
     return session
 
 
+def get_clang_style_string():
+    cfg = config_directory() / '.clang-format'
+    if cfg.exists():
+        with cfg.open('r') as f:
+            return f.read()
+
+    return r"""{
+        Language: Cpp,
+        BasedOnStyle: Google,
+        IndentWidth: 4,
+        UseTab: Never,
+        NamespaceIndentation: All,
+        ColumnLimit: 80,
+        AccessModifierOffset: -4,
+        AlignAfterOpenBracket: AlwaysBreak,
+        AlignOperands: false,
+        AlwaysBreakTemplateDeclarations: Yes,
+        BinPackArguments: false,
+        BinPackParameters: false,
+        AllowShortFunctionsOnASingleLine: Empty,
+        BreakBeforeBraces: Custom,
+        BraceWrapping: { AfterEnum: true, AfterStruct: true }
+    }"""
+
+
 def find_workspace(path=None):
     if path is None:
         path = Path()

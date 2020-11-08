@@ -12,6 +12,7 @@ setup(
         'requests',
         'configparser',
         'colorama',
+        'tqdm',
     ],
     entry_points='''
         [console_scripts]

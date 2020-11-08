@@ -33,6 +33,9 @@ $ kks run
 $ kks run -- arg_1 arg_2
 $ kks run < input.txt > output.txt
 
+# Format solution using clang-format
+$ kks lint
+
 # Generate tests/001.in - tests/100.in using gen.py; generate 001.out - 100.out using solve.py
 $ kks gen -t 1 100 
 $ kks gen -g other_gen.py -s other_solve.py -t 1 100
@@ -46,12 +49,12 @@ $ kks test
 ```
 
 ## Todo
-- [ ] lint
-- [ ] build
-- [ ] activate / deactivate
-- [ ] test
-- [ ] sync
-- [ ] status
-- [ ] standings
-- [ ] walgrind
-- [ ] configure compiler
+- build
+- template
+- activate / deactivate
+- test
+- sync
+- status
+- standings
+- walgrind
+- configure compiler

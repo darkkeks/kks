@@ -13,24 +13,18 @@ from kks.util import get_solution_directory
 def run(mode, run_args):
     """Run solution
 
+    \b
     Example usage:
-
       kks run
-
-      kks run < tests/000.in
-
-      kks run sm01 1 > output.txt
-
-      kks run sm01 1  argument_1 argument_2
+      kks run < tests/000.in > output.txt
+      kks run -- arg_1 arg_2
     """
 
     directory = get_solution_directory()
-
     if directory is None:
         return
 
     binary = compile_solution(directory, mode)
-
     if binary is None:
         return
 
@@ -39,10 +33,4 @@ def run(mode, run_args):
         output += ' with arguments ' + click.style(' '.join(run_args), fg='red', bold=True)
     click.secho(output, fg='green', err=True)
 
-    run_binary(binary, run_args)
-
-
-def run_binary(binary, args):
-    subprocess.run([binary] + list(args), stdin=sys.stdin)
-
-
+    subprocess.run([binary] + list(run_args), stdin=sys.stdin)
