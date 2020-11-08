@@ -1,61 +1,57 @@
-## KoKoS
+# KoKoS
 
 Утилита для удобного решения задач курса АКОС.
 
+Все предложения (даже самые глупые и бесполезные) принимаются в тг: [@darkkeks](https://t.me/darkkeks)
+
 Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [petuhovskiy/acos](https://github.com/petuhovskiy/acos).
 
-### Installation
+## Installation
 
-```shell script
-pip3 install kks
-```
-or 
 ```shell script
 git clone git@github.com:darkkeks/kks.git
 cd kks
 pip install .
 ```
 
-### Usage
+## Usage
 
-- `kks auth` &mdash; авторизация
-    
-    Сохраняет логин/пароль/группу в `~/.kks/config.ini`, а также куки в `~/.kks/cookies.pickle`.
-    
-    Используется для вывода табличек из ejudge и загрузки списка задач.
-    
-- `kks init` &mdash; создание workspace
+### TLDR
 
-    На самом деле просто добавляет файл `.kks-workspace` в текущей директории.
-    Этот файл используется, чтобы искать корень дерева папок.
-    
-- `kks sync` &mdash; Выгрузить список задач из ejudge // Пока не реализовано
+```shell script
 
-    Выгружает из ejudge задачи с условиями и семплами.
-    
-    Получается что-то вроде такого:
-    ```
-    sm01/
-    └── 1
-        ├── statement.txt
-        └── tests
-            ├── 000.in
-            └── 000.out
-    ```
-  
-- `kks compile` &mdash; собрать решение(я) // Пока не реализовано
+# Create .kks-workspace in current directory to mark kks workspace root
+$ kks init
 
-- `kks run` &mdash; запустить конкретное решение
+# Parse tasks from ejudge and create directories with template solutions
+$ kks auth
+$ kks sync
 
-- `kks test` &mdash; запустить тесты // Пока не реализовано
+# Build and run task in current directory
+$ cd sm01/1/
+$ kks run
+$ kks run -- arg_1 arg_2
+$ kks run < input.txt > output.txt
 
-- `kks lint` &mdash; проверить решение линтером // Пока не реализовано
+# Generate tests/001.in - tests/100.in using gen.py; generate 001.out - 100.out using solve.py
+$ kks gen -t 1 100 
+$ kks gen -g other_gen.py -s other_solve.py -t 1 100
 
+# Only generate *.out files (don't overwrite *.in)
+# Useful if you entered tests by hand, but want to generate correct output
+$ kks gen -t 1 100 -o
 
-### Todo
-- [ ] compile
+# Run all tests
+$ kks test
+```
+
+## Todo
 - [ ] lint
+- [ ] build
+- [ ] activate / deactivate
 - [ ] test
 - [ ] sync
+- [ ] status
+- [ ] standings
 - [ ] walgrind
 - [ ] configure compiler
