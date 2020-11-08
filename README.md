@@ -22,33 +22,33 @@ pip install .
 
 ```shell script
 # Create .kks-workspace in current directory to mark kks workspace root
-$ kks init
+kks init
 
 # Parse tasks from ejudge and create directories with template solutions
-$ kks auth
-$ kks sync
+kks auth
+kks sync
 
 # Build and run solution in current directory
-$ cd sm01/1/
-$ kks run
-$ kks run -- arg_1 arg_2
-$ kks run < input.txt > output.txt
+cd sm01/1/
+kks run
+kks run -- arg_1 arg_2
+kks run < input.txt > output.txt
 
 # Format solution using clang-format
-$ kks lint
+kks lint
 
 # Generate tests/001.in - tests/100.in using gen.py; generate 001.out - 100.out using solve.py
-$ kks gen -r 1 100
+kks gen -r 1 100
 # Generate test 123
-$ kks gen -t 123
+kks gen -t 123
 # Only generate *.out files (don't overwrite *.in)
 # Useful if you entered tests manually and want to generate correct output
-$ kks gen -r 1 10 -o
+kks gen -r 1 10 -o
 # Generate tests [1; 50] using other_gen.py and other_solve.py, overwriting existing tests
-$ kks gen -g other_gen.py -s other_solve.py -r 1 50 -f
+kks gen -g other_gen.py -s other_solve.py -r 1 50 -f
 
 # Run all tests
-$ kks test
+kks test
 ```
 
 ## Todo
