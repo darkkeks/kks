@@ -2,7 +2,7 @@
 
 Утилита для удобного решения задач курса АКОС.
 
-Все предложения (даже самые глупые и бесполезные) принимаются в тг: [@darkkeks](https://t.me/darkkeks)
+Любые предложение или запросы фич принимаются в телеграм: [@darkkeks](https://t.me/darkkeks)
 
 Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [petuhovskiy/acos](https://github.com/petuhovskiy/acos).
 
@@ -16,10 +16,11 @@ pip install .
 
 ## Usage
 
+Почти у всех команд есть адекватный `--help`, там бывают полезные аргументы, не описанные ниже.
+
 ### TLDR
 
 ```shell script
-
 # Create .kks-workspace in current directory to mark kks workspace root
 $ kks init
 
@@ -54,9 +55,6 @@ $ kks test
 - build
 - template
 - activate / deactivate
-- test
-- sync
-- status
 - standings
 - walgrind
 - configure compiler
