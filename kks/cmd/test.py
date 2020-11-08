@@ -8,21 +8,15 @@ from kks.util import get_solution_directory
 
 
 @click.command(short_help='Test solutions')
-@click.argument('contest', required=False)
-@click.argument('task', required=False)
 @click.option('-m', '--mode', default='auto', type=click.Choice(['auto'], case_sensitive=False))
-def test(contest, task, mode):
+def test(mode):
     """Test solution
 
     Example usage:
 
     """
 
-    if (contest is None) != (task is None):
-        click.secho('Contest and task should both be specified', fg='red', err=True)
-        return
-
-    directory = get_solution_directory(contest, task)
+    directory = get_solution_directory()
 
     if directory is None:
         return

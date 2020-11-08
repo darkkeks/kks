@@ -8,11 +8,9 @@ from kks.util import get_solution_directory
 
 
 @click.command(short_help='Run solution')
-@click.argument('contest', required=False)
-@click.argument('task', required=False)
 @click.option('-m', '--mode', default='auto', type=click.Choice(['auto'], case_sensitive=False))
 @click.argument('run_args', nargs=-1, type=click.UNPROCESSED)
-def run(contest, task, mode, run_args):
+def run(mode, run_args):
     """Run solution
 
     Example usage:
@@ -26,11 +24,7 @@ def run(contest, task, mode, run_args):
       kks run sm01 1  argument_1 argument_2
     """
 
-    if (contest is None) != (task is None):
-        click.secho('Contest and task should both be specified', fg='red', err=True)
-        return
-
-    directory = get_solution_directory(contest, task)
+    directory = get_solution_directory()
 
     if directory is None:
         return
