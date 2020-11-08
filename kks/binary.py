@@ -39,7 +39,7 @@ def compile_solution(directory, mode):
 
 
 def compile_c(workdir, files):
-    filenames = list(map(lambda path: path.relative_to(workdir).as_posix(), files))
+    filenames = [path.relative_to(workdir) for path in files]
 
     command = ARGS + filenames
     p = subprocess.run(command, cwd=workdir)

@@ -39,7 +39,7 @@ kks lint
 
 # Generate tests/001.in - tests/100.in using gen.py; generate 001.out - 100.out using solve.py
 kks gen -r 1 100
-# Generate test 123
+# Generate test 123.{in,out}
 kks gen -t 123
 # Only generate *.out files (don't overwrite *.in)
 # Useful if you entered tests manually and want to generate correct output
@@ -52,9 +52,15 @@ kks test
 ```
 
 ## Todo
+- run lint on every build
+- run with test as input
+- only sample test with arg (-s, for example) and print output
+- test solve.py
+- show lint diff
 - build
 - template
-- activate / deactivate
+- activate / deactivate tasks
 - standings
-- walgrind
+- valgrind
 - configure compiler
+- support asm
