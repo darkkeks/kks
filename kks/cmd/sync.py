@@ -41,7 +41,7 @@ def sync():
 
         click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True), err=True)
 
-        task_dir.mkdir(exist_ok=True)
+        task_dir.mkdir(parents=True, exist_ok=True)
 
         main = task_dir / 'main.c'
         main.touch()
