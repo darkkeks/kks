@@ -13,6 +13,7 @@ setup(
         'configparser',
         'colorama',
         'tqdm',
+        'beautifulsoup4',
     ],
     entry_points='''
         [console_scripts]
