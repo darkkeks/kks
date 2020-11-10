@@ -9,12 +9,14 @@ Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [pet
 ## Installation
 
 ```shell script
-git clone git@github.com:darkkeks/kks.git
+git clone https://github.com/DarkKeks/kks.git
 cd kks
 pip install .
 ```
 
 ## Usage
+
+### Про пароль
 
 Для использования не обязательна авторизация в ejudge. Сборка, линтер, тестирование и генерация тестов будет работать без авторизации.
 
@@ -23,6 +25,12 @@ pip install .
 Также, у `kks auth` есть флаг `--no-store-password`, который сохранит локально только логин и id контеста, но не пароль. Пароль будет запрашиваться каждый раз, когда сессия протухает.
 
 Без этого флага, пароль хранится в **plaintext** в файле `~/.kks/config.ini`.
+
+### Демо
+
+<p align="center">
+<a href="https://asciinema.org/a/54ZBjUsSNjKL2phHIcG67AWU7" target="_blank"><img src="https://asciinema.org/a/54ZBjUsSNjKL2phHIcG67AWU7.svg" /></a>
+</p>
 
 ---
 
