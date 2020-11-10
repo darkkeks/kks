@@ -2,7 +2,7 @@
 
 Утилита для удобного решения задач курса АКОС.
 
-Любые предложение или запросы фич принимаются в телеграм: [@darkkeks](https://t.me/darkkeks)
+Если есть вопросы по использованию &mdash; скорее всего это значит, что ответ на эти вопросы должен быть в README. Обязательно напишите об этом мне: [@darkkeks](https://t.me/darkkeks). Также принимаю любые предложения и запросы фич.
 
 Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [petuhovskiy/acos](https://github.com/petuhovskiy/acos).
 
@@ -51,7 +51,7 @@ pip3 install .
 ### Демо
 
 <p align="center">
-<a href="https://asciinema.org/a/54ZBjUsSNjKL2phHIcG67AWU7" target="_blank"><img src="https://asciinema.org/a/54ZBjUsSNjKL2phHIcG67AWU7.svg" /></a>
+<a href="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth" target="_blank"><img src="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth.svg" /></a>
 </p>
 
 ---
