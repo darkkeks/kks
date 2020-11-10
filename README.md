@@ -8,13 +8,27 @@ Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [pet
 
 ## Installation
 
-Из PyPi
+### Из PyPi
 
 ```shell script
-pip3 install kokos
+pip3 install kokos 
+# or to update
+pip3 upgrade --upgrade kokos 
 ```
 
-или из исходников
+Возможно вы увидите варнинг вида
+
+```
+WARNING: The script kks is installed in '/home/darkkeks/.local/bin' which is not on PATH.
+Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+```
+
+Это значит, что скрипт не добавлен в PATH. Чтобы пользоваться им без указания пути, стоит добавить его в PATH, например в `.bashrc` вот так:
+```
+PATH="/home/darkkeks/.local/bin":$PATH
+```
+
+### Из исходников
 
 ```shell script
 git clone https://github.com/DarkKeks/kks.git
