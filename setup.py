@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='kks',
+    name='kokos',
     description='KoKoS helper tool',
     author='Vyacheslav Boben',
     version='1.0',

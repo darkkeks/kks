@@ -1,6 +1,8 @@
 workspace
 
 *.egg-info
+dist
+build
 
 *.iml
 .idea

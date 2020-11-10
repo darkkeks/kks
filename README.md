@@ -8,10 +8,18 @@ Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [pet
 
 ## Installation
 
+Из PyPi
+
+```shell script
+pip3 install kokos
+```
+
+или из исходников
+
 ```shell script
 git clone https://github.com/DarkKeks/kks.git
 cd kks
-pip install .
+pip3 install .
 ```
 
 ## Usage
