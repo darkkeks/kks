@@ -2,6 +2,11 @@ import click
 import requests
 from bs4 import BeautifulSoup
 
+CONTEST_ID_BY_GROUP = {
+    int('19' + str(i)): 130 + i
+    for i in range(1, 12)
+}
+
 
 class LinkTypes:
     SETTINGS = 'Settings'
@@ -33,6 +38,10 @@ class Problem:
         self.status = status
         self.tests_passed = tests_passed
         self.score = score
+
+
+def get_contest_id(group_id):
+    return CONTEST_ID_BY_GROUP.get(group_id, None)
 
 
 def ejudge_auth(auth_data, session):
