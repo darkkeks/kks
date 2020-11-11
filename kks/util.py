@@ -1,4 +1,5 @@
 import configparser
+import difflib
 import pickle
 from pathlib import Path
 
@@ -175,3 +176,77 @@ def get_solution_directory():
 #             return None
 
     return Path().absolute()
+
+
+def print_diff(before_output, after_output, before_name, after_name):
+    expected_lines = before_output.splitlines(keepends=True)
+    actual_lines = after_output.splitlines(keepends=True)
+    diff = difflib.unified_diff(expected_lines, actual_lines, before_name, after_name)
+    for line in diff:
+        add = line.startswith('+')
+        remove = line.startswith('-')
+        color = 'red' if remove else 'green' if add else None
+        click.secho(line, nl=False, fg=color)
+
+
+def find_tests(directory, tests, sample=False, default_all=True):
+    """
+    find_tests(..., [Список номеров тестов или файлов], False, ...)
+      Валидирует все тесты и возвращает список путей
+
+    find_tests(..., [], True, ..)
+      Валидирует семпл и возвращает только его
+
+    find_tests(..., [], False, default_all=True)
+      Возвращает все тесты в tests/
+
+    find tests(..., [], False, default_all=False)
+      Возвращает пустой список
+
+    Если валидация падает, пишем ошибку и возвращаем None
+    """
+
+    if len(tests) > 0 and sample:
+        click.secho('Specify either test or sample, not both', fg='red', err=True)
+        return None
+
+    tests_dir = directory / 'tests'
+    if not tests_dir.exists():
+        click.secho('No tests directory', fg='red', err=True)
+        return None
+
+    if sample:
+        sample_input = tests_dir / '000.in'
+        if sample_input.is_file():
+            return [sample_input]
+        else:
+            click.secho('Could not find sample test ' + click.style(sample_input.as_posix(), fg='blue', bold=True),
+                        fg='red', err=True)
+            return None
+
+    if len(tests) == 0 and default_all:
+        input_files = tests_dir.glob('*.in')
+        input_files = sorted(input_files, key=lambda file: file.name)
+        return input_files
+
+    result = []
+    for test in tests:
+        path = Path(test)
+        if path.is_file():
+            result.append(path)
+            continue
+
+        test_name = test.rjust(3, '0')
+        test_input = tests_dir / (test_name + '.in')
+        if test_input.is_file():
+            result.append(test_input)
+            continue
+
+        click.secho(f'Could not find neither file {click.style(path.as_posix(), fg="blue", bold=True)}',
+                    fg='red', err=True, nl=False)
+        test_input_relative = test_input.relative_to(Path().absolute())
+        click.secho(f', nor test {click.style(test_input_relative.as_posix(), fg="blue", bold=True)}',
+                    fg='red', err=True)
+        return None
+
+    return result

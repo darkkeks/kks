@@ -42,7 +42,7 @@ pip3 install .
 
 Для использования не обязательна авторизация в ejudge. Сборка, линтер, тестирование и генерация тестов будет работать без авторизации.
 
-Авторизация используется чтобы выкачать список задач либо парсить статус из ejudge.
+Авторизация используется, чтобы выкачать список задач либо парсить статус из ejudge.
 
 Также, у `kks auth` есть флаг `--no-store-password`, который сохранит локально только логин и id контеста, но не пароль. Пароль будет запрашиваться каждый раз, когда сессия протухает.
 
@@ -90,15 +90,23 @@ kks test
 ```
 
 ## Todo
-- run lint on every build
-- run with test as input
-- only sample test with arg (-s, for example) and print output
-- test solve.py
-- show lint diff
+- run
+    - [ ] run lint on every build
+    - [x] run with test as input
+    - [ ] valgrind
+- test
+    - [x] only sample test with arg (-s, for example) and print output
+    - [ ] test solve.py
 - build
-- template
+    - [ ] multiple language generator and solution
+    - [ ] configure compiler
+    - [ ] support multiple files
+    - [ ] support asm
+- lint
+    - [x] show lint diff
+    - [ ] dry run ?
+- ejudge
+    - [ ] standings
+- sync
+    - [ ] templates
 - activate / deactivate tasks
-- standings
-- valgrind
-- configure compiler
-- support asm

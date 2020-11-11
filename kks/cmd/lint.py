@@ -2,11 +2,13 @@ import subprocess
 
 import click
 
-from kks.util import get_solution_directory, get_clang_style_string
+from kks.util import get_solution_directory, get_clang_style_string, print_diff
 
 
 @click.command(short_help='Lint solution')
-def lint():
+@click.option('--diff/--no-diff', is_flag=True, default=True,
+              help='Show lint diff')
+def lint(diff):
     """
     Lint solution in current task directory using clang-format.
 
@@ -21,10 +23,15 @@ def lint():
         return
 
     c_files = list(directory.glob('*.c'))
-
     if len(c_files) == 0:
         click.secho('No *.c files found', fg='yellow', err=True)
         return
+
+    before = {}
+    if diff:
+        for file in c_files:
+            with file.open('r') as f:
+                before[file] = f.read()
 
     file_names = [file.as_posix() for file in c_files]
 
@@ -37,5 +44,14 @@ def lint():
     if process.returncode != 0:
         click.secho(f'Clang-format exited with exit-code {process.returncode}', fg='red', err=True)
         return
+
+    after = {}
+    if diff:
+        for file in c_files:
+            with file.open('r') as f:
+                after[file] = f.read()
+
+        for file in c_files:
+            print_diff(before[file], after[file], file.as_posix(), file.as_posix())
 
     click.secho(f'Successfully formatted!', fg='green', err=True)

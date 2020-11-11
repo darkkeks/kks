@@ -24,7 +24,7 @@ def compile_solution(directory, mode):
         click.secho('No .c files found', fg='yellow', err=True)
         return None
 
-    click.secho('Compiling...', fg='green', err=True)
+    click.secho('Compiling... ', fg='green', err=True, nl=False)
 
     binary = compile_c(directory, c_files)
 

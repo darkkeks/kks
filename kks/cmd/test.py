@@ -1,17 +1,28 @@
-import difflib
 import subprocess
 
 import click
 from tqdm import tqdm
 
 from kks.binary import compile_solution
-from kks.util import get_solution_directory
+from kks.util import get_solution_directory, print_diff, find_tests
 
 
 @click.command(short_help='Test solutions')
 @click.option('-m', '--mode', default='auto', type=click.Choice(['auto'], case_sensitive=False))
-def test(mode):
-    """Test solution"""
+@click.option('-s', '--sample', is_flag=True,
+              help='Test only sample')
+@click.option('-t', '--test', 'tests', multiple=True,
+              help='Run specific tests')
+def test(mode, tests, sample):
+    """
+    Test solution
+
+    \b
+    Example usage:
+        kks test
+        kks test -s
+        kks test -t 0 -t 2 -t 3
+    """
 
     directory = get_solution_directory()
     if directory is None:
@@ -21,24 +32,35 @@ def test(mode):
     if binary is None:
         return
 
-    tests_dir = directory / 'tests'
+    input_files = find_tests(directory, tests, sample)
+    if input_files is None:
+        return
 
-    if not tests_dir.exists():
-        click.secho('No tests directory', fg='red', err=True)
-
-    input_files = tests_dir.glob('*.in')
-    input_files = sorted(input_files, key=lambda file: file.name)
+    if len(input_files) == 0:
+        click.secho('No tests found!', fg='red')
+        return
 
     t = tqdm(input_files, leave=False)
     for input_file in t:
-        test_name = input_file.stem
-        output_file = tests_dir / (test_name + '.out')
+        output_file = input_file.with_suffix('.out')
 
-        styled_file = click.style(input_file.name, fg='blue', bold=True)
+        styled_file = click.style(input_file.as_posix(), fg='blue', bold=True)
 
         if not output_file.is_file():
+            t.clear()
             click.secho(f'No output file for test {styled_file}, skipping', fg='yellow', err=True)
             continue
+
+        if sample:
+            t.clear()
+            with input_file.open('r') as f:
+                input_data = f.read()
+            with output_file.open('r') as f:
+                output_data = f.read()
+            click.secho("Sample input:", bold=True)
+            click.secho(input_data)
+            click.secho("Sample output:", bold=True)
+            click.secho(output_data)
 
         t.set_description(f'Running {styled_file}')
 
@@ -65,15 +87,7 @@ def run_test(binary, input_file, output_file):
 
     if expected_output != actual_output:
         click.secho('WA', fg='red', bold=True)
-
-        expected_lines = expected_output.splitlines(keepends=True)
-        actual_lines = actual_output.splitlines(keepends=True)
-        diff = difflib.unified_diff(expected_lines, actual_lines, 'expected', 'actual')
-        for line in diff:
-            add = line.startswith('+')
-            remove = line.startswith('-')
-            color = 'red' if remove else 'green' if add else None
-            click.secho(line, nl=False, fg=color)
+        print_diff(expected_output, actual_output, 'expected', 'actual')
         click.secho()
         return False
 
