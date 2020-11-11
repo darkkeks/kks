@@ -13,7 +13,7 @@ Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [pet
 ```shell script
 pip3 install kokos 
 # or to update
-pip3 upgrade --upgrade kokos 
+pip3 install --upgrade kokos 
 ```
 
 Возможно вы увидите варнинг вида
@@ -54,11 +54,9 @@ pip3 install .
 <a href="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth" target="_blank"><img src="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth.svg" /></a>
 </p>
 
----
+### TLDR
 
 Почти у всех команд есть адекватный `--help`, там бывают полезные аргументы, не описанные ниже.
-
-### TLDR
 
 ```shell script
 # Create .kks-workspace in current directory to mark kks workspace root
