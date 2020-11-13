@@ -13,7 +13,9 @@ from kks.util import get_solution_directory, print_diff, find_tests
               help='Test only sample')
 @click.option('-t', '--test', 'tests', multiple=True,
               help='Run specific tests')
-def test(mode, tests, sample):
+@click.option('-c', '--continue', 'cont', is_flag=True,
+              help='Continue running after error')
+def test(mode, tests, sample, cont):
     """
     Test solution
 
@@ -64,7 +66,8 @@ def test(mode, tests, sample):
 
         t.set_description(f'Running {styled_file}')
 
-        if not run_test(binary, input_file, output_file):
+        is_success = run_test(binary, input_file, output_file)
+        if not cont and not is_success:
             t.close()
             return
 
@@ -73,7 +76,7 @@ def test(mode, tests, sample):
 
 def run_test(binary, input_file, output_file):
     with input_file.open('r') as input_f:
-        process = subprocess.run(binary, stdin=input_f, capture_output=True)
+        process = subprocess.run([binary], stdin=input_f, capture_output=True)
 
     if process.returncode != 0:
         click.secho('RE', fg='red', bold=True)

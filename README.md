@@ -109,4 +109,5 @@ kks test
     - [ ] standings
 - sync
     - [ ] templates
+    - [ ] reload samples for contest/task
 - activate / deactivate tasks
