@@ -50,8 +50,12 @@ pip3 install .
 
 ### Демо
 
+<!--suppress HtmlDeprecatedAttribute -->
 <p align="center">
-<a href="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth" target="_blank"><img src="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth.svg" /></a>
+    <a href="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth" target="_blank">
+        <!--suppress HtmlRequiredAltAttribute -->
+        <img src="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth.svg" />
+    </a>
 </p>
 
 ### TLDR
@@ -97,8 +101,11 @@ kks test
 - test
     - [x] only sample test with arg (-s, for example) and print output
     - [ ] test solve.py
+    - [x] .ans/.dat ?
+- gen
+    - [ ] find gen.sh automatically
+    - [ ] support .cpp and .c generator/solution
 - build
-    - [ ] multiple language generator and solution
     - [ ] configure compiler
     - [ ] support multiple files
     - [ ] support asm
@@ -106,8 +113,11 @@ kks test
     - [x] show lint diff
     - [ ] dry run ?
 - ejudge
-    - [ ] standings
+    - [x] top
+        - [ ] max score
+        - [ ] optimistic scoreboard
+        - [ ] sort/filter
 - sync
     - [ ] templates
     - [ ] reload samples for contest/task
-- activate / deactivate tasks
+- activate / deactivate tasks ?

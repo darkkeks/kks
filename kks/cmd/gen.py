@@ -1,9 +1,10 @@
 import subprocess
+from pathlib import Path
 
 import click
 from tqdm import tqdm
 
-from kks.util import get_solution_directory
+from kks.util import get_solution_directory, format_file, test_number_to_name, find_test_pairs, get_matching_suffix
 
 
 @click.command(short_help='Run solution')
@@ -13,20 +14,16 @@ from kks.util import get_solution_directory
               help='Script, used to generate .in files')
 @click.option('-s', '--solution', type=click.Path(exists=True),
               help='Script, used to generate .out files')
-@click.option('-t', '--test', type=int,
+@click.option('-t', '--test', 'tests', type=int, multiple=True,
               help='Test number to generate')
 @click.option('-r', '--range', 'test_range', type=int, nargs=2,
               help='Tests to generate')
 @click.option('-f', '--force', is_flag=True,
               help='Overwrite .in files')
 @click.argument('gen_args', nargs=-1, type=click.UNPROCESSED)
-def gen(output_only, generator, solution, test, test_range, force, gen_args):
+def gen(output_only, generator, solution, tests, test_range, force, gen_args):
     """
     Generate tests
-
-    Generate script is run with arguments "TEST_NUMBER GEN_ARGS". It's output is saved into .in file.
-
-    Solution script is run with test number as argument, and .in file as stdin. It's output is saved into .out file.
 
     \b
     Example usage:
@@ -38,8 +35,8 @@ def gen(output_only, generator, solution, test, test_range, force, gen_args):
 
     directory = get_solution_directory()
 
-    generator = generator or directory / 'gen.py'
-    solution = solution or directory / 'solve.py'
+    generator = Path(generator or directory / 'gen.py')
+    solution = Path(solution or directory / 'solve.py')
 
     if not generator.exists() and not output_only:
         click.secho(f'Generator {generator} does not exist', fg='red', err=True)
@@ -49,59 +46,104 @@ def gen(output_only, generator, solution, test, test_range, force, gen_args):
         click.secho(f'Solution {solution} does not exist', fg='red', err=True)
         return
 
-    if test is not None and len(test_range) != 0:
-        click.secho(f'Either test or range should be specified', fg='red', err=True)
-        return
+    test_pairs = find_tests_to_gen(directory, tests, test_range, output_only)
+    test_pairs = sorted(test_pairs)
 
-    if test is not None:
-        test_numbers = [test]
-    else:
-        l, r = sorted(test_range or (1, 100))
-        test_numbers = list(range(l, r + 1))
+    generated_tests = 0
 
-    tests_dir = directory / 'tests'
-    tests_dir.mkdir(exist_ok=True)
+    t = tqdm(test_pairs, leave=False)
+    for input_file, output_file in t:
+        if not output_only and input_file.exists() and not force:
+            t.clear()
+            click.secho(f'Input file ' + format_file(input_file), fg='yellow', err=True, nl=False)
+            click.secho(f' already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
+            continue
 
-    t = tqdm(test_numbers, leave=False)
-    for i in t:
-        name = str(i).rjust(3, '0')
+        if output_file.exists() and not force:
+            t.clear()
+            click.secho(f'Output file ' + format_file(output_file), fg='yellow', err=True, nl=False)
+            click.secho(f' already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
+            continue
 
-        input_file = tests_dir / (name + '.in')
-        output_file = tests_dir / (name + '.out')
-
-        if output_only:
-            if not input_file.exists():
-                click.secho('Input file ' + click.style(input_file.name, fg='blue', bold=True) +
-                            ' does not exists, skipping')
-                continue
-        else:
-            if input_file.exists() and not force:
-                click.secho('Input file ' + click.style(input_file.name, fg='blue', bold=True) +
-                            ' already exists, skipping. Specify -f to overwrite')
-                continue
-
-            if output_file.exists() and not force:
-                click.secho('Output file ' + click.secho(output_file.name, fg='blue', bold=True) +
-                            ' already exists, skipping. Specify -f to overwrite')
-                continue
-
-        t.set_description('Generating test ' + click.style(name, fg='blue', bold=True))
+        t.set_description(f'Generating test {format_file(input_file)}')
 
         if not output_only:
             with input_file.open('w') as f:
-                args = [str(i)] + list(gen_args)
-                process = subprocess.run(['python3', generator] + args, stdout=f)
-                if process.returncode != 0:
-                    click.secho('Generator exited with code ' +
-                                click.style(str(process.returncode), fg='red', bold=True) +
-                                ' (args: ' + ' '.join(args) + ')', fg='yellow')
+                args = [input_file.stem] + list(gen_args)
+                if run_binary(generator, args, stdout=f) is None:
+                    return
 
         with input_file.open('r') as f_in, output_file.open('w') as f_out:
-            args = [str(i)]
-            process = subprocess.run(['python3', solution] + args, stdin=f_in, stdout=f_out)
-            if process.returncode != 0:
-                click.secho('Solution exited with code ' +
-                            click.style(str(process.returncode), fg='red', bold=True) +
-                            ' (args: ' + ' '.join(args) + ')', fg='yellow')
+            args = [input_file.stem]
+            if run_binary(solution, args, stdin=f_in, stdout=f_out) is None:
+                return
 
-    click.secho('Generated tests!', fg='green', err=True)
+        generated_tests += 1
+
+    click.secho(f'Generated {generated_tests} tests!', fg='green', err=True)
+
+
+def find_tests_to_gen(directory, tests, test_range, output_only):
+    """Находит существующие тесты"""
+    tests_dir = directory / 'tests'
+    tests_dir.mkdir(exist_ok=True)
+
+    if not tests and not test_range:
+        test_range = (1, 100)
+
+    test_numbers = list(tests)
+    if test_range:
+        l, r = sorted(test_range)
+        test_numbers += list(range(l, r + 1))
+
+    test_names = [test_number_to_name(number) for number in test_numbers]
+
+    pairs = list(find_test_pairs(tests_dir, test_names))
+
+    used_names = [input_file.stem for input_file, _ in pairs]
+    not_used_names = set(test_names) - set(used_names)
+
+    def output_file_for_input_file(input_file):
+        return input_file.with_suffix(get_matching_suffix(input_file.suffix))
+
+    result = []
+
+    # Добавляем выходной файл, если генерируем только out
+    if not output_only:
+        result += pairs
+    else:
+        result += [
+            (input_file, output_file or output_file_for_input_file(input_file))
+            for input_file, output_file in pairs
+        ]
+
+    # Если пары совсем не существует, добавляем
+    result += [
+        ((tests_dir / test_name).with_suffix('.in'),
+         (tests_dir / test_name).with_suffix('.out'))
+        for test_name in not_used_names
+    ]
+
+    return result
+
+
+def run_binary(binary, args, stdin=None, stdout=None):
+    ext = binary.suffix
+
+    interpreter = 'python3' if ext in ['.py', '.py3'] \
+        else 'bash' if ext in ['.sh'] \
+        else None
+
+    if interpreter is None:
+        click.secho(f'Cant run unrecognized script {format_file(binary)}', fg='red', err=True)
+        return None
+
+    process = subprocess.run([interpreter, binary] + args, stdin=stdin, stdout=stdout)
+
+    if process.returncode != 0:
+        click.secho('Script exited with code ' +
+                    click.style(str(process.returncode), fg='red', bold=True) +
+                    ' (args: ' + ' '.join(args) + ')', fg='yellow')
+        return None
+
+    return process

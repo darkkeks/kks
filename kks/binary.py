@@ -13,11 +13,7 @@ ARGS = [
 ]
 
 
-def compile_solution(directory, mode):
-    if mode != 'auto':
-        click.secho(f'Unknown run mode {mode}', fg='yellow', err=True)
-        return None
-
+def compile_solution(directory):
     c_files = list(directory.glob('*.c'))
 
     if len(c_files) == 0:

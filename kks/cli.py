@@ -8,6 +8,7 @@ from kks.cmd.run import run
 from kks.cmd.sync import sync
 from kks.cmd.status import status
 from kks.cmd.test import test
+from kks.cmd.top import top
 
 
 @click.group()
@@ -23,3 +24,4 @@ cli.add_command(gen)
 cli.add_command(lint)
 cli.add_command(sync)
 cli.add_command(status)
+cli.add_command(top)

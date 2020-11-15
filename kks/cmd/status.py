@@ -1,6 +1,6 @@
 import click
 
-from kks.ejudge import ejudge_summary, Status
+from kks.ejudge import ejudge_summary
 from kks.util import get_valid_session, load_links
 
 
@@ -19,19 +19,14 @@ def status():
 
     problems = ejudge_summary(links, session)
 
-    row_format = "{:8} {:30} {:20} {:5}"
+    row_format = "{:8} {:30} {:20} {:>5}"
 
     click.secho(row_format.format("Alias", "Name", "Status", "Score"), fg='green', bold=True)
 
     for problem in problems:
-        color = 'green' if problem.status == Status.OK \
-            else 'yellow' if problem.status == Status.REVIEW \
-            else 'white' if problem.status == Status.NOT_SUBMITTED \
-            else 'red'
-
         string = row_format\
-            .format(problem.short_name, problem.name, problem.status, problem.score)
+            .format(problem.short_name, problem.name, problem.status, problem.score or '')
 
-        click.secho(string, fg=color)
+        click.secho(string, fg=problem.color(), bold=problem.bold())
 
     click.secho()

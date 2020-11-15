@@ -160,22 +160,7 @@ def find_workspace(path=None):
 
 
 def get_solution_directory():
-    workspace = find_workspace()
-
-#     if contest is not None and task is not None:
-#         if workspace is not None:
-#             result = workspace
-#
-#             if not result.is_dir():
-#                 click.secho(f'Path {result} is not a directory', fg='red', err=True)
-#                 return None
-#
-#             return result
-#         else:
-#             click.secho('Could not find workspace', fg='red', err=True)
-#             return None
-
-    return Path().absolute()
+    return Path()
 
 
 def print_diff(before_output, after_output, before_name, after_name):
@@ -187,66 +172,79 @@ def print_diff(before_output, after_output, before_name, after_name):
         remove = line.startswith('-')
         color = 'red' if remove else 'green' if add else None
         click.secho(line, nl=False, fg=color)
+    if diff:
+        click.secho()
 
 
-def find_tests(directory, tests, sample=False, default_all=True):
+def format_file(file):
+    if isinstance(file, Path):
+        file = file.as_posix()
+    return click.style(file, fg='blue', bold=True)
+
+
+def test_number_to_name(number):
+    return str(number).rjust(3, '0')
+
+
+class Test:
+    def __init__(self, in_file, out_file):
+        self.in_file = in_file
+        self.out_file = out_file
+
+
+IN_EXT = ['.in', '', '.dat']
+OUT_EXT = ['.out', '.a', '.ans']
+
+
+def get_matching_suffix(in_ext):
+    pos = IN_EXT.index(in_ext)
+    return OUT_EXT[pos]
+
+
+def find_test_pairs(directory, names=None):
     """
-    find_tests(..., [Список номеров тестов или файлов], False, ...)
-      Валидирует все тесты и возвращает список путей
-
-    find_tests(..., [], True, ..)
-      Валидирует семпл и возвращает только его
-
-    find_tests(..., [], False, default_all=True)
-      Возвращает все тесты в tests/
-
-    find tests(..., [], False, default_all=False)
-      Возвращает пустой список
-
-    Если валидация падает, пишем ошибку и возвращаем None
+    Находит пары тестов (input, output) такие, что у них совпадают названия
+    Выходной файл может быть None, если нашли только входной
+    :param directory: Папка, в которой ищем тесты
+    :param names: Если не None, то тесты фильтруются по имени
     """
+    in_files = []
+    out_files_by_stem = {}
 
-    if len(tests) > 0 and sample:
-        click.secho('Specify either test or sample, not both', fg='red', err=True)
-        return None
+    if names is None:
+        files = directory.glob('*')
+    else:
+        files = [
+            (directory / name).with_suffix(ext)
+            for name in names
+            for ext in IN_EXT + OUT_EXT
+        ]
 
-    tests_dir = directory / 'tests'
-    if not tests_dir.exists():
-        click.secho('No tests directory', fg='red', err=True)
-        return None
+    for file in files:
+        if file.is_file():
+            suffix = file.suffix
+            if suffix in IN_EXT:
+                in_files.append(file)
+            if suffix in OUT_EXT:
+                out_files_by_stem[file.stem] = file
 
-    if sample:
-        sample_input = tests_dir / '000.in'
-        if sample_input.is_file():
-            return [sample_input]
+    for file in in_files:
+        matching = file.with_suffix(get_matching_suffix(file.suffix))
+        if matching.is_file():
+            yield file, matching
+        elif file.stem in out_files_by_stem:
+            yield file, out_files_by_stem[file.stem]
         else:
-            click.secho('Could not find sample test ' + click.style(sample_input.as_posix(), fg='blue', bold=True),
-                        fg='red', err=True)
-            return None
+            yield file, None
 
-    if len(tests) == 0 and default_all:
-        input_files = tests_dir.glob('*.in')
-        input_files = sorted(input_files, key=lambda file: file.name)
-        return input_files
 
-    result = []
-    for test in tests:
-        path = Path(test)
-        if path.is_file():
-            result.append(path)
-            continue
+def find_test_output(input_file):
+    matching = input_file.with_suffix(get_matching_suffix(input_file.suffix))
+    if matching.is_file():
+        return matching
+    for ext in OUT_EXT:
+        output_file = input_file.with_suffix(ext)
+        if output_file.is_file():
+            return output_file
+    return None
 
-        test_name = test.rjust(3, '0')
-        test_input = tests_dir / (test_name + '.in')
-        if test_input.is_file():
-            result.append(test_input)
-            continue
-
-        click.secho(f'Could not find neither file {click.style(path.as_posix(), fg="blue", bold=True)}',
-                    fg='red', err=True, nl=False)
-        test_input_relative = test_input.relative_to(Path().absolute())
-        click.secho(f', nor test {click.style(test_input_relative.as_posix(), fg="blue", bold=True)}',
-                    fg='red', err=True)
-        return None
-
-    return result

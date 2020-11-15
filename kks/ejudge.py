@@ -39,6 +39,45 @@ class Problem:
         self.tests_passed = tests_passed
         self.score = score
 
+    def color(self):
+        return 'green' if self.status == Status.OK \
+            else 'green' if self.status == Status.REVIEW \
+            else 'white' if self.status == Status.NOT_SUBMITTED \
+            else 'red'
+
+    def bold(self):
+        return self.status == Status.OK
+
+
+class TaskScore:
+    def __init__(self, score, status):
+        self.score = score
+        self.status = status
+
+    def color(self):
+        return 'green' if self.status == Status.REVIEW \
+            else 'green' if self.status == Status.OK \
+            else 'white'
+
+    def bold(self):
+        return self.status == Status.OK
+
+
+class StandingsRow:
+    def __init__(self, place, user, tasks, solved, score, is_self):
+        self.place = place
+        self.user = user
+        self.tasks = tasks
+        self.solved = solved
+        self.score = score
+        self.is_self = is_self
+
+    def color(self):
+        return 'white'
+
+    def bold(self):
+        return self.is_self
+
 
 def get_contest_id(group_id):
     return CONTEST_ID_BY_GROUP.get(group_id, None)
@@ -81,7 +120,7 @@ def ejudge_summary(links, session):
     page = session.get(summary)
     soup = BeautifulSoup(page.content, 'html.parser')
 
-    tasks = soup.find_all('td', {'class': 'b1'})
+    tasks = soup.find_all('td', class_='b1')
 
     problems = []
     for problem in chunks(tasks, 6):
@@ -93,10 +132,53 @@ def ejudge_summary(links, session):
             name.a['href'],
             status.text if not status.text.isspace() else Status.NOT_SUBMITTED,
             tests_passed.text if not tests_passed.text.isspace() else None,
-            score.text if not score.text.isspace() else 0
+            score.text if not score.text.isspace() else None
         ))
 
     return problems
+
+
+def ejudge_standings(links, session):
+    standings = links.get(LinkTypes.USER_STANDINGS, None)
+    if standings is None:
+        return None
+
+    page = session.get(standings)
+    soup = BeautifulSoup(page.content, 'html.parser')
+
+    title = soup.find(class_='main_phrase').text
+    name = title[:title.find('[') - 1]
+
+    table = soup.find('table', class_='standings')
+    rows = table.find_all('tr')
+
+    # skip table header and stats at the bottom
+    rows = rows[1:-3]
+
+    for row in rows:
+        user = row.find(class_='st_team').text
+        tasks = row.find_all(class_='st_prob')
+
+        yield StandingsRow(
+            row.find(class_='st_place').text,
+            user,
+            [to_task_score(task) for task in tasks],
+            int(row.find(class_='st_total').text),
+            int(row.find(class_='st_score').text),
+            name == user
+        )
+
+
+def to_task_score(task):
+    score = task.text
+    if score.isspace():
+        score = None
+
+    status = Status.REVIEW if 'cell_attr_pr' in task['class'] \
+        else Status.OK if score is not None \
+        else Status.NOT_SUBMITTED
+
+    return TaskScore(score, status)
 
 
 def ejudge_sample(problem_link, session):
