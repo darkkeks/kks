@@ -2,9 +2,14 @@
 
 Утилита для удобного решения задач курса АКОС.
 
-Если есть вопросы по использованию &mdash; скорее всего это значит, что ответ на эти вопросы должен быть в README. Обязательно напишите об этом мне: [@darkkeks](https://t.me/darkkeks). Также принимаю любые предложения и запросы фич.
+Если есть вопросы по использованию &mdash; скорее всего это значит, что ответ на эти вопросы должен быть в README.
+Обязательно напишите об этом мне: [@darkkeks](https://t.me/darkkeks).
+Также принимаю любые предложения и запросы фич.
 
-Inspired by [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn) and [petuhovskiy/acos](https://github.com/petuhovskiy/acos).
+Inspired by
+- [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn)
+- [petuhovskiy/acos](https://github.com/petuhovskiy/acos)
+- [BigRedEye/cacos](https://github.com/BigRedEye/cacos)
 
 ## Installation
 
@@ -40,11 +45,13 @@ pip3 install .
 
 ### Про пароль
 
-Для использования не обязательна авторизация в ejudge. Сборка, линтер, тестирование и генерация тестов будет работать без авторизации.
+Для использования не обязательна авторизация в ejudge.
+Сборка, линтер, тестирование и генерация тестов будет работать без авторизации.
 
 Авторизация используется, чтобы выкачать список задач либо парсить статус из ejudge.
 
-Также, у `kks auth` есть флаг `--no-store-password`, который сохранит локально только логин и id контеста, но не пароль. Пароль будет запрашиваться каждый раз, когда сессия протухает.
+Также, у `kks auth` есть флаг `--no-store-password`, который сохранит локально только логин и id контеста, но не пароль.
+Пароль будет запрашиваться каждый раз, когда сессия протухает.
 
 Без этого флага, пароль хранится в **plaintext** в файле `~/.kks/config.ini`.
 
@@ -52,9 +59,9 @@ pip3 install .
 
 <!--suppress HtmlDeprecatedAttribute -->
 <p align="center">
-    <a href="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth" target="_blank">
+    <a href="https://asciinema.org/a/gurNCntp5t6ocRp2dW8vvWO7v" target="_blank">
         <!--suppress HtmlRequiredAltAttribute -->
-        <img src="https://asciinema.org/a/E2i72oAIMIG3mcRxEdds4Teth.svg" />
+        <img src="https://asciinema.org/a/gurNCntp5t6ocRp2dW8vvWO7v.svg" />
     </a>
 </p>
 
@@ -66,31 +73,48 @@ pip3 install .
 # Create .kks-workspace in current directory to mark kks workspace root
 kks init
 
-# Parse tasks from ejudge and create directories with template solutions
+# Auth in ejudge
 kks auth
+# Dont store password in plaintext
+kks auth --no-store-password
+
+# Parse tasks from ejudge and create directories with template solutions
 kks sync
+
+# Show tasks status and user standings
+kks status
+kks top
 
 # Build and run solution in current directory
 cd sm01/1/
 kks run
-kks run -- arg_1 arg_2
-kks run < input.txt > output.txt
+kks run --sample
+kks run --test 10
+kks run < input.txt
 
 # Format solution using clang-format
 kks lint
 
-# Generate tests/001.in - tests/100.in using gen.py; generate 001.out - 100.out using solve.py
-kks gen -r 1 100
-# Generate test 123.{in,out}
-kks gen -t 123
+# Generate tests/001.in - tests/100.in using gen.py
+# Generate tests/001.out - tests/100.out using solve.py
+kks gen --range 1 100
+# Generate test tests/123.{in,out}
+kks gen --test 123
 # Only generate *.out files (don't overwrite *.in)
 # Useful if you entered tests manually and want to generate correct output
-kks gen -r 1 10 -o
-# Generate tests [1; 50] using other_gen.py and other_solve.py, overwriting existing tests
-kks gen -g other_gen.py -s other_solve.py -r 1 50 -f
+kks gen --range 1 10 --output-only
+# Generate tests [1; 50] using gen.sh and other_solve.py, overwriting existing tests
+kks gen --generator gen.sh --solution other_solve.py --range 1 50 --force
 
-# Run all tests
+# Test solution
 kks test
+# Dont stop on error
+kks test --continue
+# Run solution on sample
+kks test --sample
+# Run solution on tests [1, 10]
+kks test --range 1 10
+kks test --test 15 -test 16
 ```
 
 ## Todo

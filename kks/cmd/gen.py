@@ -59,7 +59,7 @@ def gen(output_only, generator, solution, tests, test_range, force, gen_args):
             click.secho(f' already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
             continue
 
-        if output_file.exists() and not force:
+        if output_file and output_file.exists() and not force:
             t.clear()
             click.secho(f'Output file ' + format_file(output_file), fg='yellow', err=True, nl=False)
             click.secho(f' already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
@@ -108,14 +108,11 @@ def find_tests_to_gen(directory, tests, test_range, output_only):
 
     result = []
 
-    # Добавляем выходной файл, если генерируем только out
-    if not output_only:
-        result += pairs
-    else:
-        result += [
-            (input_file, output_file or output_file_for_input_file(input_file))
-            for input_file, output_file in pairs
-        ]
+    # Добавляем выходной файл, если его не существует
+    result += [
+        (input_file, output_file or output_file_for_input_file(input_file))
+        for input_file, output_file in pairs
+    ]
 
     # Если пары совсем не существует, добавляем
     result += [
