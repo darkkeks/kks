@@ -86,7 +86,7 @@ def run_test(binary, input_file, output_file):
 
     if process.returncode != 0:
         click.secho('RE', fg='red', bold=True)
-        click.secho(f'Process exited with core {process.returncode}', fg='red')
+        click.secho(f'Process exited with code {process.returncode}', fg='red')
         return False
 
     with output_file.open('r') as output_f:
