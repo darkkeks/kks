@@ -10,6 +10,7 @@ ARGS = [
     '-Wextra',
     '-fsanitize=address',
     '-fsanitize=undefined',
+    '-fno-sanitize-recover=all',  # for RE in case of UB
 ]
 
 
