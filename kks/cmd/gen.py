@@ -7,7 +7,7 @@ from tqdm import tqdm
 from kks.util import get_solution_directory, format_file, test_number_to_name, find_test_pairs, get_matching_suffix
 
 
-@click.command(short_help='Run solution')
+@click.command(short_help='Generate tests')
 @click.option('-o', '--output-only', is_flag=True,
               help='If specified, only solution will be run. Useful to generate output for manually created tests')
 @click.option('-g', '--generator', type=click.Path(exists=True),
