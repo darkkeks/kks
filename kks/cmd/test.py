@@ -1,4 +1,5 @@
 import subprocess
+from os import environ
 from pathlib import Path
 
 import click
@@ -52,6 +53,7 @@ def test(tests, test_range, files, sample, cont):
     successful_count = 0
     ran_count = 0
 
+    test_env = dict(environ, ASAN_OPTIONS="color=always")
     t = tqdm(tests, leave=False)
     for input_file, output_file in t:
         if sample:
@@ -67,7 +69,7 @@ def test(tests, test_range, files, sample, cont):
 
         t.set_description(f'Running {format_file(input_file)}')
 
-        is_success = run_test(binary, input_file, output_file)
+        is_success = run_test(binary, input_file, output_file, test_env)
 
         ran_count += 1
         successful_count += is_success
@@ -80,13 +82,16 @@ def test(tests, test_range, files, sample, cont):
     click.secho(f'Tests passed: {successful_count}/{ran_count}', fg=color, bold=True)
 
 
-def run_test(binary, input_file, output_file):
+def run_test(binary, input_file, output_file, env):
     with input_file.open('r') as input_f:
-        process = subprocess.run([binary.absolute()], stdin=input_f, capture_output=True)
+        process = subprocess.run([binary.absolute()], stdin=input_f, capture_output=True, env=env)
 
     if process.returncode != 0:
+        error_output = process.stderr.decode('utf-8')
         click.secho('RE', fg='red', bold=True)
         click.secho(f'Process exited with code {process.returncode}', fg='red')
+        if error_output:
+            click.secho(error_output)
         return False
 
     with output_file.open('r') as output_f:
