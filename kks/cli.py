@@ -9,6 +9,7 @@ from kks.cmd.sync import sync
 from kks.cmd.status import status
 from kks.cmd.test import test
 from kks.cmd.top import top
+from kks.cmd.submit import submit
 from kks.cmd.open import open
 from kks.cmd.upgrade import upgrade, update
 
@@ -27,6 +28,7 @@ cli.add_command(lint)
 cli.add_command(sync)
 cli.add_command(status)
 cli.add_command(top)
+cli.add_command(submit)
 cli.add_command(open)
 cli.add_command(upgrade)
 cli.add_command(update)

@@ -10,7 +10,7 @@ PREFIX_LENGTH = sum([6, 2, 25, 1, 7, 1, 6])
 CONTEST_DELIMITER = ' | '
 
 
-@click.command()
+@click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
               help='Print result of last N contest')
 @click.option('-a', '--all', 'all_', is_flag=True, default=False,

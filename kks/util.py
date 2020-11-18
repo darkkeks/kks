@@ -248,3 +248,13 @@ def find_test_output(input_file):
             return output_file
     return None
 
+
+def prompt_choice(text, options):
+    prompt_text = '{}:\n{}\n'.format(
+        text,
+        '\n'.join(f'{idx: >4}) {c}' for idx, c in enumerate(options, start=1))
+    )
+    return click.prompt(
+        prompt_text,
+        type=click.IntRange(min=1, max=len(options)),
+        show_choices=False)
