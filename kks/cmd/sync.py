@@ -43,7 +43,7 @@ def sync():
 
         task_dir.mkdir(parents=True, exist_ok=True)
 
-        main = task_dir / 'main.c'
+        main = task_dir / f'{problem.short_name}.c'
         main.touch()
 
         gen = task_dir / 'gen.py'
