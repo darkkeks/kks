@@ -22,7 +22,7 @@ def lint(diff):
     if directory is None:
         return
 
-    c_files = list(directory.glob('*.c'))
+    c_files = list(directory.glob('*.c')) + list(directory.glob('*.h'))
     if len(c_files) == 0:
         click.secho('No *.c files found', fg='yellow', err=True)
         return
