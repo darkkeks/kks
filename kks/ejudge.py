@@ -63,6 +63,29 @@ class TaskScore:
         return self.status == Status.OK
 
 
+class TaskMap:
+    def __init__(self, tasks):
+        def get_contest(task):
+            return task.text.split('-')[0]
+        self.map = {}
+        for i, task in enumerate(tasks):
+            self.map.setdefault(get_contest(task), []).append(i)
+        self.last = get_contest(tasks[-1])
+
+    def contest_exists(self, contest):
+        if contest == '_all_' or contest == '_last_':
+            return True
+        return contest in self.map
+
+    def filter(self, tasks, contest):
+        if contest == '_all_':
+            return tasks
+        if contest == '_last_':
+            contest = self.last
+        return [tasks[i] for i in self.map.get(contest, [])]
+
+
+
 class StandingsRow:
     def __init__(self, place, user, tasks, solved, score, is_self):
         self.place = place
@@ -145,7 +168,7 @@ def ejudge_summary(links, session):
 def ejudge_standings(links, session):
     standings = links.get(LinkTypes.USER_STANDINGS, None)
     if standings is None:
-        return None
+        return None, None
 
     page = session.get(standings)
     soup = BeautifulSoup(page.content, 'html.parser')
@@ -156,21 +179,25 @@ def ejudge_standings(links, session):
     table = soup.find('table', class_='standings')
     rows = table.find_all('tr')
 
+    task_map = TaskMap(rows[0].find_all(class_='st_prob'))
     # skip table header and stats at the bottom
     rows = rows[1:-3]
 
-    for row in rows:
-        user = row.find(class_='st_team').text
-        tasks = row.find_all(class_='st_prob')
+    def gen_standings():
+        for row in rows:
+            user = row.find(class_='st_team').text
+            tasks = row.find_all(class_='st_prob')
 
-        yield StandingsRow(
-            row.find(class_='st_place').text,
-            user,
-            [to_task_score(task) for task in tasks],
-            int(row.find(class_='st_total').text),
-            int(row.find(class_='st_score').text),
-            name == user
-        )
+            yield StandingsRow(
+                row.find(class_='st_place').text,
+                user,
+                [to_task_score(task) for task in tasks],
+                int(row.find(class_='st_total').text),
+                int(row.find(class_='st_score').text),
+                name == user
+            )
+
+    return task_map, gen_standings()
 
 
 def to_task_score(task):
