@@ -83,8 +83,12 @@ def get_contest_id(group_id):
     return CONTEST_ID_BY_GROUP.get(group_id, None)
 
 
+def get_contest_url(auth_data):
+    return f'https://caos.ejudge.ru/ej/client?contest_id={auth_data.contest_id}'
+
+
 def ejudge_auth(auth_data, session):
-    url = f'https://caos.ejudge.ru/ej/client?contest_id={auth_data.contest_id}'
+    url = get_contest_id(auth_data)
 
     page = session.post(url, data={
         'login': auth_data.login,
