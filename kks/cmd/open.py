@@ -2,7 +2,7 @@ import webbrowser
 
 import click
 
-from kks.ejudge import get_contest_url
+from kks.ejudge import get_contest_url_with_creds
 from kks.util import load_auth_data
 
 
@@ -18,7 +18,7 @@ def open():
     if auth_data.login is None or auth_data.password is None:
         click.secho('No password or login stored, opening contest without logging in', fg='yellow', err=True)
 
-    url = get_contest_url(auth_data)
+    url = get_contest_url_with_creds(auth_data)
     click.secho('Opening... ', nl=False)
     success = webbrowser.open_new_tab(url)
     if success:

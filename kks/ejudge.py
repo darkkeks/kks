@@ -1,3 +1,5 @@
+from urllib.parse import quote as urlquote
+
 import click
 import requests
 from bs4 import BeautifulSoup
@@ -107,16 +109,23 @@ def get_contest_id(group_id):
 
 
 def get_contest_url(auth_data):
-    url = f'https://caos.ejudge.ru/ej/client?contest_id={auth_data.contest_id}'
+    return f'https://caos.ejudge.ru/ej/client?contest_id={auth_data.contest_id}'
+
+
+def get_contest_url_with_creds(auth_data):
+    url = get_contest_url(auth_data)
     if auth_data.login is not None and auth_data.password is not None:
-        url += f'&login={auth_data.login}&password={auth_data.password}'
+        url += f'&login={urlquote(auth_data.login)}&password={urlquote(auth_data.password)}'
     return url
 
 
 def ejudge_auth(auth_data, session):
     url = get_contest_url(auth_data)
 
-    page = session.get(url)
+    page = session.post(url, data={
+        'login': auth_data.login,
+        'password': auth_data.password
+    })
 
     if page.status_code != requests.codes.ok:
         click.secho(f'Failed to authenticate (status code {page.status_code})', err=True, fg='red')
