@@ -10,6 +10,7 @@ from kks.cmd.status import status
 from kks.cmd.test import test
 from kks.cmd.top import top
 from kks.cmd.open import open
+from kks.cmd.upgrade import upgrade, update
 
 
 @click.group()
@@ -27,3 +28,5 @@ cli.add_command(sync)
 cli.add_command(status)
 cli.add_command(top)
 cli.add_command(open)
+cli.add_command(upgrade)
+cli.add_command(update)
