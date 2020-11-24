@@ -85,7 +85,7 @@ def select_contests(standings, last, contests, all_):
 
     last = last or get_default_contest_count(standings.contests, standings.tasks_by_contest)
 
-    return standings.contests[::-1][:last]
+    return standings.contests[-last:] if last > 0 else []
 
 
 def get_default_contest_count(contests, tasks_by_contest):
