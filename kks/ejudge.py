@@ -1,3 +1,4 @@
+from itertools import groupby
 from urllib.parse import quote as urlquote
 
 import click
@@ -22,6 +23,7 @@ class LinkTypes:
 class Status:
     OK = 'OK'
     REVIEW = 'Pending review'
+    REJECTED = 'Rejected'
     NOT_SUBMITTED = 'Not submitted'
 
 
@@ -52,7 +54,9 @@ class Problem:
 
 
 class TaskScore:
-    def __init__(self, score, status):
+    def __init__(self, contest, task_name, score, status):
+        self.contest = contest
+        self.task_name = task_name
         self.score = score
         self.status = status
 
@@ -65,27 +69,17 @@ class TaskScore:
         return self.status == Status.OK
 
 
-class TaskMap:
-    def __init__(self, tasks):
-        def get_contest(task):
-            return task.text.split('-')[0]
-        self.map = {}
-        for i, task in enumerate(tasks):
-            self.map.setdefault(get_contest(task), []).append(i)
-        self.last = get_contest(tasks[-1])
+class Standings:
+    def __init__(self, task_names, rows):
+        self.task_names = task_names
+        self.rows = rows
 
-    def contest_exists(self, contest):
-        if contest == '_all_' or contest == '_last_':
-            return True
-        return contest in self.map
+        self.contests = [contest for contest, _ in groupby(task_names, extract_contest_name)]
 
-    def filter(self, tasks, contest):
-        if contest == '_all_':
-            return tasks
-        if contest == '_last_':
-            contest = self.last
-        return [tasks[i] for i in self.map.get(contest, [])]
-
+        self.tasks_by_contest = {
+            contest: list(tasks)
+            for contest, tasks in groupby(task_names, extract_contest_name)
+        }
 
 
 class StandingsRow:
@@ -188,37 +182,46 @@ def ejudge_standings(links, session):
     table = soup.find('table', class_='standings')
     rows = table.find_all('tr')
 
-    task_map = TaskMap(rows[0].find_all(class_='st_prob'))
+    task_names = [task.text for task in rows[0].find_all(class_='st_prob')]
+
     # skip table header and stats at the bottom
     rows = rows[1:-3]
 
-    def gen_standings():
+    def parse_rows():
         for row in rows:
             user = row.find(class_='st_team').text
-            tasks = row.find_all(class_='st_prob')
+            score_cells = row.find_all(class_='st_prob')
 
             yield StandingsRow(
                 row.find(class_='st_place').text,
                 user,
-                [to_task_score(task) for task in tasks],
+                [
+                    to_task_score(task_name, cell)
+                    for task_name, cell in zip(task_names, score_cells)
+                ],
                 int(row.find(class_='st_total').text),
                 int(row.find(class_='st_score').text),
                 name == user
             )
 
-    return task_map, gen_standings()
+    return Standings(task_names, parse_rows())
 
 
-def to_task_score(task):
-    score = task.text
+def extract_contest_name(task_name):
+    return task_name.split('-')[0]
+
+
+def to_task_score(task_name, cell):
+    score = cell.text
     if score.isspace():
         score = None
 
-    status = Status.REVIEW if 'cell_attr_pr' in task['class'] \
+    status = Status.REVIEW if 'cell_attr_pr' in cell['class'] \
+        else Status.REJECTED if 'cell_attr_rj' in cell['class'] \
         else Status.OK if score is not None \
         else Status.NOT_SUBMITTED
 
-    return TaskScore(score, status)
+    return TaskScore(extract_contest_name(task_name), task_name, score, status)
 
 
 def ejudge_sample(problem_link, session):

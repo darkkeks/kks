@@ -8,7 +8,7 @@ from kks.util import load_auth_data
 
 @click.command()
 def open():
-    """Parse and display user standings"""
+    """Open logged in ejudge session in browser"""
 
     auth_data = load_auth_data()
     if auth_data is None:

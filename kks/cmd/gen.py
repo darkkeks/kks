@@ -46,7 +46,7 @@ def gen(output_only, generator, solution, tests, test_range, force, gen_args):
         click.secho(f'Solution {solution} does not exist', fg='red', err=True)
         return
 
-    test_pairs = find_tests_to_gen(directory, tests, test_range, output_only)
+    test_pairs = find_tests_to_gen(directory, tests, test_range)
     test_pairs = sorted(test_pairs)
 
     generated_tests = 0
@@ -83,7 +83,7 @@ def gen(output_only, generator, solution, tests, test_range, force, gen_args):
     click.secho(f'Generated {generated_tests} tests!', fg='green', err=True)
 
 
-def find_tests_to_gen(directory, tests, test_range, output_only):
+def find_tests_to_gen(directory, tests, test_range):
     """Находит существующие тесты"""
     tests_dir = directory / 'tests'
     tests_dir.mkdir(exist_ok=True)
