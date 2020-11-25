@@ -172,8 +172,8 @@ def print_diff(before_output, after_output, before_name, after_name):
         remove = line.startswith('-')
         color = 'red' if remove else 'green' if add else None
         click.secho(line, nl=False, fg=color)
-    if diff:
-        click.secho()
+        if not line.endswith('\n'):
+            click.secho('\n\ No newline at end of file')
 
 
 def format_file(file):

@@ -4,7 +4,7 @@ setup(
     name='kokos',
     description='KoKoS helper tool',
     author='Vyacheslav Boben',
-    version='1.0.19',
+    version='1.0.20',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
