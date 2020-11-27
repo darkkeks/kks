@@ -115,6 +115,11 @@ kks test --sample
 # Run solution on tests [1, 10]
 kks test --range 1 10
 kks test --test 15 -test 16
+
+# Submit a solution
+cd sm01/1; kks submit
+kks submit -p sm02-3 ./code/main.c
+
 ```
 
 ## Todo
