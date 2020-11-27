@@ -279,7 +279,7 @@ def may_resubmit(runs):
     if len(rows) < 2:
         return True
     last_run = rows[1]
-    if last_run.find_all('td')[5].text != Status.OK:
+    if last_run.find_all('td')[5].text not in [Status.OK, Status.REVIEW]:
         return True
     return click.confirm('This problem was already solved! Submit anyway?')
 
