@@ -1,5 +1,5 @@
 from itertools import groupby
-from urllib.parse import urlparse, parse_qs, quote as urlquote
+from urllib.parse import quote as urlquote
 
 import click
 import requests
@@ -240,81 +240,6 @@ def ejudge_sample(problem_link, session):
         output_data = output_title.find_next('pre').text
 
     return input_data, output_data
-
-
-def compose_post_data(form, lang_callback):
-    lang_list = form.find('select', {'name': 'lang_id'})
-    if lang_list is None:
-        lang_input = form.find('input', {'name': 'lang_id'})
-        if lang_input is not None:
-            lang = lang_input['value']
-    else:
-        langs = [(opt.text, opt['value']) for opt in lang_list.find_all('option') if opt.get('value')]
-        if len(langs) == 1:
-            lang = langs[0][1]
-        else:
-            lang = lang_callback(langs)[1]
-
-    data = {
-        'lang_id': lang,
-    }
-    for elem in form.find_all('input'):
-        if elem.get('name') not in ['lang_id', 'file'] and elem.get('value') is not None:
-            data[elem['name']] = elem['value']
-    return data
-
-
-def submit_ok(req):
-    return 'view-problem-submit' in req.url
-
-
-def get_error_msg(req):
-    if 'This submit is duplicate of another run' in req.text:
-        return 'Duplicate of another run'
-
-
-def may_resubmit(runs):
-    """ask for a confirmation if an accepted solution exists"""
-    rows = runs.find_all('tr')
-    if len(rows) < 2:
-        return True
-    last_run = rows[1]
-    if last_run.find_all('td')[5].text not in [Status.OK, Status.REVIEW]:
-        return True
-    return click.confirm('This problem was already solved! Submit anyway?')
-
-
-def ejudge_submit(links, session, file, prob_id, lang_callback):
-    problems = ejudge_summary(links, session)
-    if problems is None:
-        return False, 'Auth error'
-    matching = [p for p in problems if p.short_name == prob_id]
-    if not matching:
-        return False, 'Invalid problem ID'
-    problem_link = matching[0].href
-    page = session.get(problem_link)
-    soup = BeautifulSoup(page.content, 'html.parser')
-
-    runs = soup.find('table', {'class': 'table'})
-    if runs is not None:
-        if not may_resubmit(runs):
-            return False, 'Cancelled by user'
-
-    form = soup.find('form')
-    if form is None:
-        return False, 'Cannot submit a solution for this problem'
-    submit_url = form['action']
-    headers = {'Referer': problem_link}
-    data = compose_post_data(form, lang_callback)
-    files = {
-        'file': (file.name, open(file, 'rb')),
-    }
-
-    req = session.post(submit_url, headers=headers, data=data, files=files)
-    if submit_ok(req):
-        return True, 'Success!'
-    else:
-        return False, get_error_msg(req)
 
 
 def check_session(links, session):
