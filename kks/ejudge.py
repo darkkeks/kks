@@ -307,7 +307,7 @@ def ejudge_submit(links, session, file, prob_id, lang_callback):
     headers = {'Referer': problem_link}
     data = compose_post_data(form, lang_callback)
     files = {
-        'file': (file, open(file, 'rb')),
+        'file': (file.name, open(file, 'rb')),
     }
 
     req = session.post(submit_url, headers=headers, data=data, files=files)
