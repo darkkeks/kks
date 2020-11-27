@@ -94,15 +94,20 @@ def run_test(binary, input_file, output_file, env):
             click.secho(error_output)
         return False
 
-    with output_file.open('r') as output_f:
+    with output_file.open('rb') as output_f:
         expected_output = output_f.read()
 
-    actual_output = process.stdout.decode('utf-8')
+    actual_output = process.stdout
 
     if expected_output != actual_output:
         click.secho('WA', fg='red', bold=True)
-        print_diff(expected_output, actual_output, 'expected', 'actual')
-        click.secho()
+        try:
+            expected = expected_output.decode('utf-8')
+            actual = actual_output.decode('utf-8')
+            print_diff(expected, actual, 'expected', 'actual')
+            click.secho()
+        except UnicodeDecodeError:
+            click.secho('Binary outputs differ')
         return False
 
     return True
