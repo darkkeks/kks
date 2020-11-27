@@ -94,7 +94,7 @@ def run_test(binary, input_file, output_file, env):
             click.secho(error_output)
         return False
 
-    with output_file.open('r') as output_f:
+    with output_file.open('r', newline='') as output_f:
         expected_output = output_f.read()
 
     actual_output = process.stdout.decode('utf-8')
