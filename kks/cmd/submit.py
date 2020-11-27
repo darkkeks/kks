@@ -46,10 +46,12 @@ def submit(file, problem):
         click.secho('Could not detect the problem id, use -p option', fg='red')
         return
 
-    if file is None:
+    if file is not None:
+        file = Path(file)
+    else:
         file = find_solution()
-    if file is None:
-        return
+        if file is None:
+            return
 
     session = get_valid_session()
     if session is None:
