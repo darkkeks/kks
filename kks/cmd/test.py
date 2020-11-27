@@ -107,7 +107,7 @@ def run_test(binary, input_file, output_file, env):
             print_diff(expected, actual, 'expected', 'actual')
             click.secho()
         except UnicodeDecodeError:
-            click.secho('Binary outputs differ')
+            click.secho('Output differs, but cant be decoded as utf-8', fg='red')
         return False
 
     return True
