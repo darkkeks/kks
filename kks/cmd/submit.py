@@ -6,14 +6,19 @@ from kks.ejudge import ejudge_submit
 from kks.util import get_valid_session, load_links, prompt_choice, find_workspace
 
 
-def get_problem_id():
+def find_problem_rootdir():
     cwd = Path.cwd().resolve()
     workspace = find_workspace(cwd)
     if workspace is None:
         return None
-    if len(cwd.parents) < 2 or cwd.parents[1] != workspace:
+    parts = cwd.relative_to(workspace).parts
+    if len(parts) < 2:
         return None
-    return f'{cwd.parent.name}-{cwd.name}'
+    return workspace / parts[0] / parts[1]
+
+
+def get_problem_id(rootdir):
+    return '{}-{}'.format(*rootdir.parts[-2:])
 
 
 def find_solution():
@@ -28,7 +33,6 @@ def find_solution():
     return c_files[0]
 
 
-
 @click.command(short_help='Submit a solutions')
 @click.argument('file', type=click.Path(exists=True), required=False)
 @click.option('-p', '--problem', type=str,
@@ -41,10 +45,11 @@ def submit(file, problem):
     """
 
     if problem is None:
-        problem = get_problem_id()
-    if problem is None:
-        click.secho('Could not detect the problem id, use -p option', fg='red')
-        return
+        rootdir = find_problem_rootdir()
+        if rootdir is None:
+            click.secho('Could not detect the problem id, use -p option', fg='red')
+            return
+        problem = get_problem_id(rootdir)
 
     if file is not None:
         file = Path(file)
