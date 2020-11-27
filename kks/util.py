@@ -250,11 +250,7 @@ def find_test_output(input_file):
 
 
 def prompt_choice(text, options):
-    prompt_text = '{}:\n{}\n'.format(
-        text,
-        '\n'.join(f'{idx: >4}) {c}' for idx, c in enumerate(options, start=1))
-    )
-    return click.prompt(
-        prompt_text,
-        type=click.IntRange(min=1, max=len(options)),
-        show_choices=False)
+    click.secho(f'{text}:')
+    for index, option in enumerate(options, start=1):
+        click.secho(f'{index:>4}) {option}')
+    return click.prompt('', prompt_suffix='> ', type=click.IntRange(min=1, max=len(options)))
