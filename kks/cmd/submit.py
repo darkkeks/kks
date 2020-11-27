@@ -23,14 +23,23 @@ def get_problem_id(rootdir):
 
 def find_solution():
     cwd = Path.cwd().resolve()
-    c_files = list(cwd.glob('*.c'))
-    if len(c_files) == 0:
-        click.secho('No .c files found', fg='red', err=True)
+    source_files = list(cwd.glob('*.c')) + list(cwd.glob('*.h'))
+    if len(source_files) == 0:
+        click.secho('No source files found', fg='red', err=True)
         return None
-    if len(c_files) > 1:
-        click.secho('Multiple .c files found, use one as an argument', fg='red', err=True)
+    if len(source_files) > 1:
+        choices = [f.name for f in source_files]
+        choices.append(click.style('Cancel', fg='red'))
+        index = prompt_choice('Select a file to submit', choices)
+        if index < len(source_files):
+            return source_files[index]
+        click.secho('Cancelled by user', fg='red')
         return None
-    return c_files[0]
+    file = source_files[0]
+    if click.confirm(f'Do you want to submit {file.name}?'):
+        return file
+    click.secho('Cancelled by user', fg='red')
+    return None
 
 
 @click.command(short_help='Submit a solutions')

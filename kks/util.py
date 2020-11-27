@@ -250,7 +250,8 @@ def find_test_output(input_file):
 
 
 def prompt_choice(text, options):
+    """Return the index of user's choice (0 ... len(options) - 1)"""
     click.secho(f'{text}:')
     for index, option in enumerate(options, start=1):
         click.secho(f'{index:>4}) {option}')
-    return click.prompt('', prompt_suffix='> ', type=click.IntRange(min=1, max=len(options)))
+    return click.prompt('', prompt_suffix='> ', type=click.IntRange(min=1, max=len(options))) - 1
