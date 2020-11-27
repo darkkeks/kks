@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from kks.ejudge import ejudge_submit
+from kks.ejudge_submit import submit_solution
 from kks.util import get_valid_session, load_links, prompt_choice, find_workspace
 
 
@@ -76,11 +76,6 @@ def submit(file, problem):
         click.secho('Auth data is invalid, use "kks auth" to authorize', fg='red', err=True)
         return
 
-    def lang_choice(langs):
-        choices = [e[0] for e in langs]
-        lang_id = prompt_choice('Select a language / compiler', choices)
-        return langs[lang_id]
-
-    res, msg = ejudge_submit(links, session, file, problem, lang_choice)
+    res, msg = submit_solution(links, session, file, problem)
     color = 'green' if res else 'red'
     click.secho(msg, fg=color)
