@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 from tqdm import tqdm
 
-from kks.binary import compile_solution
+from kks.binary import compile_solution, VALGRIND_ARGS
 from kks.util import get_solution_directory, print_diff, find_test_output, format_file, test_number_to_name, \
     find_test_pairs
 
@@ -21,7 +21,9 @@ from kks.util import get_solution_directory, print_diff, find_test_output, forma
               help='Test files')
 @click.option('-c', '--continue', 'cont', is_flag=True,
               help='Continue running after error')
-def test(tests, test_range, files, sample, cont):
+@click.option('-vg', '--valgrind', is_flag=True,
+              help='Use valgrind')
+def test(tests, test_range, files, sample, cont, valgrind):
     """
     Test solution
 
@@ -69,7 +71,7 @@ def test(tests, test_range, files, sample, cont):
 
         t.set_description(f'Running {format_file(input_file)}')
 
-        is_success = run_test(binary, input_file, output_file, test_env)
+        is_success = run_test(binary, input_file, output_file, test_env, valgrind)
 
         ran_count += 1
         successful_count += is_success
@@ -82,9 +84,12 @@ def test(tests, test_range, files, sample, cont):
     click.secho(f'Tests passed: {successful_count}/{ran_count}', fg=color, bold=True)
 
 
-def run_test(binary, input_file, output_file, env):
+def run_test(binary, input_file, output_file, env, valgrind):
     with input_file.open('r') as input_f:
-        process = subprocess.run([binary.absolute()], stdin=input_f, capture_output=True, env=env)
+        args = [binary.absolute()]
+        if valgrind:
+            args = VALGRIND_ARGS + args
+        process = subprocess.run(args, stdin=input_f, capture_output=True, env=env)
 
     if process.returncode != 0:
         error_output = process.stderr.decode('utf-8')

@@ -4,11 +4,13 @@ from pathlib import Path
 
 import click
 
-from kks.binary import compile_solution
+from kks.binary import compile_solution, VALGRIND_ARGS
 from kks.util import get_solution_directory, find_test_pairs, format_file, test_number_to_name
 
 
 @click.command(short_help='Run solution')
+@click.option('-vg', '--valgrind', is_flag=True,
+              help='Use valgrind')
 @click.option('-s', '--sample', is_flag=True,
               help='Run on sample test')
 @click.option('-t', '--test', 'test',
@@ -16,7 +18,7 @@ from kks.util import get_solution_directory, find_test_pairs, format_file, test_
 @click.option('-f', '--file', 'file', type=click.File(),
               help='File to use as an input')
 @click.argument('run_args', nargs=-1, type=click.UNPROCESSED)
-def run(sample, test, file, run_args):
+def run(valgrind, sample, test, file, run_args):
     """Run solution
 
     \b
@@ -48,7 +50,10 @@ def run(sample, test, file, run_args):
         output = f'Running binary with arguments ' + click.style(' '.join(run_args), fg='red', bold=True)
         click.secho(output, fg='green', err=True)
 
-    subprocess.run([binary.absolute()] + list(run_args), stdin=input_file)
+    args = [binary.absolute()] + list(run_args)
+    if valgrind:
+        args = VALGRIND_ARGS + args
+    subprocess.run(args, stdin=input_file)
 
 
 def find_test_to_run(directory, test, file, sample):

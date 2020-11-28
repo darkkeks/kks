@@ -2,7 +2,7 @@ import subprocess
 
 import click
 
-ARGS = [
+GCC_ARGS = [
     'gcc',
     '-g',
     '-Werror',
@@ -11,6 +11,11 @@ ARGS = [
     '-fsanitize=address',
     '-fsanitize=undefined',
     '-fno-sanitize-recover=all',  # for RE in case of UB
+]
+
+VALGRIND_ARGS = [
+    'valgrind',
+    '--leak-check=full',
 ]
 
 
@@ -38,12 +43,10 @@ def compile_solution(directory):
 def compile_c(workdir, files):
     filenames = [path.relative_to(workdir) for path in files]
 
-    command = ARGS + filenames
+    command = GCC_ARGS + filenames
     p = subprocess.run(command, cwd=workdir)
 
     if p.returncode != 0:
         return None
 
     return workdir / 'a.out'
-
-
