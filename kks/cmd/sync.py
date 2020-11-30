@@ -42,7 +42,7 @@ def save_needed(submissions, sub_dir, session):
             f.write(source.content)
 
 
-def sync_code(problem, task_dir, session):
+def sync_code(problem, task_dir, submissions, session):
     sub_dir = task_dir / 'submissions'
     if sub_dir.exists():
         if not task_dir.is_dir():
@@ -51,9 +51,9 @@ def sync_code(problem, task_dir, session):
             return
     else:
         sub_dir.mkdir(parents=True, exist_ok=True)
-    submissions = ejudge_submissions(problem, session)
-    if submissions:
-        save_needed(submissions, sub_dir, session)
+    problem_subs = [sub for sub in submissions if sub.problem == problem.short_name]
+    if problem_subs:
+        save_needed(problem_subs, sub_dir, session)
 
 
 @click.option('--code', is_flag=True, default=False,
@@ -79,6 +79,9 @@ def sync(code):
 
     problems = ejudge_summary(links, session)
 
+    if code:
+        submissions = ejudge_submissions(links, session)
+
     for problem in problems:
         contest, number = problem.short_name.split('-')
 
@@ -88,7 +91,7 @@ def sync(code):
             if task_dir.is_dir():
                 if code:
                     click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
-                    sync_code(problem, task_dir, session)
+                    sync_code(problem, task_dir, submissions, session)
                 else:
                     click.secho(f'Directory {task_dir.relative_to(workspace)} already exists, skipping',
                                 fg='yellow', err=True)
@@ -126,6 +129,6 @@ def sync(code):
 
         if code:
             click.secho('Syncing submissions')
-            sync_code(problem, task_dir, session)
+            sync_code(problem, task_dir, submissions, session)
 
     click.secho('Sync done!', fg='green')
