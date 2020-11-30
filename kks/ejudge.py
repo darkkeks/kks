@@ -60,6 +60,7 @@ class Submission:
     def __init__(self, row):
         cells = row.find_all('td')
         self.id = int(cells[0].text)
+        self.problem = cells[3].text
         self.status = cells[5].text
         self.href = cells[8].find('a')['href'].replace('view-source', 'download-run')
 
@@ -259,9 +260,14 @@ def ejudge_sample(problem_link, session):
     return input_data, output_data
 
 
-def ejudge_submissions(problem, session):
-    page = session.get(problem.href)
+def ejudge_submissions(links, session):
+    link = links.get(LinkTypes.SUBMISSIONS, None)
+    if link is None:
+        return []
+
+    page = session.get(link, params={'all_runs': 1})
     soup = BeautifulSoup(page.content, 'html.parser')
+
     sub_table = soup.find('table', {'class': 'table'})
     if sub_table is None:
         return []
