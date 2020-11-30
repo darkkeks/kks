@@ -25,6 +25,8 @@ class Status:
     OK = 'OK'
     REVIEW = 'Pending review'
     REJECTED = 'Rejected'
+    IGNORED = 'Ignored'
+    PARTIAL = 'Partial solution'
     NOT_SUBMITTED = 'Not submitted'
 
 
@@ -52,6 +54,21 @@ class Problem:
 
     def bold(self):
         return self.status == Status.OK
+
+
+class Submission:
+    def __init__(self, row):
+        cells = row.find_all('td')
+        self.id = int(cells[0].text)
+        self.status = cells[5].text
+        self.href = cells[8].find('a')['href'].replace('view-source', 'download-run')
+
+    def short_status(self):
+        if self.status == Status.REVIEW:
+            return 'Pending'
+        if self.status == Status.PARTIAL:
+            return 'Partial'  # include details?
+        return self.status
 
 
 class TaskScore:
@@ -240,6 +257,15 @@ def ejudge_sample(problem_link, session):
         output_data = output_title.find_next('pre').text
 
     return input_data, output_data
+
+
+def ejudge_submissions(problem, session):
+    page = session.get(problem.href)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    sub_table = soup.find('table', {'class': 'table'})
+    if sub_table is None:
+        return []
+    return [Submission(row) for row in sub_table.find_all('tr')[1:]]
 
 
 def check_session(links, session):

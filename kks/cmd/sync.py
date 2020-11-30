@@ -1,11 +1,65 @@
 import click
 
-from kks.ejudge import ejudge_summary, ejudge_sample
+from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions
 from kks.util import get_valid_session, load_links, find_workspace
 
 
+def save_needed(submissions, sub_dir, session):
+    def prefix(submission):
+        return f'{submission.id:05d}'
+    def format_filename(submission):
+        return f'{prefix(submission)}-{submission.short_status()}.c'
+
+    ok, review, reject, partial = [], [], [], []
+    for sub in submissions:
+        if sub.status == Status.OK:
+            ok.append(sub)
+        elif sub.status == Status.REVIEW:
+            review.append(sub)
+        elif sub.status == Status.REJECTED:
+            reject.append(sub)
+        elif sub.status != Status.IGNORED:
+            partial.append(sub)
+
+    needed = {submissions[0]}  # always save latest
+    # add last solution that passed all tests
+    if ok:
+        needed.add(ok[0])
+    elif review:
+        needed.add(review[0])
+    elif reject:
+        needed.add(reject[0])
+
+    for sub in needed:
+        old = list(sub_dir.glob(f'{prefix(sub)}-*'))
+        file = sub_dir / format_filename(sub)
+        if len(old) == 1:
+            if old[0].name != file.name:
+                old[0].rename(file)
+            continue
+        source = session.get(sub.href)
+        with open(file, 'wb') as f:
+            f.write(source.content)
+
+
+def sync_code(problem, task_dir, session):
+    sub_dir = task_dir / 'submissions'
+    if sub_dir.exists():
+        if not task_dir.is_dir():
+            click.secho(f'File {sub_dir.relative_to(workspace)} exists, skipping',
+                        fg='red', err=True)
+            return
+    else:
+        sub_dir.mkdir(parents=True, exist_ok=True)
+    submissions = ejudge_submissions(problem, session)
+    if submissions:
+        save_needed(submissions, sub_dir, session)
+
+
+@click.option('--code', is_flag=True, default=False,
+              help='Download latest submitted solutions')
 @click.command()
-def sync():
+def sync(code):
     """Parse problems from ejudge"""
 
     workspace = find_workspace()
@@ -32,8 +86,12 @@ def sync():
 
         if task_dir.exists():
             if task_dir.is_dir():
-                click.secho(f'Directory {task_dir.relative_to(workspace)} already exists, skipping',
-                            fg='yellow', err=True)
+                if code:
+                    click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
+                    sync_code(problem, task_dir, session)
+                else:
+                    click.secho(f'Directory {task_dir.relative_to(workspace)} already exists, skipping',
+                                fg='yellow', err=True)
             else:
                 click.secho(f'File {task_dir.relative_to(workspace)} exists, skipping',
                             fg='red', err=True)
@@ -65,5 +123,9 @@ def sync():
             output_data += '\n'
             with (tests_dir / '000.out').open('w') as f:
                 f.write(output_data)
+
+        if code:
+            click.secho('Syncing submissions')
+            sync_code(problem, task_dir, session)
 
     click.secho('Sync done!', fg='green')
