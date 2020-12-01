@@ -1,10 +1,9 @@
-import subprocess
 from pathlib import Path
 
 import click
-from tqdm import tqdm
 
-from kks.util import get_solution_directory, format_file, test_number_to_name, find_test_pairs, get_matching_suffix
+from kks.util import get_solution_directory, test_number_to_name, find_test_pairs, get_matching_suffix
+from kks.testing import Generator
 
 
 @click.command(short_help='Generate tests')
@@ -49,38 +48,7 @@ def gen(output_only, generator, solution, tests, test_range, force, gen_args):
     test_pairs = find_tests_to_gen(directory, tests, test_range)
     test_pairs = sorted(test_pairs)
 
-    generated_tests = 0
-
-    t = tqdm(test_pairs, leave=False)
-    for input_file, output_file in t:
-        if not output_only and input_file.exists() and not force:
-            t.clear()
-            click.secho(f'Input file ' + format_file(input_file), fg='yellow', err=True, nl=False)
-            click.secho(f' already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
-            continue
-
-        if output_file and output_file.exists() and not force:
-            t.clear()
-            click.secho(f'Output file ' + format_file(output_file), fg='yellow', err=True, nl=False)
-            click.secho(f' already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
-            continue
-
-        t.set_description(f'Generating test {format_file(input_file)}')
-
-        if not output_only:
-            with input_file.open('w') as f:
-                args = [input_file.stem] + list(gen_args)
-                if run_binary(generator, args, stdout=f) is None:
-                    return
-
-        with input_file.open('r') as f_in, output_file.open('w') as f_out:
-            args = [input_file.stem]
-            if run_binary(solution, args, stdin=f_in, stdout=f_out) is None:
-                return
-
-        generated_tests += 1
-
-    click.secho(f'Generated {generated_tests} tests!', fg='green', err=True)
+    Generator(generator, solution).generate_tests(test_pairs, output_only, force, gen_args)
 
 
 def find_tests_to_gen(directory, tests, test_range):
@@ -122,25 +90,3 @@ def find_tests_to_gen(directory, tests, test_range):
     ]
 
     return result
-
-
-def run_binary(binary, args, stdin=None, stdout=None):
-    ext = binary.suffix
-
-    interpreter = 'python3' if ext in ['.py', '.py3'] \
-        else 'bash' if ext in ['.sh'] \
-        else None
-
-    if interpreter is None:
-        click.secho(f'Cant run unrecognized script {format_file(binary)}', fg='red', err=True)
-        return None
-
-    process = subprocess.run([interpreter, binary] + args, stdin=stdin, stdout=stdout)
-
-    if process.returncode != 0:
-        click.secho('Script exited with code ' +
-                    click.style(str(process.returncode), fg='red', bold=True) +
-                    ' (args: ' + ' '.join(args) + ')', fg='yellow')
-        return None
-
-    return process

@@ -139,7 +139,11 @@ def sync(code, all_):
         main.touch()
 
         gen = task_dir / 'gen.py'
-        gen.touch()
+        with gen.open('w') as file:
+            file.write('import sys\n'
+                       'import random\n\n'
+                       't = sys.argv[1]\n'
+                       'random.seed(t)')
 
         solve = task_dir / 'solve.py'
         solve.touch()
