@@ -62,14 +62,50 @@ class Submission:
         self.id = int(cells[0].text)
         self.problem = cells[3].text
         self.status = cells[5].text
-        self.href = cells[8].find('a')['href'].replace('view-source', 'download-run')
+        self.source = cells[8].find('a')['href'].replace('view-source', 'download-run')
+        report_link = cells[9].find('a')
+        self.report = report_link['href'] if report_link is not None else None
 
     def short_status(self):
         if self.status == Status.REVIEW:
             return 'Pending'
         if self.status == Status.PARTIAL:
-            return 'Partial'  # include details?
+            return 'Partial'
         return self.status
+
+
+class Report:
+    def __init__(self, comments, tests):
+
+        def comm_format(comments):
+            for row in comments:
+                author_cell, comment, *_ = row.find_all('td')
+                author = next(line for line in author_cell.text.splitlines() if line)
+                # if the comment contains newlines
+                yield from f'Comment by {author}: {comment.text.strip()}\n'.splitlines(keepends=True)
+
+        if comments:
+            self.lines = list(comm_format(comments))
+        else:
+            self.lines = []
+
+        has_failed_tests = False
+
+        for test in tests:
+            t_id, status, *_ = map(lambda cell: cell.text, test.find_all('td'))
+            if status != Status.OK:
+                if not has_failed_tests:
+                    if comments:
+                        self.lines.append('\n')
+                    self.lines.append(f'Total tests: {len(tests)}\n')
+                    self.lines.append('Failed tests:\n')
+                    has_failed_tests = True
+                self.lines.append(f'{t_id} - {status}\n')
+
+
+    def as_comment(self):
+        sep_lines = 3
+        return ''.join('// ' + line for line in self.lines) + '\n' * sep_lines
 
 
 class TaskScore:
@@ -271,7 +307,23 @@ def ejudge_submissions(links, session):
     sub_table = soup.find('table', {'class': 'table'})
     if sub_table is None:
         return []
-    return [Submission(row) for row in sub_table.find_all('tr')[1:]]
+    submissions = [Submission(row) for row in sub_table.find_all('tr')[1:]]
+    submissions.sort(key=lambda x: x.problem)
+    return {
+        problem: list(subs) for problem, subs in groupby(submissions, lambda x: x.problem)
+    }
+
+
+def ejudge_report(link, session):
+    page = session.get(link)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    message_table = soup.find('table', {'class': 'message-table'})
+    if message_table is not None:
+        comments = message_table.find_all('tr')[1:]
+    else:
+        comments = []
+    tests = soup.find('table', {'class': 'table'}).find_all('tr')[1:]
+    return Report(comments, tests)
 
 
 def check_session(links, session):

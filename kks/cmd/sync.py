@@ -1,48 +1,58 @@
 import click
 
-from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions
+from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions, ejudge_report
 from kks.util import get_valid_session, load_links, find_workspace
 
 
-def save_needed(submissions, sub_dir, session):
+def save_needed(submissions, sub_dir, session, full_sync):
     def prefix(submission):
         return f'{submission.id:05d}'
     def format_filename(submission):
         return f'{prefix(submission)}-{submission.short_status()}.c'
 
-    ok, review, reject, partial = [], [], [], []
-    for sub in submissions:
-        if sub.status == Status.OK:
-            ok.append(sub)
-        elif sub.status == Status.REVIEW:
-            review.append(sub)
-        elif sub.status == Status.REJECTED:
-            reject.append(sub)
-        elif sub.status != Status.IGNORED:
-            partial.append(sub)
+    if full_sync:
+        needed = submissions
+    else:
+        ok, review, reject, partial = [], [], [], []
+        for sub in submissions:
+            if sub.status == Status.OK:
+                ok.append(sub)
+            elif sub.status == Status.REVIEW:
+                review.append(sub)
+            elif sub.status == Status.REJECTED:
+                reject.append(sub)
+            elif sub.status != Status.IGNORED:
+                partial.append(sub)
 
-    needed = {submissions[0]}  # always save latest
-    # add last solution that passed all tests
-    if ok:
-        needed.add(ok[0])
-    elif review:
-        needed.add(review[0])
-    elif reject:
-        needed.add(reject[0])
+        needed = {submissions[0]}  # always save latest
+        # add last solution that passed all tests
+        if ok:
+            needed.add(ok[0])
+        elif review:
+            needed.add(review[0])
+        elif reject:
+            needed.add(reject[0])
 
     for sub in needed:
         old = list(sub_dir.glob(f'{prefix(sub)}-*'))
         file = sub_dir / format_filename(sub)
         if len(old) == 1:
+            # status may change, content is fixed
             if old[0].name != file.name:
                 old[0].rename(file)
             continue
-        source = session.get(sub.href)
+
+        source = session.get(sub.source).content
+
+        if full_sync and sub.status in [Status.PARTIAL, Status.REJECTED]:
+            report = ejudge_report(sub.report, session)
+            source = report.as_comment().encode() + source
+
         with open(file, 'wb') as f:
-            f.write(source.content)
+            f.write(source)
 
 
-def sync_code(problem, task_dir, submissions, session):
+def sync_code(problem, task_dir, submissions, session, full_sync):
     sub_dir = task_dir / 'submissions'
     if sub_dir.exists():
         if not task_dir.is_dir():
@@ -51,15 +61,17 @@ def sync_code(problem, task_dir, submissions, session):
             return
     else:
         sub_dir.mkdir(parents=True, exist_ok=True)
-    problem_subs = [sub for sub in submissions if sub.problem == problem.short_name]
+    problem_subs = submissions.get(problem.short_name, [])
     if problem_subs:
-        save_needed(problem_subs, sub_dir, session)
+        save_needed(problem_subs, sub_dir, session, full_sync)
 
 
 @click.option('--code', is_flag=True, default=False,
               help='Download latest submitted solutions')
+@click.option('-a', '--all', 'all_', is_flag=True, default=False,
+              help='Download all submissions (used with --code)')
 @click.command()
-def sync(code):
+def sync(code, all_):
     """Parse problems from ejudge"""
 
     workspace = find_workspace()
@@ -91,7 +103,7 @@ def sync(code):
             if task_dir.is_dir():
                 if code:
                     click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
-                    sync_code(problem, task_dir, submissions, session)
+                    sync_code(problem, task_dir, submissions, session, all_)
                 else:
                     click.secho(f'Directory {task_dir.relative_to(workspace)} already exists, skipping',
                                 fg='yellow', err=True)
@@ -100,7 +112,7 @@ def sync(code):
                             fg='red', err=True)
             continue
 
-        click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True), err=True)
+        click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
 
         task_dir.mkdir(parents=True, exist_ok=True)
 
@@ -129,6 +141,6 @@ def sync(code):
 
         if code:
             click.secho('Syncing submissions')
-            sync_code(problem, task_dir, submissions, session)
+            sync_code(problem, task_dir, submissions, session, all_)
 
     click.secho('Sync done!', fg='green')
