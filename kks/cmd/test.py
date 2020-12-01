@@ -1,13 +1,10 @@
-import subprocess
-from os import environ
 from pathlib import Path
 
 import click
-from tqdm import tqdm
 
-from kks.binary import compile_solution, VALGRIND_ARGS
-from kks.util import get_solution_directory, print_diff, find_test_output, format_file, test_number_to_name, \
-    find_test_pairs
+from kks.binary import compile_solution
+from kks.testing import Generator, Checker
+from kks.util import get_solution_directory, find_test_output, format_file, test_number_to_name, find_test_pairs
 
 
 @click.command(short_help='Test solutions')
@@ -23,7 +20,13 @@ from kks.util import get_solution_directory, print_diff, find_test_output, forma
               help='Continue running after error')
 @click.option('-vg', '--valgrind', is_flag=True,
               help='Use valgrind')
-def test(tests, test_range, files, sample, cont, valgrind):
+@click.option('-vt', '--virtual', is_flag=True,
+              help='Use virtual tests (generate tests in memory)')
+@click.option('-gen', '--generator', type=click.Path(exists=True),
+              help='generator for virtual tests (see "kks gen")')
+@click.option('-sol', '--solution', type=click.Path(exists=True),
+              help='solution for virtual tests')
+def test(tests, test_range, files, sample, cont, valgrind, virtual, generator, solution):
     """
     Test solution
 
@@ -34,88 +37,42 @@ def test(tests, test_range, files, sample, cont, valgrind):
         kks test -t 0 -t 2 -t 3
     """
 
-    files = [Path(f) for f in files]
-
     directory = get_solution_directory()
     if directory is None:
         return
 
+    checker = Checker(cont, valgrind)
     binary = compile_solution(directory)
     if binary is None:
         return
 
-    tests = find_tests_to_run(directory, files, tests, test_range, sample)
-    if tests is None:
-        return
+    if virtual:
+        generator = Path(generator or directory / 'gen.py')
+        solution = Path(solution or directory / 'solve.py')
+        gen = Generator(generator, solution)
 
-    if not tests:
-        click.secho('No tests found!', fg='red')
-        return
+        if test_range:
+            l, r = sorted(test_range)
+            test_range = range(l, r + 1)
 
-    successful_count = 0
-    ran_count = 0
+        if not tests and not test_range:
+            test_range = range(1, 101)
 
-    test_env = dict(environ, ASAN_OPTIONS="color=always")
-    t = tqdm(tests, leave=False)
-    for input_file, output_file in t:
-        if sample:
-            t.clear()
-            with input_file.open('r') as f:
-                input_data = f.read()
-            click.secho("Sample input:", bold=True)
-            click.secho(input_data)
-            with output_file.open('r') as f:
-                output_data = f.read()
-            click.secho("Sample output:", bold=True)
-            click.secho(output_data)
+        all_tests = sorted(set(tests) | set(test_range))
+        checker.run_virtual(binary, gen, all_tests)
 
-        t.set_description(f'Running {format_file(input_file)}')
+    else:
+        files = [Path(f) for f in files]
 
-        is_success = run_test(binary, input_file, output_file, test_env, valgrind)
+        tests = find_tests_to_run(directory, files, tests, test_range, sample)
+        if tests is None:
+            return
 
-        ran_count += 1
-        successful_count += is_success
+        if not tests:
+            click.secho('No tests found!', fg='red')
+            return
 
-        if not cont and not is_success:
-            t.close()
-            break
-
-    color = 'red' if ran_count != successful_count else 'green'
-    click.secho(f'Tests passed: {successful_count}/{ran_count}', fg=color, bold=True)
-
-
-def run_test(binary, input_file, output_file, env, valgrind):
-    with input_file.open('r') as input_f:
-        args = [binary.absolute()]
-        if valgrind:
-            args = VALGRIND_ARGS + args
-        process = subprocess.run(args, stdin=input_f, capture_output=True, env=env)
-
-    if process.returncode != 0:
-        error_output = process.stderr.decode('utf-8')
-        click.secho('RE', fg='red', bold=True)
-        click.secho(f'Process exited with code {process.returncode}', fg='red')
-        if error_output:
-            click.secho(error_output)
-        return False
-
-    with output_file.open('rb') as output_f:
-        expected_output = output_f.read()
-
-    actual_output = process.stdout
-
-    if expected_output != actual_output:
-        click.secho('WA', fg='red', bold=True)
-        try:
-            expected = expected_output.decode('utf-8')
-            actual = actual_output.decode('utf-8')
-            print_diff(expected, actual, 'expected', 'actual')
-            click.secho()
-        except UnicodeDecodeError:
-            click.secho('Output differs, but cant be decoded as utf-8', fg='red')
-        return False
-
-    return True
+        checker.run_tests(binary, tests, sample)
 
 
 def find_tests_to_run(directory, files, tests, test_range, sample):

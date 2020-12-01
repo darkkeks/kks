@@ -1,6 +1,7 @@
 import configparser
 import difflib
 import pickle
+import subprocess
 from pathlib import Path
 
 import click
@@ -255,3 +256,24 @@ def prompt_choice(text, options):
     for index, option in enumerate(options, start=1):
         click.secho(f'{index:>4}) {option}')
     return click.prompt('', prompt_suffix='> ', type=click.IntRange(min=1, max=len(options))) - 1
+
+def run_script(script, args, stdin=None, stdout=None, input=None):
+    ext = script.suffix
+
+    interpreter = 'python3' if ext in ['.py', '.py3'] \
+        else 'bash' if ext in ['.sh'] \
+        else None
+
+    if interpreter is None:
+        click.secho(f'Cant run unrecognized script {format_file(script)}', fg='red', err=True)
+        return None
+
+    process = subprocess.run([interpreter, script] + args, stdin=stdin, stdout=stdout, input=input)
+
+    if process.returncode != 0:
+        click.secho('Script exited with code ' +
+                    click.style(str(process.returncode), fg='red', bold=True) +
+                    ' (args: ' + ' '.join(args) + ')', fg='yellow')
+        return None
+
+    return process
