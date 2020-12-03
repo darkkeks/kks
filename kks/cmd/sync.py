@@ -1,3 +1,6 @@
+from cgi import parse_header
+from mimetypes import guess_extension
+
 import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions, ejudge_report
@@ -7,8 +10,21 @@ from kks.util import get_valid_session, load_links, find_workspace
 def save_needed(submissions, sub_dir, session, full_sync):
     def prefix(submission):
         return f'{submission.id:05d}'
-    def format_filename(submission):
-        return f'{prefix(submission)}-{submission.short_status()}.c'
+    def format_stem(submission):
+        return f'{prefix(submission)}-{submission.short_status()}'
+
+    def get_extension(resp):
+        mimetype, _ = parse_header(resp.headers.get('Content-Type', ''))
+        mimetype = mimetype.lower()
+        if mimetype == 'text/plain':
+            return '.c'
+        elif mimetype == 'application/x-gzip':
+            return '.gz'
+        else:
+            suf = guess_extension(mimetype)
+            if suf is None or suf == '.':
+                return ''
+            return suf
 
     if full_sync:
         needed = submissions
@@ -35,15 +51,18 @@ def save_needed(submissions, sub_dir, session, full_sync):
 
     for sub in needed:
         old = list(sub_dir.glob(f'{prefix(sub)}-*'))
-        file = sub_dir / format_filename(sub)
+        file = sub_dir / format_stem(sub)
         if len(old) == 1:
             # status may change, content is fixed
-            if old[0].name != file.name:
-                old[0].rename(file)
+            if old[0].stem != file.stem:
+                old[0].rename(file.with_suffix(old[0].suffix))
             continue
 
-        source = session.get(sub.source).content
+        resp = session.get(sub.source)
 
+        file = file.with_suffix(get_extension(resp))
+
+        source = resp.content
         if full_sync and sub.status in [Status.PARTIAL, Status.REJECTED]:
             report = ejudge_report(sub.report, session)
             source = report.as_comment().encode() + source
