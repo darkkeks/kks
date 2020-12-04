@@ -67,6 +67,8 @@ def compose_post_data(form):
         lang_input = form.find('input', {'name': 'lang_id'})
         if lang_input is not None:
             lang = lang_input['value']
+        else:
+            lang = None
     else:
         langs = [(opt.text, opt['value']) for opt in lang_list.find_all('option') if opt.get('value')]
         if len(langs) == 1:
@@ -74,9 +76,9 @@ def compose_post_data(form):
         else:
             lang = lang_choice(langs)[1]
 
-    data = {
-        'lang_id': lang,
-    }
+    data = {}
+    if lang is not None:
+        data['lang_id'] = lang
     for elem in form.find_all('input'):
         if elem.get('name') not in ['lang_id', 'file'] and elem.get('value') is not None:
             data[elem['name']] = elem['value']
