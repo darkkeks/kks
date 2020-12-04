@@ -200,7 +200,7 @@ def sync(code, code_opt, force, filters):
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
-        statement = ejudge_statement(problem.href, session)
+        statement = ejudge_statement(problem.href, session)  # TODO use API? (kr contests, see #55)
 
         with (task_dir / 'statement.html').open('w') as f:
             f.write(statement.html())

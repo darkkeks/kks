@@ -4,3 +4,11 @@ class EjudgeError(Exception):
 
 class AuthError(EjudgeError):
     pass
+
+
+class APIError(EjudgeError):
+    INVALID_SESSION = 148
+
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
