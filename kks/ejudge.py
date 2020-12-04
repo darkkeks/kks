@@ -24,6 +24,8 @@ class LinkTypes:
 class Status:
     OK = 'OK'
     REVIEW = 'Pending review'
+    CHECK = 'Pending check'
+    TESTING = 'Accepted for testing'
     REJECTED = 'Rejected'
     IGNORED = 'Ignored'
     PARTIAL = 'Partial solution'
@@ -50,6 +52,8 @@ class Problem:
         return 'green' if self.status == Status.OK \
             else 'green' if self.status == Status.REVIEW \
             else 'white' if self.status == Status.NOT_SUBMITTED \
+            else 'yellow' if self.status == Status.CHECK \
+            else 'yellow' if self.status == Status.TESTING \
             else 'red'
 
     def bold(self):
@@ -118,6 +122,7 @@ class TaskScore:
     def color(self):
         return 'green' if self.status == Status.REVIEW \
             else 'green' if self.status == Status.OK \
+            else 'red' if self.status == Status.PARTIAL \
             else 'white'
 
     def bold(self):
@@ -273,6 +278,7 @@ def to_task_score(task_name, cell):
 
     status = Status.REVIEW if 'cell_attr_pr' in cell['class'] \
         else Status.REJECTED if 'cell_attr_rj' in cell['class'] \
+        else Status.PARTIAL if score == '0'\
         else Status.OK if score is not None \
         else Status.NOT_SUBMITTED
 
