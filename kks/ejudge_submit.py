@@ -51,8 +51,13 @@ def _get_problem_data(links, session, prob_id):
 
     runs = soup.find('table', {'class': 'table'})
     form = soup.find('form')
+
     if form is None:
         return None, 'Cannot submit a solution for this problem'
+    file = form.find('input', {'name': 'file'})
+    if file is None:
+        return None, 'Cannot submit a solution for this problem'
+
     return ProblemPage(problem_link, runs, form), ''
 
 
