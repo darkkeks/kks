@@ -73,6 +73,10 @@ class Submission:
     def short_status(self):
         if self.status == Status.REVIEW:
             return 'Pending'
+        if self.status == Status.CHECK:
+            return 'Check'
+        if self.status == Status.TESTING:
+            return 'Testing'
         if self.status == Status.PARTIAL:
             return 'Partial'
         return self.status
