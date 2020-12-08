@@ -8,6 +8,7 @@ GCC_ARGS = [
     '-Werror',
     '-Wall',
     '-Wextra',
+    '-ftrapv',                    # catch signed overflow on addition, subtraction, multiplication operations
     '-fsanitize=address',
     '-fsanitize=undefined',
     '-fno-sanitize-recover=all',  # for RE in case of UB
