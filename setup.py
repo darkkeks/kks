@@ -10,7 +10,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Vyacheslav Boben',
     url='https://github.com/DarkKeks/kks',
-    version='1.3.0-rc2',
+    version='1.3.0',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
