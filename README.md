@@ -120,6 +120,10 @@ kks test --test 15 -test 16
 cd sm01/1; kks submit
 kks submit -p sm02-3 ./code/main.c
 
+# Hide contest directory (move to .kks-contests)
+kks hide sm01
+kks hide --all
+kks unhide sm03 kr01
 ```
 
 ## Todo
@@ -145,8 +149,9 @@ kks submit -p sm02-3 ./code/main.c
     - [x] top
         - [ ] max score
         - [ ] optimistic scoreboard
-        - [ ] sort/filter
+        - [x] sort/filter
 - sync
     - [ ] templates
     - [ ] reload samples for contest/task
 - activate / deactivate tasks ?
+    - [x] hide whole contests

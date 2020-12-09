@@ -4,12 +4,13 @@ from mimetypes import guess_extension
 import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions, ejudge_report
-from kks.util import get_valid_session, load_links, find_workspace
+from kks.util import get_valid_session, load_links, find_workspace, get_task_dir, write_contests
 
 
 def save_needed(submissions, sub_dir, session, full_sync):
     def prefix(submission):
         return f'{submission.id:05d}'
+
     def format_stem(submission):
         return f'{prefix(submission)}-{submission.short_status()}'
 
@@ -75,7 +76,7 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
     sub_dir = task_dir / 'submissions'
     if sub_dir.exists():
         if not task_dir.is_dir():
-            click.secho(f'File {sub_dir.relative_to(workspace)} exists, skipping',
+            click.secho(f'File {sub_dir.relative_to(find_workspace())} exists, skipping',
                         fg='red', err=True)
             return
     else:
@@ -113,10 +114,12 @@ def sync(code, all_):
     if code:
         submissions = ejudge_submissions(links, session)
 
+    contests = set()
+
     for problem in problems:
         contest, number = problem.short_name.split('-')
-
-        task_dir = workspace / contest / number
+        contests.add(contest)
+        task_dir = get_task_dir(workspace, contest, number)
 
         if task_dir.exists():
             if task_dir.is_dir():
@@ -166,4 +169,5 @@ def sync(code, all_):
             click.secho('Syncing submissions')
             sync_code(problem, task_dir, submissions, session, all_)
 
+    write_contests(workspace, contests)
     click.secho('Sync done!', fg='green')

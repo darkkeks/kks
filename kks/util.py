@@ -174,7 +174,7 @@ def print_diff(before_output, after_output, before_name, after_name):
         color = 'red' if remove else 'green' if add else None
         click.secho(line, nl=False, fg=color)
         if not line.endswith('\n'):
-            click.secho('\n\ No newline at end of file')
+            click.secho('\n\\ No newline at end of file')
 
 
 def format_file(file):
@@ -257,6 +257,7 @@ def prompt_choice(text, options):
         click.secho(f'{index:>4}) {option}')
     return click.prompt('', prompt_suffix='> ', type=click.IntRange(min=1, max=len(options))) - 1
 
+
 def run_script(script, args, stdin=None, stdout=None, input=None):
     ext = script.suffix
 
@@ -277,3 +278,35 @@ def run_script(script, args, stdin=None, stdout=None, input=None):
         return None
 
     return process
+
+
+def write_contests(workspace, contests):
+    hidden = get_hidden_dir(workspace)
+    if not hidden.exists():
+        hidden.mkdir()
+    index_file = hidden / '.index'
+    with open(index_file, 'wb') as f:
+        pickle.dump(contests, f)
+
+
+def read_contests(workspace):
+    index_file = get_hidden_dir(workspace) / '.index'
+    if not index_file.exists():
+        return set()
+    with open(index_file, 'rb') as f:
+        return pickle.load(f)
+
+
+def get_hidden_dir(workspace):
+    return workspace / '.kks-contests'
+
+
+def get_contest_dir(workspace, contest):
+    c_dir = get_hidden_dir(workspace) / contest
+    if c_dir.exists():
+        return c_dir
+    return workspace / contest  # may not exist!
+
+
+def get_task_dir(workspace, contest, number):
+    return get_contest_dir(workspace, contest) / number
