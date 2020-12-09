@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from kks.util import find_workspace
+from kks.util import find_workspace, get_hidden_dir
 
 
 @click.command()
@@ -27,7 +27,17 @@ def init(force):
             click.secho('Workspace marker is a directory (.kks-workspace)', fg='yellow')
         else:
             click.secho('Workspace marker is an unknown file type (.kks-workspace)', fg='yellow')
+        return
     else:
         file.write_text("This file is used to find kks workspace.\n")
 
-        click.secho(f'Initialized workspace in directory {path}', fg='green')
+    hidden = get_hidden_dir(path)
+    if hidden.exists():
+        if hidden.is_dir():
+            click.secho(f'The directory for hidden contests already exists ({hidden.relative_to(path)})', fg='yellow')
+        else:
+            click.secho(f'{hidden.relative_to(path)} exists and is not a directory, "kks (un)hide" may break!', fg='red')
+    else:
+        hidden.mkdir()
+
+    click.secho(f'Initialized workspace in directory {path}', fg='green')
