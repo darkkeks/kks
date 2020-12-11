@@ -25,4 +25,3 @@ def open():
         click.secho('Success!', bold=True)
     else:
         click.secho('Failed :(', fg='red', bold=True)
-

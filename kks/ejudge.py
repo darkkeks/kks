@@ -110,7 +110,6 @@ class Report:
                     has_failed_tests = True
                 self.lines.append(f'{t_id} - {status}\n')
 
-
     def as_comment(self):
         sep_lines = 3
         return ''.join('// ' + line for line in self.lines) + '\n' * sep_lines
