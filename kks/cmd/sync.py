@@ -54,17 +54,20 @@ def save_needed(submissions, sub_dir, session, full_sync):
         old = list(sub_dir.glob(f'{prefix(sub)}-*'))
         file = sub_dir / format_stem(sub)
         if len(old) == 1:
-            # status may change, content is fixed
-            if old[0].stem != file.stem:
-                old[0].rename(file.with_suffix(old[0].suffix))
-            continue
+            # status may change
+            if old[0].stem == file.stem:
+                continue
+            old[0].rename(file.with_suffix(old[0].suffix))
+            # may need to load the report
+            if sub.status not in [Status.PARTIAL, Status.REJECTED]:
+                continue
 
         resp = session.get(sub.source)
 
         file = file.with_suffix(get_extension(resp))
 
         source = resp.content
-        if full_sync and sub.status in [Status.PARTIAL, Status.REJECTED]:
+        if sub.status in [Status.PARTIAL, Status.REJECTED]:
             report = ejudge_report(sub.report, session)
             source = report.as_comment().encode() + source
 
@@ -115,26 +118,40 @@ def sync(code, all_):
         submissions = ejudge_submissions(links, session)
 
     contests = set()
+    bad_contests = set()
+    total_problems = len(problems)
+    old_problems = 0
+    new_problems = 0
 
     for problem in problems:
         contest, number = problem.short_name.split('-')
         contests.add(contest)
+        if contest in bad_contests:
+            continue
         task_dir = get_task_dir(workspace, contest, number)
+        contest_dir = task_dir.parent
+
+        if contest_dir.exists() and not contest_dir.is_dir():
+            click.secho(f'File {contest_dir.relative_to(workspace)} exists, skipping',
+                        fg='red', err=True)
+            bad_contests.add(contest)
+            continue
 
         if task_dir.exists():
             if task_dir.is_dir():
                 if code:
                     click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
                     sync_code(problem, task_dir, submissions, session, all_)
+                    new_problems += 1
                 else:
-                    click.secho(f'Directory {task_dir.relative_to(workspace)} already exists, skipping',
-                                fg='yellow', err=True)
+                    old_problems += 1
             else:
                 click.secho(f'File {task_dir.relative_to(workspace)} exists, skipping',
                             fg='red', err=True)
             continue
 
         click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
+        new_problems += 1
 
         task_dir.mkdir(parents=True, exist_ok=True)
 
@@ -170,4 +187,7 @@ def sync(code, all_):
             sync_code(problem, task_dir, submissions, session, all_)
 
     write_contests(workspace, contests)
+
+    color = 'green' if old_problems + new_problems == total_problems else 'red'
     click.secho('Sync done!', fg='green')
+    click.secho(f'Synced tasks: {old_problems+new_problems}/{total_problems} ({old_problems} unchanged)', fg=color)
