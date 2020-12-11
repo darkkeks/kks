@@ -1,5 +1,3 @@
-from urllib.parse import urlparse, parse_qs
-
 import click
 from bs4 import BeautifulSoup
 
@@ -114,4 +112,3 @@ def submit_solution(links, session, file, prob_id):
         return True, 'Success!'
     else:
         return False, get_error_msg(req)
-

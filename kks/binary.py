@@ -14,6 +14,10 @@ GCC_ARGS = [
     '-fno-sanitize-recover=all',  # for RE in case of UB
 ]
 
+LINK_ARGS = [
+    '-lm',
+]
+
 VALGRIND_ARGS = [
     'valgrind',
     '--leak-check=full',
@@ -44,7 +48,7 @@ def compile_solution(directory):
 def compile_c(workdir, files):
     filenames = [path.relative_to(workdir) for path in files]
 
-    command = GCC_ARGS + filenames
+    command = GCC_ARGS + filenames + LINK_ARGS
     p = subprocess.run(command, cwd=workdir)
 
     if p.returncode != 0:
