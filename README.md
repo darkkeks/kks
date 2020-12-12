@@ -83,6 +83,7 @@ kks sync
 
 # Show tasks status and user standings
 kks status
+kks status sm01 sm02-3
 kks top
 
 # Build and run solution in current directory
