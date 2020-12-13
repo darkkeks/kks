@@ -7,6 +7,48 @@ from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions
 from kks.util import get_valid_session, load_links, find_workspace, get_task_dir, write_contests
 
 
+class Choice2(click.Choice):
+    """ for nice help message """
+    def get_metavar(self, param):
+        if (len(self.choices) == 1):
+            return self.choices[0]
+        return "[{}]".format("|".join(self.choices))
+
+# classes to create a flag with optional value, see https://stackoverflow.com/a/44144098
+# click 8.0 should support something like this (https://github.com/pallets/click/issues/549)
+class FlagOption(click.Option):
+    """ Mark this option as getting a _opt option """
+    is_optflag = True
+
+
+class OptFlagOption(click.Option):
+    """ Fix the help for the _opt suffix """
+    def get_help_record(self, ctx):
+        help = super().get_help_record(ctx)
+        return (help[0].replace('_opt ', '='),) + help[1:]
+
+    def get_error_hint(self, ctx):
+        hint = super().get_error_hint(ctx)
+        return hint.replace('_opt', '')
+
+
+class OptFlagCommand(click.Command):
+    """ Command with support for flags with values """
+    def parse_args(self, ctx, args):
+        """ Translate any flag= to flag_opt= as needed """
+        options = [o for o in ctx.command.params
+                   if getattr(o, 'is_optflag', None)]
+        prefixes = {p for p in sum([o.opts for o in options], [])
+                    if p.startswith('--')}
+        for i, a in enumerate(args):
+            a = a.split('=')
+            if a[0] in prefixes and len(a) > 1:
+                a[0] += '_opt'
+                args[i] = '='.join(a)
+
+        return super().parse_args(ctx, args)
+
+
 def save_needed(submissions, sub_dir, session, full_sync):
     def prefix(submission):
         return f'{submission.id:05d}'
@@ -89,13 +131,19 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
         save_needed(problem_subs, sub_dir, session, full_sync)
 
 
-@click.option('--code', is_flag=True, default=False,
+@click.command(cls=OptFlagCommand)
+@click.option('--code', cls=FlagOption, is_flag=True,
               help='Download latest submitted solutions')
-@click.option('-a', '--all', 'all_', is_flag=True, default=False,
-              help='Download all submissions (used with --code)')
-@click.command()
-def sync(code, all_):
-    """Parse problems from ejudge"""
+@click.option('--code_opt', cls=OptFlagOption, type=Choice2(['all']),
+              help='Download all submissions')
+@click.option('-f', '--force', is_flag=True, default=False,
+              help='Force sync existing tasks')
+@click.argument('filters', nargs=-1)
+def sync(code, code_opt, force, filters):
+    """Parse problems from ejudge
+
+    If any FILTERS are specified, sync only tasks woth matching prefixes/names
+    """
 
     workspace = find_workspace()
 
@@ -114,16 +162,21 @@ def sync(code, all_):
 
     problems = ejudge_summary(links, session)
 
+    code_all = code_opt == 'all'
+    code = code or code_all
     if code:
         submissions = ejudge_submissions(links, session)
 
     contests = set()
     bad_contests = set()
-    total_problems = len(problems)
+    total_problems = 0
     old_problems = 0
     new_problems = 0
 
     for problem in problems:
+        if filters and not any(problem.short_name.startswith(f) for f in filters):
+            continue
+        total_problems += 1
         contest, number = problem.short_name.split('-')
         contests.add(contest)
         if contest in bad_contests:
@@ -138,32 +191,38 @@ def sync(code, all_):
             continue
 
         if task_dir.exists():
-            if task_dir.is_dir():
-                if code:
-                    click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
-                    sync_code(problem, task_dir, submissions, session, all_)
-                    new_problems += 1
-                else:
-                    old_problems += 1
-            else:
+            if not task_dir.is_dir():
                 click.secho(f'File {task_dir.relative_to(workspace)} exists, skipping',
                             fg='red', err=True)
-            continue
-
-        click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
+                continue
+            else:
+                if not force:
+                    if code:
+                        click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
+                        sync_code(problem, task_dir, submissions, session, code_all)
+                        new_problems += 1
+                    else:
+                        old_problems += 1
+                    continue
+                
+        if not task_dir.exists():
+            click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
+            task_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            click.secho('Resyncing task ' + click.style(problem.name, fg='blue', bold=True))
         new_problems += 1
-
-        task_dir.mkdir(parents=True, exist_ok=True)
 
         main = task_dir / f'{problem.short_name}.c'
         main.touch()
 
         gen = task_dir / 'gen.py'
-        with gen.open('w') as file:
-            file.write('import sys\n'
-                       'import random\n\n'
-                       't = sys.argv[1]\n'
-                       'random.seed(t)')
+        
+        if not gen.exists():
+            with gen.open('w') as file:
+                file.write('import sys\n'
+                           'import random\n\n'
+                           't = sys.argv[1]\n'
+                           'random.seed(t)')
 
         solve = task_dir / 'solve.py'
         solve.touch()
@@ -184,7 +243,7 @@ def sync(code, all_):
 
         if code:
             click.secho('Syncing submissions')
-            sync_code(problem, task_dir, submissions, session, all_)
+            sync_code(problem, task_dir, submissions, session, code_all)
 
     write_contests(workspace, contests)
 
