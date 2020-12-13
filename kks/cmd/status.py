@@ -9,7 +9,7 @@ from kks.util import get_valid_session, load_links
 def status(filters):
     """Parse and display task status
 
-    If any FILTERS are specified, show status only for tasks woth matching prefixes/names
+    If any FILTERS are specified, show status only for tasks with matching prefixes/names
     """
 
     session = get_valid_session()

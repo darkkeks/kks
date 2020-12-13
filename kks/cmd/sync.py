@@ -1,18 +1,20 @@
 from cgi import parse_header
 from mimetypes import guess_extension
+from os import environ
 
 import click
 
-from kks.ejudge import Status, ejudge_summary, ejudge_sample, ejudge_submissions, ejudge_report
+from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
 from kks.util import get_valid_session, load_links, find_workspace, get_task_dir, write_contests
 
 
 class Choice2(click.Choice):
     """ for nice help message """
     def get_metavar(self, param):
-        if (len(self.choices) == 1):
+        if len(self.choices) == 1:
             return self.choices[0]
         return "[{}]".format("|".join(self.choices))
+
 
 # classes to create a flag with optional value, see https://stackoverflow.com/a/44144098
 # click 8.0 should support something like this (https://github.com/pallets/click/issues/549)
@@ -142,7 +144,7 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
 def sync(code, code_opt, force, filters):
     """Parse problems from ejudge
 
-    If any FILTERS are specified, sync only tasks woth matching prefixes/names
+    If any FILTERS are specified, sync only tasks with matching prefixes/names
     """
 
     workspace = find_workspace()
@@ -167,6 +169,8 @@ def sync(code, code_opt, force, filters):
     if code:
         submissions = ejudge_submissions(links, session)
 
+    md_width = int(environ.get('MDWIDTH', '100'))
+
     contests = set()
     bad_contests = set()
     total_problems = 0
@@ -189,27 +193,26 @@ def sync(code, code_opt, force, filters):
                         fg='red', err=True)
             bad_contests.add(contest)
             continue
-
-        if task_dir.exists():
-            if not task_dir.is_dir():
-                click.secho(f'File {task_dir.relative_to(workspace)} exists, skipping',
-                            fg='red', err=True)
-                continue
-            else:
-                if not force:
-                    if code:
-                        click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
-                        sync_code(problem, task_dir, submissions, session, code_all)
-                        new_problems += 1
-                    else:
-                        old_problems += 1
-                    continue
-                
+               
         if not task_dir.exists():
             click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
             task_dir.mkdir(parents=True, exist_ok=True)
         else:
+            if not task_dir.is_dir():
+                click.secho(f'File {task_dir.relative_to(workspace)} exists, skipping', fg='red', err=True)
+                continue
+
+            if not force:
+                if code:
+                    click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
+                    sync_code(problem, task_dir, submissions, session, code_all)
+                    new_problems += 1
+                else:
+                    old_problems += 1
+                continue
+
             click.secho('Resyncing task ' + click.style(problem.name, fg='blue', bold=True))
+
         new_problems += 1
 
         main = task_dir / f'{problem.short_name}.c'
@@ -230,16 +233,20 @@ def sync(code, code_opt, force, filters):
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
-        input_data, output_data = ejudge_sample(problem.href, session)
+        statement = ejudge_statement(problem.href, session)
 
-        if input_data is not None:
+        with (task_dir / 'statement.html').open('w') as f:
+            f.write(statement.html())
+        with (task_dir / 'statement.md').open('w') as f:
+            f.write(statement.markdown(width=md_width))
+
+        if statement.input_data is not None:
             with (tests_dir / '000.in').open('w') as f:
-                f.write(input_data)
+                f.write(statement.input_data)
 
-        if output_data is not None:
-            output_data += '\n'
+        if statement.output_data is not None:
             with (tests_dir / '000.out').open('w') as f:
-                f.write(output_data)
+                f.write(statement.output_data + '\n')
 
         if code:
             click.secho('Syncing submissions')

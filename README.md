@@ -80,6 +80,10 @@ kks auth --no-store-password
 
 # Parse tasks from ejudge and create directories with template solutions
 kks sync
+# Set max line width for statements (delault 100)
+MDWIDTH=70 kks sync
+# Sync tasks and (latest) submissions
+kks sync --code
 
 # Show tasks status and user standings
 kks status
@@ -153,6 +157,6 @@ kks unhide sm03 kr01
         - [x] sort/filter
 - sync
     - [ ] templates
-    - [ ] reload samples for contest/task
+    - [x] reload samples for contest/task
 - activate / deactivate tasks ?
     - [x] hide whole contests
