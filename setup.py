@@ -10,7 +10,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Vyacheslav Boben',
     url='https://github.com/DarkKeks/kks',
-    version='1.4.2',
+    version='1.5.0',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -20,6 +20,7 @@ setup(
         'colorama',
         'tqdm',
         'beautifulsoup4',
+        'html2text==2020.1.16',
     ],
     entry_points='''
         [console_scripts]

@@ -4,7 +4,9 @@ from urllib.parse import quote as urlquote
 import click
 import requests
 from bs4 import BeautifulSoup
+from bs4.element import NavigableString
 
+from kks.h2t import HTML2Text
 
 CONTEST_ID_BY_GROUP = {
     int('19' + str(i)): 130 + i
@@ -162,6 +164,64 @@ class StandingsRow:
         return self.is_self
 
 
+class Statement:
+    def __init__(self, page):
+        self.input_data = None
+        self.output_data = None
+        self._html = None
+        self.url = page.url
+
+        soup = BeautifulSoup(page.content, 'html.parser')
+        task_area = soup.find('div', {'id': 'probNavTaskArea'})
+
+        input_title = task_area.find('h4', text='Input')
+        if input_title is not None:
+            self.input_data = input_title.find_next('pre').text
+
+        output_title = task_area.find('h4', text='Output')
+        if output_title is not None:
+            self.output_data = output_title.find_next('pre').text
+
+        problem_info = task_area.find('table', {'class': 'line-table-wb'})
+        if problem_info is None:
+            return
+        next_block = problem_info.find_next('h3', text='Submit a solution')
+        if next_block is None:
+            next_block = problem_info.find_next('h2')
+
+        statement = soup.new_tag('body')
+        statement_avail = False
+        curr = problem_info.next_sibling
+        while curr is not next_block:  # next_block can be None, it's OK
+            if not statement_avail and isinstance(curr, NavigableString) and curr.isspace():
+                curr = curr.next_sibling
+                continue  # skip leading spacing
+            statement_avail = True
+            prev = curr
+            curr = curr.next_sibling
+            statement.append(prev)
+
+        if statement_avail:
+            html = soup.new_tag('html')
+            head = soup.new_tag('head')
+            head.append(soup.new_tag('meta', charset='utf-8'))
+            html.append(head)
+            html.append(statement)
+            self._html = html
+
+    def html(self):
+        if self._html is None:
+            return 'Statement is not available'
+        return self._html.prettify()
+
+    def markdown(self, width=100):
+        if self._html is None:
+            return 'Statement is not available'
+        converter = HTML2Text(bodywidth=width, baseurl=self.url)
+        converter.pad_tables = True
+        return converter.handle(str(self._html))
+
+
 def get_contest_id(group_id):
     return CONTEST_ID_BY_GROUP.get(group_id, None)
 
@@ -293,21 +353,9 @@ def to_task_score(task_name, cell):
     return TaskScore(extract_contest_name(task_name), task_name, score, status)
 
 
-def ejudge_sample(problem_link, session):
+def ejudge_statement(problem_link, session):
     page = session.get(problem_link)
-    soup = BeautifulSoup(page.content, 'html.parser')
-
-    input_data, output_data = None, None
-
-    input_title = soup.find('h4', text='Input')
-    if input_title is not None:
-        input_data = input_title.find_next('pre').text
-
-    output_title = soup.find('h4', text='Output')
-    if output_title is not None:
-        output_data = output_title.find_next('pre').text
-
-    return input_data, output_data
+    return Statement(page)
 
 
 def ejudge_submissions(links, session):
