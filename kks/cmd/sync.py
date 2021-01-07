@@ -223,9 +223,10 @@ def sync(code, code_opt, force, filters):
         if not gen.exists():
             with gen.open('w') as file:
                 file.write('import sys\n'
-                           'import random\n\n'
-                           't = sys.argv[1]\n'
-                           'random.seed(t)')
+                           'import random\n'
+                           '\n'
+                           't = int(sys.argv[1])\n'
+                           'random.seed(t)\n')
 
         solve = task_dir / 'solve.py'
         solve.touch()
