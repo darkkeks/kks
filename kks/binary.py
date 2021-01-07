@@ -4,6 +4,7 @@ import click
 
 GCC_ARGS = [
     'gcc',
+    '-std=gnu11',
     '-g',
     '-Werror',
     '-Wall',
