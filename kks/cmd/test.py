@@ -4,6 +4,7 @@ import click
 from tqdm import tqdm
 
 from kks.binary import compile_solution, run_solution
+from kks.util.script import find_script
 from kks.util.testing import TestSource, VirtualTestSequence, RunOptions, Test
 from kks.util.common import get_solution_directory, format_file, find_test_output, test_number_to_name, \
     find_test_pairs, print_diff
@@ -67,27 +68,28 @@ def test_(tests, test_range, files, sample,
         tests = find_tests_to_run(directory, files, tests, test_range, sample)
         if tests is None:
             return
+
+        if len(tests) == 0:
+            click.secho('No tests to run!', fg='red')
+            return
+
+        run_tests(binary, tests, options)
     else:
-        generator = Path(generator or directory / 'gen.py')
-        solution = Path(solution or directory / 'solve.py')
-        test_source = TestSource(generator, solution, options.ignore_exit_code)
+        generator = find_script(directory, 'gen', default=generator)
+        solution = find_script(directory, 'solve', default=solution)
+        with TestSource(generator, solution, options) as test_source:
+            if test_range:
+                l, r = sorted(test_range)
+                test_range = range(l, r + 1)
 
-        if test_range:
-            l, r = sorted(test_range)
-            test_range = range(l, r + 1)
+            if not tests and not test_range:
+                test_range = range(1, 101)
 
-        if not tests and not test_range:
-            test_range = range(1, 101)
+            all_tests = sorted(set(tests) | set(test_range))
 
-        all_tests = sorted(set(tests) | set(test_range))
+            tests = VirtualTestSequence(test_source, all_tests)
 
-        tests = VirtualTestSequence(test_source, all_tests)
-
-    if len(tests) == 0:
-        click.secho('No tests to run!', fg='red')
-        return
-
-    run_tests(binary, tests, options)
+            run_tests(binary, tests, options)
 
 
 def find_tests_to_run(directory, files, tests, test_range, sample):

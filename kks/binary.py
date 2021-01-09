@@ -4,8 +4,6 @@ import sys
 
 import click
 
-from kks.util.testing import Test
-
 GCC_ARGS = [
     'gcc',
     '-std=gnu11',
@@ -14,6 +12,17 @@ GCC_ARGS = [
     '-Wall',
     '-Wextra',
     '-ftrapv',                    # catch signed overflow on addition, subtraction, multiplication operations
+]
+
+GPP_ARGS = [
+    'g++',
+    '-std=gnu++17',
+    '-g',
+    '-O2',
+    '-Werror',
+    '-Wall',
+    '-Wextra',
+    '-ftrapv',
 ]
 
 ASAN_ARGS = [
@@ -58,9 +67,17 @@ def compile_solution(directory, options):
 
 
 def compile_c(workdir, files, options):
-    filenames = [path.relative_to(workdir) for path in files]
+    return compile_gnu(workdir, files, options, list(GCC_ARGS))
 
-    command = GCC_ARGS
+
+def compile_cpp(workdir, files, options):
+    return compile_gnu(workdir, files, options, list(GPP_ARGS))
+
+
+def compile_gnu(workdir, files, options, compiler_args):
+    filenames = [path.absolute() for path in files]
+
+    command = compiler_args
     if options.asan:
         command += ASAN_ARGS
     command += filenames
@@ -84,12 +101,12 @@ def run_solution(binary, args, options, test_data, capture_output=True):
     if options.valgrind:
         args = VALGRIND_ARGS + args
 
-    if test_data.test_type == Test.TYPE_FILE:
+    if test_data.is_file():
         with test_data.input_file.open('rb') as f_in:
             process = subprocess.run(args, env=env, stdin=f_in, capture_output=capture_output)
-    elif test_data.test_type == Test.TYPE_DATA:
+    elif test_data.is_data():
         process = subprocess.run(args, env=env, input=test_data.input_data, capture_output=capture_output)
-    elif test_data.test_type == Test.TYPE_STDIN:
+    elif test_data.is_stdin():
         process = subprocess.run(args, env=env, stdin=sys.stdin, capture_output=capture_output)
     else:
         raise Exception('Unknown test type')

@@ -1,21 +1,67 @@
 import subprocess
+import tempfile
+from pathlib import Path
 
-from kks.util.common import run_script, test_number_to_name
+import click
+
+from kks.util.common import test_number_to_name
+from kks.util.script import run_script, needs_compilation, compile_script
 
 
 class TestSource:
-    def __init__(self, generator, solution, ignore_exit_code):
+    def __init__(self, generator, solution, options):
         self.generator = generator
         self.solution = solution
-        self.ignore_exit_code = ignore_exit_code
+        self.options = options
+
+        self.generator_directory = None
+        if needs_compilation(self.generator):
+            self.generator_directory = tempfile.TemporaryDirectory(prefix='kks-')
+
+        self.solution_directory = None
+        if needs_compilation(self.solution):
+            self.solution_directory = tempfile.TemporaryDirectory(prefix='kks-')
 
     def generate_input(self, test, additional_args=None, stdout=subprocess.PIPE):
         args = [test] + (additional_args or [])
-        return run_script(self.generator, args, stdout=stdout)
+        return run_script(self.generator, args, stdout=stdout,
+                          ignore_exit_code=self.options.ignore_exit_code)
 
     def generate_output(self, test, additional_args=None, stdin=None, stdout=subprocess.PIPE, input=None):
         args = [test] + (additional_args or [])
-        return run_script(self.solution, args, stdin=stdin, stdout=stdout, input=input)
+        return run_script(self.solution, args, stdin=stdin, stdout=stdout, input=input,
+                          ignore_exit_code=self.options.ignore_exit_code)
+
+    def __enter__(self):
+        if self.generator_directory is not None:
+            self.generator_directory.__enter__()
+            path = Path(self.generator_directory.name)
+
+            click.secho('Compiling generator... ', fg='green', err=True)
+            self.generator = compile_script(path, self.generator, self.options)
+            if self.generator is None:
+                click.secho('Compilation failed!', fg='red', err=True)
+                raise click.Abort()
+            click.secho(f'Successfully compiled!', fg='green', err=True)
+
+        if self.solution_directory is not None:
+            self.solution_directory.__enter__()
+            path = Path(self.solution_directory.name)
+
+            click.secho('Compiling solution... ', fg='green', err=True)
+            self.solution = compile_script(path, self.solution, self.options)
+            if self.solution is None:
+                click.secho('Compilation failed!', fg='red', err=True)
+                raise click.Abort()
+            click.secho(f'Successfully compiled!', fg='green', err=True)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.generator_directory is not None:
+            self.generator_directory.__exit__(exc_type, exc_val, exc_tb)
+
+        if self.solution_directory is not None:
+            self.solution_directory.__exit__(exc_type, exc_val, exc_tb)
 
 
 class VirtualTestSequence:
@@ -58,6 +104,15 @@ class Test:
     @classmethod
     def from_data(cls, name, input_data, output_data):
         return cls(name=name, test_type=Test.TYPE_DATA, input_data=input_data, output_data=output_data)
+
+    def is_file(self):
+        return self.test_type == Test.TYPE_FILE
+
+    def is_data(self):
+        return self.test_type == Test.TYPE_DATA
+
+    def is_stdin(self):
+        return self.test_type == Test.TYPE_STDIN
 
     def read_input(self):
         if self.test_type == Test.TYPE_FILE:

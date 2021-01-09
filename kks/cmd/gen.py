@@ -1,11 +1,10 @@
-from pathlib import Path
-
 import click
 from tqdm import tqdm
 
-from kks.util.testing import TestSource
+from kks.util.testing import TestSource, RunOptions
 from kks.util.common import get_solution_directory, test_number_to_name, find_test_pairs, get_matching_suffix, \
     format_file
+from kks.util.script import find_script
 
 
 @click.command(short_help='Generate tests')
@@ -39,23 +38,18 @@ def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_
 
     directory = get_solution_directory()
 
-    generator = Path(generator or directory / 'gen.py')
-    solution = Path(solution or directory / 'solve.py')
+    options = RunOptions(
+        ignore_exit_code=ignore_exit_code
+    )
 
-    if not generator.exists() and not output_only:
-        click.secho(f'Generator {generator} does not exist', fg='red', err=True)
-        return
+    generator = find_script(directory, 'gen', default=generator, exists=not output_only)
+    solution = find_script(directory, 'solve', default=solution)
 
-    if not solution.exists():
-        click.secho(f'Solution {solution} does not exist', fg='red', err=True)
-        return
+    with TestSource(generator, solution, options) as test_source:
+        test_pairs = find_tests_to_gen(directory, tests, test_range)
+        test_pairs = sorted(test_pairs)
 
-    test_pairs = find_tests_to_gen(directory, tests, test_range)
-    test_pairs = sorted(test_pairs)
-
-    test_source = TestSource(generator, solution, ignore_exit_code)
-
-    generate_tests(test_source, test_pairs, output_only, force, gen_args)
+        generate_tests(test_source, test_pairs, output_only, force, gen_args)
 
 
 def find_tests_to_gen(directory, tests, test_range):
@@ -113,20 +107,20 @@ def generate_tests(test_source, test_pairs, output_only, force, gen_args):
     for input_file, output_file in t:
         if not output_only and input_file.exists() and not force:
             t.clear()
-            click.secho(f'Input file {format_file(input_file)} '
-                        'already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
+            click.secho(f'Input file {format_file(input_file)} ', fg='yellow', err=True, nl=False)
+            click.secho(f'already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
             continue
 
         if output_only and not input_file.exists():
             t.clear()
-            click.secho(f'Input file {format_file(input_file)} '
-                        'does not exist, skipping', fg='red', err=True)
+            click.secho(f'Input file {format_file(input_file)} ', fg='red', err=True, nl=False)
+            click.secho(f'does not exist, skipping', fg='red', err=True)
             continue
 
         if output_file and output_file.exists() and not force:
             t.clear()
-            click.secho(f'Output file {format_file(output_file)} '
-                        'already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
+            click.secho(f'Output file {format_file(output_file)} ', fg='yellow', err=True, nl=False)
+            click.secho('already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
             continue
 
         t.set_description(f'Generating test {format_file(input_file)}')
