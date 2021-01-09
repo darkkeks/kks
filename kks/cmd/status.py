@@ -1,13 +1,14 @@
 import click
 
 from kks.ejudge import ejudge_summary
-from kks.util import get_valid_session, load_links
+from kks.util.common import get_valid_session, load_links
 
 
-@click.command()
+@click.command(short_help='Parse and display task status')
 @click.argument('filters', nargs=-1)
 def status(filters):
-    """Parse and display task status
+    """
+    Parse and display task status
 
     If any FILTERS are specified, show status only for tasks with matching prefixes/names
     """
@@ -27,7 +28,6 @@ def status(filters):
         if not problems:
             click.secho('Nothing found')
             return
-
 
     row_format = "{:8} {:35} {:20} {:>5}"
 

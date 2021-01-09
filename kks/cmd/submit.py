@@ -3,43 +3,7 @@ from pathlib import Path
 import click
 
 from kks.ejudge_submit import submit_solution
-from kks.util import get_valid_session, load_links, prompt_choice, find_workspace
-
-
-def find_problem_rootdir():
-    cwd = Path.cwd().resolve()
-    workspace = find_workspace(cwd)
-    if workspace is None:
-        return None
-    parts = cwd.relative_to(workspace).parts
-    if len(parts) < 2:
-        return None
-    return workspace / parts[0] / parts[1]
-
-
-def get_problem_id(rootdir):
-    return '{}-{}'.format(*rootdir.parts[-2:])
-
-
-def find_solution():
-    cwd = Path.cwd().resolve()
-    source_files = list(cwd.glob('*.c')) + list(cwd.glob('*.h'))
-    if len(source_files) == 0:
-        click.secho('No source files found', fg='red', err=True)
-        return None
-    if len(source_files) > 1:
-        choices = [f.name for f in source_files]
-        choices.append(click.style('Cancel', fg='red'))
-        index = prompt_choice('Select a file to submit', choices)
-        if index < len(source_files):
-            return source_files[index]
-        click.secho('Cancelled by user', fg='red')
-        return None
-    file = source_files[0]
-    if click.confirm(f'Do you want to submit {file.name}?'):
-        return file
-    click.secho('Cancelled by user', fg='red')
-    return None
+from kks.util.common import get_valid_session, load_links, prompt_choice, find_workspace
 
 
 @click.command(short_help='Submit a solutions')
@@ -79,3 +43,39 @@ def submit(file, problem):
     res, msg = submit_solution(links, session, file, problem)
     color = 'green' if res else 'red'
     click.secho(msg, fg=color)
+
+
+def find_problem_rootdir():
+    cwd = Path.cwd().resolve()
+    workspace = find_workspace(cwd)
+    if workspace is None:
+        return None
+    parts = cwd.relative_to(workspace).parts
+    if len(parts) < 2:
+        return None
+    return workspace / parts[0] / parts[1]
+
+
+def get_problem_id(rootdir):
+    return '{}-{}'.format(*rootdir.parts[-2:])
+
+
+def find_solution():
+    cwd = Path.cwd().resolve()
+    source_files = list(cwd.glob('*.c')) + list(cwd.glob('*.h'))
+    if len(source_files) == 0:
+        click.secho('No source files found', fg='red', err=True)
+        return None
+    if len(source_files) > 1:
+        choices = [f.name for f in source_files]
+        choices.append(click.style('Cancel', fg='red'))
+        index = prompt_choice('Select a file to submit', choices)
+        if index < len(source_files):
+            return source_files[index]
+        click.secho('Cancelled by user', fg='red')
+        return None
+    file = source_files[0]
+    if click.confirm(f'Do you want to submit {file.name}?'):
+        return file
+    click.secho('Cancelled by user', fg='red')
+    return None

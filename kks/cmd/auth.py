@@ -2,7 +2,7 @@ import click
 import requests
 
 from kks.ejudge import ejudge_auth, AuthData, get_contest_id
-from kks.util import store_session, save_auth_data, save_links
+from kks.util.common import store_session, save_auth_data, save_links
 
 
 @click.command(short_help='Authorize and save authentication data to configuration directory')

@@ -1,6 +1,6 @@
 import click
 
-from kks.util import find_workspace, get_hidden_dir, get_contest_dir, read_contests
+from kks.util.common import find_workspace, get_hidden_dir, get_contest_dir, read_contests
 
 
 @click.command()

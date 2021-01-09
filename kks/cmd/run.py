@@ -1,24 +1,25 @@
-import subprocess
-import sys
 from pathlib import Path
 
 import click
 
-from kks.binary import compile_solution, VALGRIND_ARGS
-from kks.util import get_solution_directory, find_test_pairs, format_file, test_number_to_name
+from kks.binary import compile_solution, run_solution
+from kks.util.testing import RunOptions, Test
+from kks.util.common import get_solution_directory, find_test_pairs, format_file, test_number_to_name
 
 
 @click.command(short_help='Run solution')
-@click.option('-vg', '--valgrind', is_flag=True,
-              help='Use valgrind')
+@click.option('--asan/--no-asan', is_flag=True, default=True,
+              help='Use asan (true by default)')
+@click.option('-g', '-vg', '--valgrind', is_flag=True,
+              help='Use valgrind (disables asan)')
 @click.option('-s', '--sample', is_flag=True,
               help='Run on sample test')
 @click.option('-t', '--test', 'test',
               help='Test number to pass as input')
-@click.option('-f', '--file', 'file', type=click.File(),
+@click.option('-f', '--file', 'file', type=click.Path(exists=True),
               help='File to use as an input')
 @click.argument('run_args', nargs=-1, type=click.UNPROCESSED)
-def run(valgrind, sample, test, file, run_args):
+def run(asan, valgrind, sample, test, file, run_args):
     """Run solution
 
     \b
@@ -35,25 +36,24 @@ def run(valgrind, sample, test, file, run_args):
     if directory is None:
         return
 
-    binary = compile_solution(directory)
+    options = RunOptions(
+        asan=asan and not valgrind,
+        valgrind=valgrind,
+    )
+
+    binary = compile_solution(directory, options)
     if binary is None:
         return
 
-    input_file = find_test_to_run(directory, test, file, sample)
-    if input_file is None:
+    test_data = find_test_to_run(directory, test, file, sample)
+    if test_data is None:
         return
-
-    if isinstance(input_file, Path):
-        input_file = input_file.open('r')
 
     if len(run_args) > 0:
         output = f'Running binary with arguments ' + click.style(' '.join(run_args), fg='red', bold=True)
         click.secho(output, fg='green', err=True)
 
-    args = [binary.absolute()] + list(run_args)
-    if valgrind:
-        args = VALGRIND_ARGS + args
-    subprocess.run(args, stdin=input_file)
+    run_solution(binary, list(run_args), options, test_data, capture_output=False)
 
 
 def find_test_to_run(directory, test, file, sample):
@@ -65,13 +65,13 @@ def find_test_to_run(directory, test, file, sample):
         return None
 
     if has_file:
-        return file
+        return Test.from_file(None, Path(file), None)
     elif sample:
         test_names = ['000']
     elif has_test:
-        test_names = [test, test_number_to_name(test)]
+        test_names = {test, test_number_to_name(test)}
     else:
-        return sys.stdin
+        return Test.from_stdin()
 
     tests_dir = directory / 'tests'
     if not tests_dir.is_dir():
@@ -84,4 +84,5 @@ def find_test_to_run(directory, test, file, sample):
     if input_file is None:
         click.secho(f'Could not find tests with names {", ".join(test_names)} in directory {format_file(tests_dir)}',
                     fg='red', err=True)
-    return input_file
+        return None
+    return Test.from_file(None, input_file, None)

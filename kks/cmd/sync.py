@@ -5,50 +5,8 @@ from os import environ
 import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
-from kks.util import get_valid_session, load_links, find_workspace, get_task_dir, write_contests
-
-
-class Choice2(click.Choice):
-    """ for nice help message """
-    def get_metavar(self, param):
-        if len(self.choices) == 1:
-            return self.choices[0]
-        return "[{}]".format("|".join(self.choices))
-
-
-# classes to create a flag with optional value, see https://stackoverflow.com/a/44144098
-# click 8.0 should support something like this (https://github.com/pallets/click/issues/549)
-class FlagOption(click.Option):
-    """ Mark this option as getting a _opt option """
-    is_optflag = True
-
-
-class OptFlagOption(click.Option):
-    """ Fix the help for the _opt suffix """
-    def get_help_record(self, ctx):
-        help = super().get_help_record(ctx)
-        return (help[0].replace('_opt ', '='),) + help[1:]
-
-    def get_error_hint(self, ctx):
-        hint = super().get_error_hint(ctx)
-        return hint.replace('_opt', '')
-
-
-class OptFlagCommand(click.Command):
-    """ Command with support for flags with values """
-    def parse_args(self, ctx, args):
-        """ Translate any flag= to flag_opt= as needed """
-        options = [o for o in ctx.command.params
-                   if getattr(o, 'is_optflag', None)]
-        prefixes = {p for p in sum([o.opts for o in options], [])
-                    if p.startswith('--')}
-        for i, a in enumerate(args):
-            a = a.split('=')
-            if a[0] in prefixes and len(a) > 1:
-                a[0] += '_opt'
-                args[i] = '='.join(a)
-
-        return super().parse_args(ctx, args)
+from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
+from kks.util.common import find_workspace, get_valid_session, load_links, get_task_dir, write_contests
 
 
 def save_needed(submissions, sub_dir, session, full_sync):
@@ -133,7 +91,7 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
         save_needed(problem_subs, sub_dir, session, full_sync)
 
 
-@click.command(cls=OptFlagCommand)
+@click.command(short_help='Parse problems from ejudge', cls=OptFlagCommand)
 @click.option('--code', cls=FlagOption, is_flag=True,
               help='Download latest submitted solutions')
 @click.option('--code_opt', cls=OptFlagOption, type=Choice2(['all']),
@@ -142,7 +100,8 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
               help='Force sync existing tasks')
 @click.argument('filters', nargs=-1)
 def sync(code, code_opt, force, filters):
-    """Parse problems from ejudge
+    """
+    Parse problems from ejudge
 
     If any FILTERS are specified, sync only tasks with matching prefixes/names
     """

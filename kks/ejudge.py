@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString
 
-from kks.h2t import HTML2Text
+from kks.util.h2t import HTML2Text
 
 CONTEST_ID_BY_GROUP = {
     int('19' + str(i)): 130 + i
@@ -343,7 +343,7 @@ def to_task_score(task_name, cell):
     status = Status.REVIEW if 'cell_attr_pr' in cell['class'] \
         else Status.REJECTED if 'cell_attr_rj' in cell['class'] \
         else Status.TESTING if 'cell_attr_tr' in cell['class'] \
-        else Status.PARTIAL if score == '0'\
+        else Status.PARTIAL if score == '0' \
         else Status.OK if score is not None \
         else Status.NOT_SUBMITTED
 

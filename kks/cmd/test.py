@@ -1,32 +1,40 @@
 from pathlib import Path
 
 import click
+from tqdm import tqdm
 
-from kks.binary import compile_solution
-from kks.testing import Generator, Checker
-from kks.util import get_solution_directory, find_test_output, format_file, test_number_to_name, find_test_pairs
+from kks.binary import compile_solution, run_solution
+from kks.util.testing import TestSource, VirtualTestSequence, RunOptions, Test
+from kks.util.common import get_solution_directory, format_file, find_test_output, test_number_to_name, \
+    find_test_pairs, print_diff
 
 
-@click.command(short_help='Test solutions')
-@click.option('-s', '--sample', is_flag=True,
-              help='Test only sample')
+@click.command(name='test', short_help='Test solutions')
 @click.option('-t', '--test', 'tests', type=int, multiple=True,
               help='Test numbers to run (multiple are allowed)')
 @click.option('-r', '--range', 'test_range', type=int, nargs=2,
               help='Tests to run')
 @click.option('-f', '--file', 'files', type=click.Path(), multiple=True,
               help='Test files')
-@click.option('-c', '--continue', 'cont', is_flag=True,
+@click.option('-s', '--sample', is_flag=True,
+              help='Test only sample')
+@click.option('-c', '--continue', 'continue_on_error', is_flag=True,
               help='Continue running after error')
-@click.option('-vg', '--valgrind', is_flag=True,
-              help='Use valgrind')
-@click.option('-vt', '--virtual', is_flag=True,
+@click.option('-i', '--ignore-exit-code', is_flag=True,
+              help='Dont fail on non-zero exit code')
+@click.option('--asan/--no-asan', is_flag=True, default=True,
+              help='Use asan (true by default)')
+@click.option('-g', '-vg', '--valgrind', is_flag=True,
+              help='Use valgrind (disables asan)')
+@click.option('-v', '-vt', '--virtual', is_flag=True,
               help='Use virtual tests (generate tests in memory)')
-@click.option('-gen', '--generator', type=click.Path(exists=True),
+@click.option('--generator', type=click.Path(exists=True),
               help='generator for virtual tests (see "kks gen")')
-@click.option('-sol', '--solution', type=click.Path(exists=True),
+@click.option('--solution', type=click.Path(exists=True),
               help='solution for virtual tests')
-def test(tests, test_range, files, sample, cont, valgrind, virtual, generator, solution):
+def test_(tests, test_range, files, sample,
+          continue_on_error, ignore_exit_code, asan, valgrind,
+          virtual, generator, solution):
     """
     Test solution
 
@@ -41,15 +49,28 @@ def test(tests, test_range, files, sample, cont, valgrind, virtual, generator, s
     if directory is None:
         return
 
-    checker = Checker(cont, valgrind)
-    binary = compile_solution(directory)
+    options = RunOptions(
+        continue_on_error=continue_on_error,
+        ignore_exit_code=ignore_exit_code,
+        asan=asan and not valgrind,
+        valgrind=valgrind,
+        is_sample=sample,
+    )
+
+    binary = compile_solution(directory, options)
     if binary is None:
         return
 
-    if virtual:
+    if not virtual:
+        files = [Path(f) for f in files]
+
+        tests = find_tests_to_run(directory, files, tests, test_range, sample)
+        if tests is None:
+            return
+    else:
         generator = Path(generator or directory / 'gen.py')
         solution = Path(solution or directory / 'solve.py')
-        gen = Generator(generator, solution)
+        test_source = TestSource(generator, solution, options.ignore_exit_code)
 
         if test_range:
             l, r = sorted(test_range)
@@ -59,20 +80,14 @@ def test(tests, test_range, files, sample, cont, valgrind, virtual, generator, s
             test_range = range(1, 101)
 
         all_tests = sorted(set(tests) | set(test_range))
-        checker.run_virtual(binary, gen, all_tests)
 
-    else:
-        files = [Path(f) for f in files]
+        tests = VirtualTestSequence(test_source, all_tests)
 
-        tests = find_tests_to_run(directory, files, tests, test_range, sample)
-        if tests is None:
-            return
+    if len(tests) == 0:
+        click.secho('No tests to run!', fg='red')
+        return
 
-        if not tests:
-            click.secho('No tests found!', fg='red')
-            return
-
-        checker.run_tests(binary, tests, sample)
+    run_tests(binary, tests, options)
 
 
 def find_tests_to_run(directory, files, tests, test_range, sample):
@@ -101,7 +116,7 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
             if output_file is None:
                 click.secho(f'No output for test file {format_file(input_file)}', fg='yellow', err=True)
                 continue
-            result.add((input_file, output_file))
+            result.add(Test.from_file(input_file.stem, input_file, output_file))
 
     test_names = None
 
@@ -129,8 +144,66 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
 
         for input_file, output_file in find_test_pairs(tests_dir, test_names):
             if output_file is not None:
-                result.add((input_file, output_file))
+                result.add(Test.from_file(input_file.stem, input_file, output_file))
             else:
                 click.secho(f'Test {format_file(input_file)} has no output', fg='yellow', err=True)
 
-    return sorted(result)
+    return sorted(result, key=lambda test: test.name)
+
+
+def run_tests(binary, tests, options):
+    successful_count = 0
+    ran_count = 0
+
+    t = tqdm(tests, leave=False)
+    for test in t:
+        if options.is_sample:
+            t.clear()
+            input_data = test.read_input()
+            click.secho("Sample input:", bold=True)
+            click.secho(input_data.decode())
+            output_data = test.read_output()
+            click.secho("Sample output:", bold=True)
+            click.secho(output_data.decode())
+
+        t.set_description(f'Running {format_file(test.name)}')
+
+        is_success = run_test(binary, options, test)
+
+        ran_count += 1
+        successful_count += is_success
+
+        if not options.continue_on_error and not is_success:
+            t.close()
+            break
+
+    color = 'red' if ran_count != successful_count else 'green'
+    click.secho(f'Tests passed: {successful_count}/{ran_count}', fg=color, bold=True)
+
+
+def run_test(binary, options, test):
+    process = run_solution(binary, [], options, test)
+
+    if process.returncode != 0 and not options.ignore_exit_code:
+        error_output = process.stderr.decode('utf-8')
+        click.secho(f'RE {test.name}', fg='red', bold=True)
+        click.secho(f'Process exited with code {process.returncode}', fg='red')
+        if error_output:
+            click.secho(error_output)
+        return False
+
+    expected_output = test.read_output()
+    actual_output = process.stdout
+
+    if expected_output != actual_output:
+        click.secho(f'WA {test.name}', fg='red', bold=True)
+        try:
+            expected = expected_output.decode('utf-8')
+            actual = actual_output.decode('utf-8')
+            print_diff(expected, actual, 'expected', 'actual')
+            click.secho()
+        except UnicodeDecodeError:
+            click.secho('Output differs, but cant be decoded as utf-8', fg='red')
+        return False
+
+    return True

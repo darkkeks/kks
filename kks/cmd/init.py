@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from kks.util import find_workspace, get_hidden_dir
+from kks.util.common import find_workspace, get_hidden_dir
 
 
 @click.command()

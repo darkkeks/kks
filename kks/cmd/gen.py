@@ -1,14 +1,16 @@
 from pathlib import Path
 
 import click
+from tqdm import tqdm
 
-from kks.util import get_solution_directory, test_number_to_name, find_test_pairs, get_matching_suffix
-from kks.testing import Generator
+from kks.util.testing import TestSource
+from kks.util.common import get_solution_directory, test_number_to_name, find_test_pairs, get_matching_suffix, \
+    format_file
 
 
 @click.command(short_help='Generate tests')
 @click.option('-o', '--output-only', is_flag=True,
-              help='If specified, only solution will be run. Useful to generate output for manually created tests')
+              help='If specified, only solution will run. Useful to generate output for manually created tests')
 @click.option('-g', '--generator', type=click.Path(exists=True),
               help='Script, used to generate .in files')
 @click.option('-s', '--solution', type=click.Path(exists=True),
@@ -19,17 +21,20 @@ from kks.testing import Generator
               help='Tests to generate')
 @click.option('-f', '--force', is_flag=True,
               help='Overwrite .in files')
+@click.option('-i', '--ignore-exit-code', is_flag=True,
+              help='Dont fail on non-zero exit code')
 @click.argument('gen_args', nargs=-1, type=click.UNPROCESSED)
-def gen(output_only, generator, solution, tests, test_range, force, gen_args):
+def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_code, gen_args):
     """
     Generate tests
 
     \b
     Example usage:
-      kks gen -t 1337
-      kks gen -r 1 100
-      kks gen -t 1 -o
-      kks gen -g gen.py -s solve.py -r 1 50 -f
+      kks gen --test 17
+      kks gen --range 1 100
+      kks gen --test 12 --output-only
+      kks gen --range 1 50 --force
+      kks gen --generator gen.py --solution solve.py
     """
 
     directory = get_solution_directory()
@@ -48,11 +53,21 @@ def gen(output_only, generator, solution, tests, test_range, force, gen_args):
     test_pairs = find_tests_to_gen(directory, tests, test_range)
     test_pairs = sorted(test_pairs)
 
-    Generator(generator, solution).generate_tests(test_pairs, output_only, force, gen_args)
+    test_source = TestSource(generator, solution, ignore_exit_code)
+
+    generate_tests(test_source, test_pairs, output_only, force, gen_args)
 
 
 def find_tests_to_gen(directory, tests, test_range):
-    """Находит существующие тесты"""
+    """
+    Возвращает пары файлов, с которыми будем работать
+
+    В gen можно передать конкретные названия тестов, либо промежуток тестов
+    1) Если не передано ничего - используем [1; 100]
+    2) Объединяем конкретные тесты и отрезок
+    3) Пытаемся найти существующие файлы с нужными названиями
+    4) Если нету, добавляем
+    """
     tests_dir = directory / 'tests'
     tests_dir.mkdir(exist_ok=True)
 
@@ -76,7 +91,7 @@ def find_tests_to_gen(directory, tests, test_range):
 
     result = []
 
-    # Добавляем выходной файл, если его не существует
+    # Существующие файлы (добавляем выходной, если его нету)
     result += [
         (input_file, output_file or output_file_for_input_file(input_file))
         for input_file, output_file in pairs
@@ -90,3 +105,41 @@ def find_tests_to_gen(directory, tests, test_range):
     ]
 
     return result
+
+
+def generate_tests(test_source, test_pairs, output_only, force, gen_args):
+    generated_tests = 0
+    t = tqdm(test_pairs, leave=False)
+    for input_file, output_file in t:
+        if not output_only and input_file.exists() and not force:
+            t.clear()
+            click.secho(f'Input file {format_file(input_file)} '
+                        'already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
+            continue
+
+        if output_only and not input_file.exists():
+            t.clear()
+            click.secho(f'Input file {format_file(input_file)} '
+                        'does not exist, skipping', fg='red', err=True)
+            continue
+
+        if output_file and output_file.exists() and not force:
+            t.clear()
+            click.secho(f'Output file {format_file(output_file)} '
+                        'already exists, skipping. Specify -f to overwrite', fg='yellow', err=True)
+            continue
+
+        t.set_description(f'Generating test {format_file(input_file)}')
+
+        if not output_only:
+            with input_file.open('wb') as f:
+                if test_source.generate_input(input_file.stem, gen_args, stdout=f) is None:
+                    return
+
+        with input_file.open('rb') as f_in, output_file.open('wb') as f_out:
+            if test_source.generate_output(input_file.stem, gen_args, stdin=f_in, stdout=f_out) is None:
+                return
+
+        generated_tests += 1
+
+    click.secho(f'Generated {generated_tests} tests!', fg='green')

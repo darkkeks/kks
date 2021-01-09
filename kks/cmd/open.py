@@ -3,11 +3,11 @@ import webbrowser
 import click
 
 from kks.ejudge import get_contest_url_with_creds
-from kks.util import load_auth_data
+from kks.util.common import load_auth_data
 
 
-@click.command()
-def open():
+@click.command(name='open')
+def open_():
     """Open logged in ejudge session in browser"""
 
     auth_data = load_auth_data()

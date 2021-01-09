@@ -3,7 +3,7 @@ from itertools import groupby
 import click
 
 from kks.ejudge import ejudge_standings
-from kks.util import get_valid_session, load_links
+from kks.util.common import get_valid_session, load_links
 
 ROW_FORMAT = "{:>6}  {:25} {:>7} {:>6}{}"
 PREFIX_LENGTH = sum([6, 2, 25, 1, 7, 1, 6])
@@ -89,6 +89,7 @@ def select_contests(standings, last, contests, all_):
 
 
 def get_default_contest_count(contests, tasks_by_contest):
+    """По ширине терминала пытается определить, сколько колонок можно вывести"""
     (width, _) = click.get_terminal_size()
 
     delimiter_width = len(CONTEST_DELIMITER)

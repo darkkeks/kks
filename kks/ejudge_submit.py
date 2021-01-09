@@ -2,7 +2,7 @@ import click
 from bs4 import BeautifulSoup
 
 from kks.ejudge import Status, ejudge_summary
-from kks.util import prompt_choice
+from kks.util.common import prompt_choice
 
 
 class ProblemPage:

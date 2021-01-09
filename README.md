@@ -2,9 +2,7 @@
 
 Утилита для удобного решения задач курса АКОС.
 
-Если есть вопросы по использованию &mdash; скорее всего это значит, что ответ на эти вопросы должен быть в README.
-Обязательно напишите об этом мне: [@darkkeks](https://t.me/darkkeks).
-Также принимаю любые предложения и запросы фич.
+Фидбек можно писать в issue, либо в телеграм [@darkkeks](https://t.me/darkkeks).
 
 Inspired by
 - [DoomzD/caos-reborn](https://github.com/DoomzD/caos-reborn)
@@ -15,22 +13,30 @@ Inspired by
 
 ### Из PyPi
 
-```shell script
+```shell
 pip3 install kokos 
-# or to update
-pip3 install --upgrade kokos 
 ```
 
-Возможно вы увидите варнинг вида
+<details>
+  <summary>Возможные проблемы</summary>
+  
+  - Скрипт не добавлен в `PATH`. При установке будет варнинг такого вида:
 
-```
-WARNING: The script kks is installed in '/home/darkkeks/.local/bin' which is not on PATH.
-Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
-```
+    ```
+    WARNING: The script kks is installed in '/home/darkkeks/.local/bin' which is not on PATH.
+    Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+    ```
 
-Это значит, что скрипт не добавлен в PATH. Чтобы пользоваться им без указания пути, стоит добавить его в PATH, например в `.bashrc` вот так:
-```
-PATH="/home/darkkeks/.local/bin":$PATH
+    Чтобы добавить его в `PATH`, можно дописать подобную строку в `.bashrc`/`.zshrc`:
+    ```shell
+    PATH="/home/darkkeks/.local/bin":"$PATH"
+    ```
+</details>
+
+### Обновление
+
+```shell
+kks update
 ```
 
 ### Из исходников
@@ -43,27 +49,33 @@ pip3 install .
 
 ## Usage
 
-### Про пароль
+<details>
+  <summary>Про пароль</summary>
 
-Для использования не обязательна авторизация в ejudge.
-Сборка, линтер, тестирование и генерация тестов будет работать без авторизации.
+  Для использования не обязательна авторизация в ejudge.
+  Сборка, линтер, тестирование и генерация тестов будет работать без авторизации.
+  
+  Также, у `kks auth` есть флаг `--no-store-password`, который сохранит локально только логин и id контеста, но не пароль.
+  Пароль будет запрашиваться каждый раз, когда сессия протухает.
+  
+  Без этого флага, пароль хранится в **plaintext** в файле `~/.kks/config.ini`.
+</details>
 
-Авторизация используется, чтобы выкачать список задач либо парсить статус из ejudge.
+[comment]: <> (### Демо)
 
-Также, у `kks auth` есть флаг `--no-store-password`, который сохранит локально только логин и id контеста, но не пароль.
-Пароль будет запрашиваться каждый раз, когда сессия протухает.
+[comment]: <> (<!--suppress HtmlDeprecatedAttribute -->)
 
-Без этого флага, пароль хранится в **plaintext** в файле `~/.kks/config.ini`.
+[comment]: <> (<p align="center">)
 
-### Демо
+[comment]: <> (    <a href="https://asciinema.org/a/gurNCntp5t6ocRp2dW8vvWO7v" target="_blank">)
 
-<!--suppress HtmlDeprecatedAttribute -->
-<p align="center">
-    <a href="https://asciinema.org/a/gurNCntp5t6ocRp2dW8vvWO7v" target="_blank">
-        <!--suppress HtmlRequiredAltAttribute -->
-        <img src="https://asciinema.org/a/gurNCntp5t6ocRp2dW8vvWO7v.svg" />
-    </a>
-</p>
+[comment]: <> (        <!--suppress HtmlRequiredAltAttribute -->)
+
+[comment]: <> (        <img src="https://asciinema.org/a/gurNCntp5t6ocRp2dW8vvWO7v.svg" />)
+
+[comment]: <> (    </a>)
+
+[comment]: <> (</p>)
 
 ### TLDR
 
@@ -80,7 +92,7 @@ kks auth --no-store-password
 
 # Parse tasks from ejudge and create directories with template solutions
 kks sync
-# Set max line width for statements (delault 100)
+# Set max line width for statements (default 100)
 MDWIDTH=70 kks sync
 # Sync tasks and (latest) submissions
 kks sync --code
@@ -121,8 +133,10 @@ kks test --sample
 kks test --range 1 10
 kks test --test 15 -test 16
 
-# Submit a solution
-cd sm01/1; kks submit
+# Submit a solution (problem and solution are auto-detected)
+# There will be a confirmation before every submit, to avoid accidental submits
+kks submit
+# Manually specify problem and source file
 kks submit -p sm02-3 ./code/main.c
 
 # Hide contest directory (move to .kks-contests)
@@ -133,30 +147,18 @@ kks unhide sm03 kr01
 
 ## Todo
 - run
-    - [ ] run lint on every build
-    - [x] run with test as input
-    - [ ] valgrind
+    - [ ] fix valgrind issues
 - test
-    - [x] only sample test with arg (-s, for example) and print output
     - [ ] test solve.py
-    - [x] .ans/.dat ?
 - gen
-    - [ ] find gen.sh automatically
     - [ ] support .cpp and .c generator/solution
 - build
     - [ ] configure compiler
-    - [ ] support multiple files
     - [ ] support asm
-- lint
-    - [x] show lint diff
-    - [ ] dry run ?
 - ejudge
-    - [x] top
+    - top
         - [ ] max score
         - [ ] optimistic scoreboard
-        - [x] sort/filter
+        - [ ] sort/filter
 - sync
     - [ ] templates
-    - [x] reload samples for contest/task
-- activate / deactivate tasks ?
-    - [x] hide whole contests
