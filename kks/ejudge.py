@@ -1,3 +1,4 @@
+from copy import copy
 from itertools import groupby
 from urllib.parse import quote as urlquote
 
@@ -165,6 +166,9 @@ class StandingsRow:
 
 
 class Statement:
+
+    keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
+
     def __init__(self, page):
         self.input_data = None
         self.output_data = None
@@ -190,6 +194,18 @@ class Statement:
             next_block = problem_info.find_next('h2')
 
         statement = soup.new_tag('body')
+
+        info = soup.new_tag('table', border=1)
+        info_avail = False
+        for row in problem_info.find_all('tr'):
+            key, value = row.find_all('td')
+            if key.text in Statement.keep_info:
+                info_avail = True
+                info.append(copy(row))
+
+        if info_avail:
+            statement.append(info)
+
         statement_avail = False
         curr = problem_info.next_sibling
         while curr is not next_block:  # next_block can be None, it's OK
@@ -197,9 +213,8 @@ class Statement:
                 curr = curr.next_sibling
                 continue  # skip leading spacing
             statement_avail = True
-            prev = curr
+            statement.append(copy(curr))
             curr = curr.next_sibling
-            statement.append(prev)
 
         if statement_avail:
             html = soup.new_tag('html')
