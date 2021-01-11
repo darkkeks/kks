@@ -145,6 +145,8 @@ class HTML2Text(html2text.HTML2Text):
                 self.headless_table = True
                 self.table_start = False
             self.o("| ")
+            self.preceding_data = " "
+            self.preceding_stressed = False
 # ====================!modified====================
 
         if tag == "tr" and start:
@@ -152,7 +154,7 @@ class HTML2Text(html2text.HTML2Text):
         if tag == "tr" and not start:
 # ====================modified====================
             if self.headless_table:
-                # restore old textlost
+                # restore old textlist
                 tr_textlist = self.outtextlist
                 self.outtextlist = self.main_outtextlist
                 del self.main_outtextlist
