@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from kks.ejudge_submit import submit_solution
-from kks.util.common import get_valid_session, load_links, prompt_choice, find_workspace
+from kks.util.common import get_valid_session, load_links, prompt_choice, find_workspace, get_hidden_dir
 
 
 @click.command(short_help='Submit a solutions')
@@ -47,13 +47,16 @@ def submit(file, problem):
 
 def find_problem_rootdir():
     cwd = Path.cwd().resolve()
-    workspace = find_workspace(cwd)
-    if workspace is None:
+    rootdir = find_workspace(cwd)
+    if rootdir is None:
         return None
-    parts = cwd.relative_to(workspace).parts
+    hidden = get_hidden_dir(rootdir)
+    if cwd.is_relative_to(hidden):
+        rootdir = hidden
+    parts = cwd.relative_to(rootdir).parts
     if len(parts) < 2:
         return None
-    return workspace / parts[0] / parts[1]
+    return rootdir / parts[0] / parts[1]
 
 
 def get_problem_id(rootdir):
