@@ -51,8 +51,11 @@ def find_problem_rootdir():
     if rootdir is None:
         return None
     hidden = get_hidden_dir(rootdir)
-    if cwd.is_relative_to(hidden):
+    try:
+        _ = cwd.relative_to(hidden)
         rootdir = hidden
+    except ValueError:
+        pass
     parts = cwd.relative_to(rootdir).parts
     if len(parts) < 2:
         return None
