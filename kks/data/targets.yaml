@@ -1,0 +1,39 @@
+# This is the default config file, it is used in any subdirectory of the workspace.
+# If this file is deleted, the "default" target will still exist (it exists even outside of the workspace).
+# You can modify the default target (the changes will be applied only in this workspace).
+# Also, you can add/overwrite targets by creating another "targets.yaml" file in your working directory.
+
+__version__: 0
+
+default:
+    files: ["*.c", "*.S", "*.s"]
+
+# You can add more targets (see example below).
+
+# Target names should not contain spaces
+# Allowed settings for a target: files, flags, libs, out, asm64bit (any other will be ignored)
+# files, flags, libs are lists of strings, out is a string, asm64bit is a bool
+
+# TASKNAME is a macro which will be replaced by the short task name.
+# If cwd is a subdirectory of kks-workspace-root/sm12/3, then all occurrences of "TASKNAME" will be replaced by "sm12-3".
+# If cwd is not a subdir of any task directory, this macro will be replaced by "sm00-0"
+
+
+
+# to build a binary for this target, run "kks run -tg example" or "kks test -tg example"
+example:
+
+# compile the binary from main.c and the default file (TASKNAME.c or TASKNAME.S)
+    files: ["main.c", "TASKNAME.*"]
+
+# pass these flags to gcc (you shouldn't specify required libs in this list)
+    flags: ["-DDBG", "-Dtask=TASKNAME", "-fstack-protector"]
+
+# additional lib requirements
+    libs: [pthread]
+
+# name of the binary
+    out: example-main
+
+# use 64-bit mode for asm files (by default is false -- if any of the source files has a ".S" or ".s" suffix, then "-m32" is used)
+    asm64bit: true

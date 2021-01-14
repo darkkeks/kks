@@ -281,3 +281,20 @@ def get_contest_dir(workspace, contest):
 
 def get_task_dir(workspace, contest, number):
     return get_contest_dir(workspace, contest) / number
+
+
+def find_problem_rootdir():
+    cwd = Path.cwd().resolve()
+    rootdir = find_workspace(cwd)
+    if rootdir is None:
+        return None
+    hidden = get_hidden_dir(rootdir)
+    try:
+        _ = cwd.relative_to(hidden)
+        rootdir = hidden
+    except ValueError:
+        pass
+    parts = cwd.relative_to(rootdir).parts
+    if len(parts) < 2:
+        return None
+    return rootdir / parts[0] / parts[1]

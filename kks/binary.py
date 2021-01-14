@@ -1,9 +1,14 @@
 import os
 import subprocess
 import sys
+from itertools import chain
 
 import click
 
+from kks.util.config import find_target
+
+
+# TODO move args to config
 GCC_ARGS = [
     'gcc',
     '-std=gnu11',
@@ -45,16 +50,23 @@ VALGRIND_ARGS = [
 ]
 
 
-def compile_solution(directory, options):
-    c_files = list(directory.glob('*.c'))
+def compile_solution(directory, target_name, options):
+    target = find_target(target_name)
+    if target is None:
+        click.secho(f'No target {target_name} found', fg='red', err=True)
+        return None
 
-    if len(c_files) == 0:
-        click.secho('No .c files found', fg='yellow', err=True)
+    # seems like gcc can compile c and asm files together
+    # TODO may need to change compilation process if asm files are found
+    source_files = list(chain(*[directory.glob(f) for f in target.files]))
+
+    if len(source_files) == 0:
+        click.secho('No source files found', fg='yellow', err=True)
         return None
 
     click.secho('Compiling... ', fg='green', err=True, nl=False)
 
-    binary = compile_c(directory, c_files, options)
+    binary = compile_c(directory, source_files, target, options)
 
     if binary is None:
         click.secho('Compilation failed!', fg='red', err=True)
@@ -66,29 +78,34 @@ def compile_solution(directory, options):
     return binary
 
 
-def compile_c(workdir, files, options):
-    return compile_gnu(workdir, files, options, list(GCC_ARGS))
+def compile_c(workdir, files, target, options):
+    compiler_args = GCC_ARGS + target.flags
+    if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
+        compiler_args.append('-m32')
+    return compile_gnu(workdir, files, options, compiler_args, [f'-l{lib}' for lib in target.libs], target.out)
 
 
 def compile_cpp(workdir, files, options):
-    return compile_gnu(workdir, files, options, list(GPP_ARGS))
+    return compile_gnu(workdir, files, options, GPP_ARGS)
 
 
-def compile_gnu(workdir, files, options, compiler_args):
+def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file=''):
     filenames = [path.absolute() for path in files]
 
     command = compiler_args
     if options.asan:
         command += ASAN_ARGS
+    if out_file:
+        command += ['-o', (workdir / out_file).absolute()]
     command += filenames
-    command += LINK_ARGS
+    command += LINK_ARGS + linker_args
 
     p = subprocess.run(command, cwd=workdir)
 
     if p.returncode != 0:
         return None
 
-    return workdir / 'a.out'
+    return workdir / (out_file or 'a.out')
 
 
 def run_solution(binary, args, options, test_data, capture_output=True):

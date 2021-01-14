@@ -11,6 +11,8 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
 
 
 @click.command(name='test', short_help='Test solutions')
+@click.option('-tg', '--target', default='default',
+              help='Target name to build')
 @click.option('-t', '--test', 'tests', type=int, multiple=True,
               help='Test numbers to run (multiple are allowed)')
 @click.option('-r', '--range', 'test_range', type=int, nargs=2,
@@ -33,7 +35,7 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
               help='generator for virtual tests (see "kks gen")')
 @click.option('--solution', type=click.Path(exists=True),
               help='solution for virtual tests')
-def test_(tests, test_range, files, sample,
+def test_(target, tests, test_range, files, sample,
           continue_on_error, ignore_exit_code, asan, valgrind,
           virtual, generator, solution):
     """
@@ -58,7 +60,7 @@ def test_(tests, test_range, files, sample,
         is_sample=sample,
     )
 
-    binary = compile_solution(directory, options)
+    binary = compile_solution(directory, target, options)
     if binary is None:
         return
 
