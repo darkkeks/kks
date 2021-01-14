@@ -137,11 +137,11 @@ def sync(code, code_opt, force, filters):
     new_problems = 0
 
     for problem in problems:
+        contest, number = problem.short_name.split('-')
+        contests.add(contest)
         if filters and not any(problem.short_name.startswith(f) for f in filters):
             continue
         total_problems += 1
-        contest, number = problem.short_name.split('-')
-        contests.add(contest)
         if contest in bad_contests:
             continue
         task_dir = get_task_dir(workspace, contest, number)
