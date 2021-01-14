@@ -9,18 +9,25 @@ from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_valid_session, load_links, get_task_dir, write_contests
 
 
-def save_needed(submissions, sub_dir, session, full_sync):
+def source_suf(problem):
+    pref = problem.name.split('/', 1)[0]
+    if pref == 'asm':
+        return '.S'
+    return '.c'
+
+
+def save_needed(problem, submissions, sub_dir, session, full_sync):
     def prefix(submission):
         return f'{submission.id:05d}'
 
     def format_stem(submission):
         return f'{prefix(submission)}-{submission.short_status()}'
 
-    def get_extension(resp):
+    def get_extension(problem, resp):
         mimetype, _ = parse_header(resp.headers.get('Content-Type', ''))
         mimetype = mimetype.lower()
         if mimetype == 'text/plain':
-            return '.c'
+            return source_suf(problem)
         elif mimetype == 'application/x-gzip':
             return '.gz'
         else:
@@ -66,7 +73,7 @@ def save_needed(submissions, sub_dir, session, full_sync):
 
         resp = session.get(sub.source)
 
-        file = file.with_suffix(get_extension(resp))
+        file = file.with_suffix(get_extension(problem, resp))
 
         source = resp.content
         if sub.status in [Status.PARTIAL, Status.REJECTED]:
@@ -88,7 +95,7 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
         sub_dir.mkdir(parents=True, exist_ok=True)
     problem_subs = submissions.get(problem.short_name, [])
     if problem_subs:
-        save_needed(problem_subs, sub_dir, session, full_sync)
+        save_needed(problem, problem_subs, sub_dir, session, full_sync)
 
 
 @click.command(short_help='Parse problems from ejudge', cls=OptFlagCommand)
@@ -174,7 +181,7 @@ def sync(code, code_opt, force, filters):
 
         new_problems += 1
 
-        main = task_dir / f'{problem.short_name}.c'
+        main = (task_dir / problem.short_name).with_suffix(source_suf(problem))
         main.touch()
 
         gen = task_dir / 'gen.py'
