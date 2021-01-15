@@ -68,7 +68,7 @@ def get_problem_id(rootdir):
 
 def find_solution():
     cwd = Path.cwd().resolve()
-    source_files = list(cwd.glob('*.c')) + list(cwd.glob('*.h'))
+    source_files = list(cwd.glob('*.[chSs]'))
     if len(source_files) == 0:
         click.secho('No source files found', fg='red', err=True)
         return None
