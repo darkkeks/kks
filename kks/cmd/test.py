@@ -28,7 +28,7 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
 @click.option('-i', '--ignore-exit-code', is_flag=True,
               help='Dont fail on non-zero exit code')
 @click.option('--asan/--no-asan', is_flag=True, default=True,
-              help='Use asan (true by default)')  # NOTE see kks run
+              help='Use asan (true by default)')
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
 @click.option('-vt', '--virtual', is_flag=True,

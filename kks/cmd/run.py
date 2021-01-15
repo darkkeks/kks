@@ -13,7 +13,7 @@ from kks.util.common import get_solution_directory, find_test_pairs, format_file
 @click.option('-v', '--verbose', is_flag=True,
               help='Verbose mode (show used gcc args)')
 @click.option('--asan/--no-asan', is_flag=True, default=True,
-              help='Use asan (true by default)')  # NOTE may conflict with config, need to check priority
+              help='Use asan (true by default)')  # if there are asan flags for the elected target and '--no-asan' is used, then only flags from the config will be used
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
 @click.option('-s', '--sample', is_flag=True,

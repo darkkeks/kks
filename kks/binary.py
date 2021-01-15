@@ -8,17 +8,6 @@ import click
 from kks.util.config import find_target
 
 
-# TODO move args to config
-GCC_ARGS = [
-    'gcc',
-    '-std=gnu11',
-    '-g',
-    '-Werror',
-    '-Wall',
-    '-Wextra',
-    '-ftrapv',                    # catch signed overflow on addition, subtraction, multiplication operations
-]
-
 GPP_ARGS = [
     'g++',
     '-std=gnu++17',
@@ -40,10 +29,6 @@ ASAN_ENV = {
     'ASAN_OPTIONS': 'color=always',
 }
 
-LINK_ARGS = [
-    '-lm',
-]
-
 VALGRIND_ARGS = [
     'valgrind',
     '--leak-check=full',
@@ -56,8 +41,10 @@ def compile_solution(directory, target_name, verbose, options):
         click.secho(f'No target {target_name} found', fg='red', err=True)
         return None
 
-    # seems like gcc can compile c and asm files together
-    # TODO may need to change compilation process if asm files are found
+    if verbose:
+        click.secho(f'Selected target: {target}')
+
+    # gcc can compile c and asm files together, so everything should be ok
     source_files = list(chain(*[directory.glob(f) for f in target.files]))
 
     if len(source_files) == 0:
@@ -79,7 +66,7 @@ def compile_solution(directory, target_name, verbose, options):
 
 
 def compile_c(workdir, files, target, verbose, options):
-    compiler_args = GCC_ARGS + target.flags
+    compiler_args = ['gcc'] + target.flags
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
         compiler_args.append('-m32')
     return compile_gnu(workdir, files, options, compiler_args, linker_args=[f'-l{lib}' for lib in target.libs], out_file=target.out, verbose=verbose)
@@ -98,7 +85,7 @@ def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file
     if out_file:
         command += ['-o', (workdir / out_file).absolute()]
     command += filenames
-    command += LINK_ARGS + linker_args
+    command += linker_args
 
     if verbose:
         click.secho('\nExecuting "{}"'.format(' '.join(map(str, command))))
