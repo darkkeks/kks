@@ -50,7 +50,7 @@ VALGRIND_ARGS = [
 ]
 
 
-def compile_solution(directory, target_name, options):
+def compile_solution(directory, target_name, verbose, options):
     target = find_target(target_name)
     if target is None:
         click.secho(f'No target {target_name} found', fg='red', err=True)
@@ -66,7 +66,7 @@ def compile_solution(directory, target_name, options):
 
     click.secho('Compiling... ', fg='green', err=True, nl=False)
 
-    binary = compile_c(directory, source_files, target, options)
+    binary = compile_c(directory, source_files, target, verbose, options)
 
     if binary is None:
         click.secho('Compilation failed!', fg='red', err=True)
@@ -78,18 +78,18 @@ def compile_solution(directory, target_name, options):
     return binary
 
 
-def compile_c(workdir, files, target, options):
+def compile_c(workdir, files, target, verbose, options):
     compiler_args = GCC_ARGS + target.flags
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
         compiler_args.append('-m32')
-    return compile_gnu(workdir, files, options, compiler_args, [f'-l{lib}' for lib in target.libs], target.out)
+    return compile_gnu(workdir, files, options, compiler_args, linker_args=[f'-l{lib}' for lib in target.libs], out_file=target.out, verbose=verbose)
 
 
 def compile_cpp(workdir, files, options):
     return compile_gnu(workdir, files, options, GPP_ARGS)
 
 
-def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file=''):
+def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file='', verbose=False):
     filenames = [path.absolute() for path in files]
 
     command = compiler_args
@@ -99,6 +99,9 @@ def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file
         command += ['-o', (workdir / out_file).absolute()]
     command += filenames
     command += LINK_ARGS + linker_args
+
+    if verbose:
+        click.secho('\nExecuting "{}"'.format(' '.join(map(str, command))))
 
     p = subprocess.run(command, cwd=workdir)
 

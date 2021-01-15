@@ -13,6 +13,8 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
 @click.command(name='test', short_help='Test solutions')
 @click.option('-tg', '--target', default='default',
               help='Target name to build')
+@click.option('-v', '--verbose', is_flag=True,
+              help='Verbose mode (show used gcc args)')
 @click.option('-t', '--test', 'tests', type=int, multiple=True,
               help='Test numbers to run (multiple are allowed)')
 @click.option('-r', '--range', 'test_range', type=int, nargs=2,
@@ -26,16 +28,16 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
 @click.option('-i', '--ignore-exit-code', is_flag=True,
               help='Dont fail on non-zero exit code')
 @click.option('--asan/--no-asan', is_flag=True, default=True,
-              help='Use asan (true by default)')
+              help='Use asan (true by default)')  # NOTE see kks run
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
-@click.option('-v', '-vt', '--virtual', is_flag=True,
+@click.option('-vt', '--virtual', is_flag=True,
               help='Use virtual tests (generate tests in memory)')
 @click.option('--generator', type=click.Path(exists=True),
               help='generator for virtual tests (see "kks gen")')
 @click.option('--solution', type=click.Path(exists=True),
               help='solution for virtual tests')
-def test_(target, tests, test_range, files, sample,
+def test_(target, verbose, tests, test_range, files, sample,
           continue_on_error, ignore_exit_code, asan, valgrind,
           virtual, generator, solution):
     """
@@ -60,7 +62,7 @@ def test_(target, tests, test_range, files, sample,
         is_sample=sample,
     )
 
-    binary = compile_solution(directory, target, options)
+    binary = compile_solution(directory, target, verbose, options)
     if binary is None:
         return
 
