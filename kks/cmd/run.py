@@ -8,8 +8,12 @@ from kks.util.common import get_solution_directory, find_test_pairs, format_file
 
 
 @click.command(short_help='Run solution')
+@click.option('-T', '-tg', '--target', default='default',
+              help='Target name to build')
+@click.option('-v', '--verbose', is_flag=True,
+              help='Verbose mode (show used gcc args)')
 @click.option('--asan/--no-asan', is_flag=True, default=True,
-              help='Use asan (true by default)')
+              help='Use asan (true by default)')  # if there are asan flags for the selected target and '--no-asan' is used, then only flags from the config will be used
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
 @click.option('-s', '--sample', is_flag=True,
@@ -19,7 +23,7 @@ from kks.util.common import get_solution_directory, find_test_pairs, format_file
 @click.option('-f', '--file', 'file', type=click.Path(exists=True),
               help='File to use as an input')
 @click.argument('run_args', nargs=-1, type=click.UNPROCESSED)
-def run(asan, valgrind, sample, test, file, run_args):
+def run(asan, valgrind, sample, test, file, target, verbose, run_args):
     """Run solution
 
     \b
@@ -41,7 +45,7 @@ def run(asan, valgrind, sample, test, file, run_args):
         valgrind=valgrind,
     )
 
-    binary = compile_solution(directory, options)
+    binary = compile_solution(directory, target, verbose, options)
     if binary is None:
         return
 

@@ -159,7 +159,7 @@ def sync(code, code_opt, force, filters):
                         fg='red', err=True)
             bad_contests.add(contest)
             continue
-               
+
         if not task_dir.exists():
             click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
             task_dir.mkdir(parents=True, exist_ok=True)
@@ -185,7 +185,7 @@ def sync(code, code_opt, force, filters):
         main.touch()
 
         gen = task_dir / 'gen.py'
-        
+
         if not gen.exists():
             with gen.open('w') as file:
                 file.write('import sys\n'

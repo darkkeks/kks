@@ -10,7 +10,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Vyacheslav Boben',
     url='https://github.com/DarkKeks/kks',
-    version='1.6.9',
+    version='1.7.0',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -21,6 +21,7 @@ setup(
         'tqdm',
         'beautifulsoup4',
         'html2text==2020.1.16',
+        'pyyaml'
     ],
     entry_points='''
         [console_scripts]

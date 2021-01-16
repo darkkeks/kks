@@ -1,0 +1,39 @@
+__version__: KKS_TARGETS_VERSION  # You shouldn't modify the version
+
+
+default:
+    files: ['*.c', '*.S', '*.s']
+    flags:
+      - '-std=gnu11'
+      - '-g'
+      - '-Werror'
+      - '-Wall'
+      - '-Wextra'
+      - '-ftrapv'  # catch signed overflow on addition, subtraction, multiplication operations
+
+    libs: [m]  # math lib
+    asm64bit: false
+    out: ''  # same as "a.out"
+
+
+# You can add more targets (see example below).
+
+# Allowed settings for a target: files, flags, libs, out, asm64bit (any other will be ignored)
+# files, flags, libs are lists of strings, out is a string, asm64bit is a bool
+
+# TASKNAME is a macro which will be replaced by the short task name.
+# If cwd is a subdirectory of kks-workspace-root/sm12/3, then all occurrences of "TASKNAME" will be replaced by "sm12-3".
+# If cwd is not a subdir of any task directory, this macro will be replaced by "sm00-0"
+
+# DEFAULT is a macro that can be used in lists (useful if you only want to expand the default list).
+# If DEFAULT is the first item of a list, it will be replaced by the values from the list in "default" target.
+# If it is not the first item (or is a substring of the first item), it will not be expanded
+
+
+# to build a binary for this target, run "kks run -tg example" or "kks test -tg example"
+example:
+    files: ['main.c', 'TASKNAME.*']  # use main.c and the default solution file (TASKNAME.c or TASKNAME.S)
+    flags: [DEFAULT, '-DDBG', '-Dtask=TASKNAME', '-fstack-protector']  # pass these flags to gcc (you shouldn't specify libs in this list)
+    libs: [DEFAULT, pthread]  # will become [m, pthread] if "libs" in "default" target is [m]
+    asm64bit: true  # use 64-bit mode for asm files (default is false -- if any of the source files has a ".S" or ".s" suffix, then "-m32" flag is added)
+    out: example-main
