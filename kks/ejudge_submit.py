@@ -1,5 +1,4 @@
 import click
-from bs4 import BeautifulSoup
 
 from kks.ejudge import Status, ejudge_summary
 from kks.util.common import prompt_choice
@@ -37,6 +36,8 @@ def may_resubmit(runs):
 
 
 def _get_problem_data(links, session, prob_id):
+    from bs4 import BeautifulSoup
+
     problems = ejudge_summary(links, session)
     if problems is None:
         return None, 'Auth error'
