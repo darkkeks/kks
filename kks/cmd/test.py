@@ -11,7 +11,7 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
 
 
 @click.command(name='test', short_help='Test solutions')
-@click.option('-tg', '--target', default='default',
+@click.option('-T', '-tg', '--target', default='default',
               help='Target name to build')
 @click.option('-v', '--verbose', is_flag=True,
               help='Verbose mode (show used gcc args)')
@@ -31,7 +31,7 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
               help='Use asan (true by default)')
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
-@click.option('-vt', '--virtual', is_flag=True,
+@click.option('-V', '-vt', '--virtual', is_flag=True,
               help='Use virtual tests (generate tests in memory)')
 @click.option('--generator', type=click.Path(exists=True),
               help='generator for virtual tests (see "kks gen")')

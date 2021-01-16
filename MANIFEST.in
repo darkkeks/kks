@@ -1,1 +1,1 @@
-include kks/data/targets.cfg
+include kks/data/targets.yaml

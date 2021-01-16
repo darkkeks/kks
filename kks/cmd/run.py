@@ -8,12 +8,12 @@ from kks.util.common import get_solution_directory, find_test_pairs, format_file
 
 
 @click.command(short_help='Run solution')
-@click.option('-tg', '--target', default='default',
+@click.option('-T', '-tg', '--target', default='default',
               help='Target name to build')
 @click.option('-v', '--verbose', is_flag=True,
               help='Verbose mode (show used gcc args)')
 @click.option('--asan/--no-asan', is_flag=True, default=True,
-              help='Use asan (true by default)')  # if there are asan flags for the elected target and '--no-asan' is used, then only flags from the config will be used
+              help='Use asan (true by default)')  # if there are asan flags for the selected target and '--no-asan' is used, then only flags from the config will be used
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
 @click.option('-s', '--sample', is_flag=True,

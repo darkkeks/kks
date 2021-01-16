@@ -69,7 +69,15 @@ def compile_c(workdir, files, target, verbose, options):
     compiler_args = ['gcc'] + target.flags
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
         compiler_args.append('-m32')
-    return compile_gnu(workdir, files, options, compiler_args, linker_args=[f'-l{lib}' for lib in target.libs], out_file=target.out, verbose=verbose)
+    return compile_gnu(
+            workdir,
+            files,
+            options,
+            compiler_args,
+            linker_args=[f'-l{lib}' for lib in target.libs],
+            out_file=target.out,
+            verbose=verbose
+    )
 
 
 def compile_cpp(workdir, files, options):

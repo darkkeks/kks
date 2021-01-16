@@ -1,13 +1,15 @@
+import re
 from pathlib import Path
-from pkg_resources import resource_stream
 
 import click
 import yaml
 
-from kks.util.common import find_workspace, find_problem_rootdir
+from kks.util.common import find_workspace, find_problem_rootdir, config_directory
 
 
 target_file = 'targets.yaml'
+
+targets_version = 1
 
 global_comment = '# This is the default config file, it is used in any subdirectory of the workspace.\n'\
                  '# You can modify the default target (the changes will be applied only in this workspace).\n'\
@@ -51,7 +53,20 @@ class Target:
         self.asm64bit = self.asm64bit if self.asm64bit is not None else default_target.asm64bit
 
 
-package_cfg = yaml.safe_load(resource_stream('kks', f'data/{target_file}'))
+def _copy_default(dest):
+    from pkg_resources import resource_stream
+    default_cfg = resource_stream('kks', f'data/{target_file}').read()
+    dest.write_bytes(default_cfg.replace(b'KKS_TARGETS_VERSION', str(targets_version).encode(), 1))
+
+
+cfg_file = config_directory() / target_file
+if not cfg_file.exists():
+    _copy_default(cfg_file)
+package_cfg = yaml.safe_load(cfg_file.read_text())
+if package_cfg['__version__'] != targets_version:  # update
+    _copy_default(cfg_file)
+    package_cfg = yaml.safe_load(cfg_file.read_text())
+
 # package_default should have all fields set
 package_default = Target('default', package_cfg['default'])
 
@@ -60,7 +75,6 @@ def check_version(cfg_file, cfg, is_global=False):
     if cfg.get('__version__', package_cfg['__version__']) == package_cfg['__version__']:
         return
 
-    import re
     old_version = cfg['__version__']
     new_version = package_cfg['__version__']
     click.echo(click.style(str(cfg_file.absolute()), fg='blue', bold=True) +
