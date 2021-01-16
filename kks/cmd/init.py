@@ -3,14 +3,36 @@ from pkg_resources import resource_stream
 
 import click
 
+from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_hidden_dir
-from kks.util.config import target_file
+from kks.util.config import target_file, global_comment
 
 
-@click.command()
+@click.command(cls=OptFlagCommand)
 @click.option('-f', '--force', is_flag=True)
-def init(force):
+@click.option('-c', '--config', cls=FlagOption, is_flag=True,
+              help=f'Create {target_file} in CWD and exit')
+@click.option('--config_opt', cls=OptFlagOption, type=Choice2(['update', 'global']),
+              help=f'Create a copy of config for manual updating or create config in the root dir of workspace')  # TODO multiline help?
+def init(force, config, config_opt):
     """Initialize kks workspace in current directory."""
+
+    path = Path()
+    file = path / '.kks-workspace'
+    old_workspace = False
+
+    if config or config_opt:
+        if config_opt == 'global':
+            workspace = find_workspace()
+            if workspace is None:
+                click.secho('CWD is not in a kks workspace. To use "global" option, you need to cd into an existing workspace or run "kks init"', fg='red')
+                return
+            path = workspace
+            is_global = True
+        else:
+            is_global = file.exists()
+        create_config(path, is_global, config_opt == 'update', force)
+        return
 
     if not force:
         workspace = find_workspace()
@@ -18,10 +40,6 @@ def init(force):
             click.secho(f'Found workspace in directory {workspace}\n'
                         f'If you are sure you want to create workspace here, specify --force', fg='yellow')
             return
-
-    path = Path()
-    file = path / '.kks-workspace'
-    old_workspace = False
 
     if file.exists():
         if file.is_file():
@@ -46,17 +64,30 @@ def init(force):
     else:
         hidden.mkdir()
 
-    targets = resource_stream('kks', f'data/{target_file}')
-    workspace_targets = path / target_file
-
-    if workspace_targets.exists():
-        if workspace_targets.is_file():
-            click.secho(f'The file {target_file} already exists', fg='yellow')
-        else:
-            click.secho(f'"{target_file}" exists and is not a file, you will need to replace it to create custom targets', fg='red')
-        workspace_targets = workspace_targets.with_suffix(workspace_targets.suffix + '.default')
-        click.secho(f'Saving default targets to "{workspace_targets.name}"\n', fg='green')
-    workspace_targets.write_bytes(targets.read())
-
     action = 'Updated' if old_workspace else 'Initialized'
     click.secho(f'{action} workspace in directory {path.absolute()}', fg='green', bold=True)
+
+
+def create_config(path, is_global, update, force):
+    file = path / target_file
+    if update:
+        file = file.with_suffix(file.suffix + '.default')
+    else:
+        if file.exists():
+            if not file.is_file():
+                click.secho(f'"{file}" exists and is not a file, you will need to replace it to create custom targets', fg='red')
+                return
+            elif not force:
+                click.secho(f'The file {file} already exists. Use --force to overwrite it or --config=update to create a copy', fg='yellow')
+                return
+
+    data = resource_stream('kks', f'data/{target_file}').read().decode()
+    if is_global:
+        data = global_comment + data
+    file.write_text(data)
+
+    if update:
+        click.secho(f'New default targets are written to {file}, you can merge it with {target_file} manually', fg='green')
+    else:
+        click.secho('Default targets are written to {file}', fg='green')
+        click.secho('The config file is not updated automatically.', bold=True)

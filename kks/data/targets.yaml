@@ -1,9 +1,4 @@
-# This is the default config file, it is used in any subdirectory of the workspace.
-# If this file is deleted, the "default" target will still exist (it exists even outside of the workspace).
-# You can modify the default target (the changes will be applied only in this workspace).
-# Also, you can add/overwrite targets by creating another "targets.yaml" file in your working directory.
-
-__version__: 0  # You shouldn't modify the version
+__version__: 1  # You shouldn't modify the version
 
 
 default:

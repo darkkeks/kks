@@ -9,6 +9,10 @@ from kks.util.common import find_workspace, find_problem_rootdir
 
 target_file = 'targets.yaml'
 
+global_comment = '# This is the default config file, it is used in any subdirectory of the workspace.\n'\
+                 '# You can modify the default target (the changes will be applied only in this workspace).\n'\
+                 '# Also, you can add/overwrite targets by creating another "targets.yaml" file in your working directory.\n'\
+                 '\n'
 
 class Target:
     def __init__(self, name, settings):
@@ -47,8 +51,21 @@ class Target:
         self.asm64bit = self.asm64bit if self.asm64bit is not None else default_target.asm64bit
 
 
+package_cfg = yaml.safe_load(resource_stream('kks', f'data/{target_file}'))
 # package_default should have all fields set
-package_default = Target('default', yaml.safe_load(resource_stream('kks', f'data/{target_file}'))['default'])
+package_default = Target('default', package_cfg['default'])
+
+
+def check_version(cfg_file, cfg, is_global=False):
+    if cfg.get('__version__', package_cfg['__version__']) == package_cfg['__version__']:
+        return
+
+    import re
+    old_version = cfg['__version__']
+    new_version = package_cfg['__version__']
+    click.echo(click.style(str(cfg_file.absolute()), fg='blue', bold=True) +
+               click.style(' is outdated. You can run "kks init --config=update" if you want to update the default target manually (see README on Github)', fg='yellow'))
+    cfg_file.write_text(re.sub(rf'^(__version__: +){old_version}', rf'\g<1>{new_version}', cfg_file.read_text(), 1, re.M))
 
 
 def find_target(name):
@@ -76,13 +93,16 @@ def find_target(name):
     if workspace is not None:
         root_file = workspace / target_file  # we load root config even if we won't need it
         root_cfg = load_config(root_file) if root_file.is_file() else None
-        # TODO check root_cfg
+        if root_cfg is not None:
+            check_version(root_file, root_cfg, True)
     else:
         root_cfg = None
 
     if workspace is None or cwd != workspace:
         local_file = cwd / target_file
         local_cfg = load_config(local_file) if local_file.is_file() else None
+        if local_cfg is not None:
+            check_version(local_file, local_cfg)
     else:
         local_cfg = None
 
