@@ -4,7 +4,6 @@ import pickle
 from pathlib import Path
 
 import click
-import requests
 
 from kks.ejudge import AuthData, ejudge_auth, check_session
 
@@ -37,6 +36,8 @@ def store_session(session):
 
 
 def load_session():
+    import requests
+
     cookies = config_directory() / 'cookies.pickle'
     if not cookies.is_file():
         return None
@@ -88,6 +89,8 @@ def load_links():
 
 
 def get_valid_session():
+    import requests
+
     session = load_session()
 
     if session is not None:

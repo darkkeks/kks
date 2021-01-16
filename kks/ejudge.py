@@ -3,9 +3,9 @@ from itertools import groupby
 from urllib.parse import quote as urlquote
 
 import click
-import requests
-from bs4 import BeautifulSoup
-from bs4.element import NavigableString
+#import requests  # we use lazy imports to improve load time for local commands
+#from bs4 import BeautifulSoup
+#from bs4.element import NavigableString
 
 from kks.util.h2t import HTML2Text
 
@@ -170,6 +170,9 @@ class Statement:
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
 
     def __init__(self, page):
+        from bs4 import BeautifulSoup
+        from bs4.element import NavigableString
+
         self.input_data = None
         self.output_data = None
         self._html = None
@@ -253,6 +256,9 @@ def get_contest_url_with_creds(auth_data):
 
 
 def ejudge_auth(auth_data, session):
+    import requests
+    from bs4 import BeautifulSoup
+
     url = get_contest_url(auth_data)
 
     page = session.post(url, data={
@@ -282,6 +288,8 @@ def ejudge_auth(auth_data, session):
 
 
 def ejudge_summary(links, session):
+    from bs4 import BeautifulSoup
+
     summary = links.get(LinkTypes.SUMMARY, None)
     if summary is None:
         return None
@@ -308,6 +316,8 @@ def ejudge_summary(links, session):
 
 
 def ejudge_standings(links, session):
+    from bs4 import BeautifulSoup
+
     standings = links.get(LinkTypes.USER_STANDINGS, None)
     if standings is None:
         return None, None
@@ -374,6 +384,8 @@ def ejudge_statement(problem_link, session):
 
 
 def ejudge_submissions(links, session):
+    from bs4 import BeautifulSoup
+
     link = links.get(LinkTypes.SUBMISSIONS, None)
     if link is None:
         return []
@@ -392,6 +404,8 @@ def ejudge_submissions(links, session):
 
 
 def ejudge_report(link, session):
+    from bs4 import BeautifulSoup
+
     page = session.get(link)
     soup = BeautifulSoup(page.content, 'html.parser')
     message_table = soup.find('table', {'class': 'message-table'})

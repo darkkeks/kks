@@ -1,5 +1,4 @@
 import click
-import requests
 
 from kks.ejudge import ejudge_auth, AuthData, get_contest_id
 from kks.util.common import store_session, save_auth_data, save_links
@@ -38,6 +37,8 @@ def auth(login, password, group_id, contest_id, store_password):
         if contest_id is None:
             click.secho(f'Invalid group id "{group_id}" (should be between 191 and 1911)', fg='red', err=True)
             return
+
+    import requests
 
     session = requests.session()
     auth_data = AuthData(login, contest_id, password)
