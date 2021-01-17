@@ -13,7 +13,7 @@ CONTEST_DELIMITER = ' | '
 @click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
               help='Print result of last N contest')
-@click.option('-a', '--all', 'all_', is_flag=True, default=False,
+@click.option('-a', '--all', 'all_', is_flag=True,
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Print the results of the selected contest')
@@ -38,6 +38,7 @@ def top(last, contests, all_):
         return
 
     standings = ejudge_standings(links, session)
+
     contests = select_contests(standings, last, contests, all_)
     if contests is None:
         return
@@ -77,11 +78,17 @@ def select_contests(standings, last, contests, all_):
         return standings.contests
 
     if has_contests:
-        for contest in contests:
+        def is_available(contest):
             if contest not in standings.contests:
-                click.secho('Contest ' + click.style(contest, fg='blue', bold=True) + ' not found!', fg='red', err=True)
-                return None
-        return contests
+                click.echo(
+                        click.style('Contest ', fg='red') +
+                        click.style(contest, fg='blue', bold=True) +
+                        click.style(' not found!', fg='red'),
+                        err=True
+                )
+            return contest in standings.contests
+
+        return list(filter(is_available, contests))
 
     last = last or get_default_contest_count(standings.contests, standings.tasks_by_contest)
 
