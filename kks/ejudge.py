@@ -1,4 +1,5 @@
 from copy import copy
+from datetime import datetime, timedelta
 from itertools import groupby
 from urllib.parse import quote as urlquote
 
@@ -173,29 +174,9 @@ class StandingsRow:
 class ProblemInfo:
     """Subset of task info table used for max score estimation"""
 
-    def __init__(self, page):
-        self.full = 0
-        self.penalty = 0
-
-        from bs4 import BeautifulSoup
-
-        soup = BeautifulSoup(page.content, 'html.parser')
-        task_area = soup.find('div', {'id': 'probNavTaskArea'})
-
-        problem_info = task_area.find('table', {'class': 'line-table-wb'})
-        if problem_info is None:
-            # may happen in kr contests?
-            return
-
-        # TODO "Full score" can be missing (sm01-3)
-        # in this case we should use max score from the table
-        # can penalty be missing too? If yes, we should also parse deadlines
-        for row in problem_info.find_all('tr'):
-            key, value = row.find_all('td')
-            if key.text == 'Full score:':
-                self.full = int(value.text)
-            elif key.text == 'Current penalty:':
-                self.penalty = int(value.text)
+    def __init__(self, full, penalty):
+        self.full = full
+        self.penalty = penalty
 
 
 class Statement:
@@ -447,10 +428,73 @@ def ejudge_report(link, session):
     return Report(comments, tests)
 
 
-def get_problem_info(link, session):
-    page = session.get(link)
-    return ProblemInfo(page)
+def get_problem_info(problem, cache, session):
+    from bs4 import BeautifulSoup
 
+    # TODO
+    # - Should max_score be set to 0 after the hard deadline?
+    # - Can there be multiple soft deadlines?
+
+    # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
+
+    need_loading = False
+
+    full_scores = cache.get('full', {})
+    full = full_scores.get(problem.short_name)
+    if full is None:  # new problem
+        need_loading = True
+
+    penalty_key = f'p_{problem.contest}'
+    penalty = cache.get(penalty_key)
+    if penalty is None:
+        need_loading = True
+
+    if not need_loading:
+        return ProblemInfo(full, penalty)
+
+    def update_cache(full, penalty, soft):
+        full_scores[problem.short_name] = full
+        cache.set('full', full_scores)
+        if penalty >= full and penalty != 0:
+            expiration = None
+            # max_score will not change
+            # NOTE may need patching for kr contests
+        else:
+            if soft is not None:
+                expiration = soft
+            else:
+                expiration = timedelta(hours=23, minutes=55)
+                # What is the minimal timeframe between a deadline and its first appearance in info?
+                #   ( = can the expiration time be increased?)
+        cache.set(penalty_key, penalty, expiration)
+        return ProblemInfo(full, penalty)
+
+    page = session.get(problem.href)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    task_area = soup.find('div', {'id': 'probNavTaskArea'})
+    problem_info = task_area.find('table', {'class': 'line-table-wb'})
+
+    full = 0
+    penalty = 0
+    soft = None
+
+    if problem_info is None:
+        # may happen in kr contests?
+        return update_cache(full, penalty, None)
+
+    # TODO "Full score" can be missing (sm01-3)
+    # in this case we should use max score from the table as full
+    # If the penalty can be missing too, we should also parse hard deadlines
+    for row in problem_info.find_all('tr'):
+        key, value = row.find_all('td')
+        if key.text == 'Full score:':
+            full = int(value.text)
+        elif key.text == 'Current penalty:':
+            penalty = int(value.text)
+        elif key.text == 'Next soft deadline:':
+            soft = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+
+    return update_cache(full, penalty, soft)
 
 
 def check_session(links, session):
