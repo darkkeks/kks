@@ -2,7 +2,7 @@ from itertools import groupby
 
 import click
 
-from kks.ejudge import ejudge_standings
+from kks.ejudge import ejudge_standings, ejudge_summary, get_problem_info, Status
 from kks.util.common import get_valid_session, load_links
 
 ROW_FORMAT = "{:>6}  {:25} {:>7} {:>6}{}"
@@ -17,7 +17,9 @@ CONTEST_DELIMITER = ' | '
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Print the results of the selected contest')
-def top(last, contests, all_):
+@click.option('-m', '--max',  'max_', is_flag=True,
+              help='Print maximal possible scores (based on current deadlines)')
+def top(last, contests, all_, max_):
     """
     Parse and display user standings
 
@@ -39,6 +41,9 @@ def top(last, contests, all_):
 
     standings = ejudge_standings(links, session)
 
+    if max_:
+        standings = estimate_max(standings, links, session)
+
     contests = select_contests(standings, last, contests, all_)
     if contests is None:
         return
@@ -55,7 +60,7 @@ def top(last, contests, all_):
     for row in standings.rows:
         tasks = ''.join([
             click.style(CONTEST_DELIMITER, fg=row.color(), bold=row.bold()) + ' '.join([
-                click.style('{:>3}'.format(task.score or ''), fg=task.color(), bold=task.bold())
+                click.style('{:>3}'.format(task.table_score() or ''), fg=task.color(), bold=task.bold())
                 for task in tasks
             ])
             for contest, tasks in groupby(row.tasks, lambda task: task.contest)
@@ -116,3 +121,36 @@ def get_contest_widths(contests, tasks_by_contest):
         contest: len('100') * len(tasks_by_contest[contest]) + len(tasks_by_contest[contest]) - 1
         for contest in contests
     }
+
+
+def estimate_max(standings, links, session):
+    # TODO the current implementation considers only the "Current penalty" field
+    # - What happens after the hard deadline? 0 or 20 points? If 20, is it max or min?
+    # - Can there be multiple soft deadlines?
+    # - Is it useful to parse the penalty formula?
+    # - START DATE CAN BE CHANGED
+
+    # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
+    standings.rows = list(standings.rows)
+
+    problems = [get_problem_info(problem.href, session) for problem in ejudge_summary(links, session)]
+    # TODO implement caching (loading everything is too slow - 12s on 42 tasks)
+    # store known full scores and deadlines
+    # load deadlines/penalties once for each contest
+    # (resync cached deadlines once per day?)
+
+    for row in standings.rows:
+        for task_score, problem in zip(row.tasks, problems):
+            if not task_score.score:  # may be (empty string?) or None
+                max_score = problem.full - problem.penalty
+                if max_score > 0:
+                    row.solved += 1
+                    row.score += max_score
+                    task_score.score = max_score
+                    task_score.status = Status.REVIEW
+
+    standings.rows.sort(key=lambda x: (x.score, x.solved), reverse=True)
+    for i, row in enumerate(standings.rows):
+        row.place = i + 1
+
+    return standings

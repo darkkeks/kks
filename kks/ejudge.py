@@ -135,6 +135,11 @@ class TaskScore:
     def bold(self):
         return self.status == Status.OK
 
+    def table_score(self):
+        if self.status == Status.TESTING and self.score is None:
+            return '??'
+        return self.score
+
 
 class Standings:
     def __init__(self, task_names, rows):
@@ -163,6 +168,34 @@ class StandingsRow:
 
     def bold(self):
         return self.is_self
+
+
+class ProblemInfo:
+    """Subset of task info table used for max score estimation"""
+
+    def __init__(self, page):
+        self.full = 0
+        self.penalty = 0
+
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(page.content, 'html.parser')
+        task_area = soup.find('div', {'id': 'probNavTaskArea'})
+
+        problem_info = task_area.find('table', {'class': 'line-table-wb'})
+        if problem_info is None:
+            # may happen in kr contests?
+            return
+
+        # TODO "Full score" can be missing (sm01-3)
+        # in this case we should use max score from the table
+        # can penalty be missing too? If yes, we should also parse deadlines
+        for row in problem_info.find_all('tr'):
+            key, value = row.find_all('td')
+            if key.text == 'Full score:':
+                self.full = int(value.text)
+            elif key.text == 'Current penalty:':
+                self.penalty = int(value.text)
 
 
 class Statement:
@@ -372,9 +405,6 @@ def to_task_score(task_name, cell):
         else Status.OK if score is not None \
         else Status.NOT_SUBMITTED
 
-    if status == Status.TESTING and score is None:
-        score = '??'
-
     return TaskScore(extract_contest_name(task_name), task_name, score, status)
 
 
@@ -415,6 +445,12 @@ def ejudge_report(link, session):
         comments = []
     tests = soup.find('table', {'class': 'table'}).find_all('tr')[1:]
     return Report(comments, tests)
+
+
+def get_problem_info(link, session):
+    page = session.get(link)
+    return ProblemInfo(page)
+
 
 
 def check_session(links, session):
