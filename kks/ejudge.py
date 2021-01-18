@@ -47,7 +47,7 @@ class Problem:
     def __init__(self, short_name, name, href, status, tests_passed, score):
         self.short_name = short_name
         self.name = name
-        self.href = href
+        self.href = href  # NOTE contains SID -> quickly becomes outdated
         self.status = status
         self.tests_passed = tests_passed
         self.score = score
@@ -174,9 +174,10 @@ class StandingsRow:
 class ProblemInfo:
     """Subset of task info table used for max score estimation"""
 
-    def __init__(self, full, penalty):
-        self.full = full
-        self.penalty = penalty
+    def __init__(self, full_score, run_penalty, current_penalty):
+        self.full_score = full_score
+        self.run_penalty = run_penalty
+        self.current_penalty = current_penalty
 
 
 class Statement:
@@ -376,7 +377,7 @@ def extract_contest_name(task_name):
 
 def to_task_score(task_name, cell):
     score = cell.text
-    if score.isspace():
+    if not score or score.isspace():
         score = None
 
     status = Status.REVIEW if 'cell_attr_pr' in cell['class'] \
@@ -440,47 +441,52 @@ def get_problem_info(problem, cache, session):
     need_loading = False
 
     full_scores = cache.get('full', {})
-    full = full_scores.get(problem.short_name)
-    if full is None:  # new problem
-        need_loading = True
+    run_penalties = cache.get('run', {})
+
+    full_score = full_scores.get(problem.short_name)
+    run_penalty = run_penalties.get(problem.short_name)
 
     penalty_key = f'p_{problem.contest}'
-    penalty = cache.get(penalty_key)
-    if penalty is None:
+    current_penalty = cache.get(penalty_key)
+
+    if full_score is None or run_penalty is None or current_penalty is None:  # new problem or need to update penalty
         need_loading = True
 
     if not need_loading:
-        return ProblemInfo(full, penalty)
+        return ProblemInfo(full_score, run_penalty, current_penalty)
 
-    def update_cache(full, penalty, soft):
-        full_scores[problem.short_name] = full
+    def update_cache(full_score, run_penalty, current_penalty, soft_dl):
+        full_scores[problem.short_name] = full_score
+        run_penalties[problem.short_name] = run_penalty
         cache.set('full', full_scores)
-        if penalty >= full and penalty != 0:
+        cache.set('run', run_penalties)
+
+        if current_penalty >= full_score and current_penalty != 0:
             expiration = None
             # max_score will not change
             # NOTE may need patching for kr contests
         else:
-            if soft is not None:
-                expiration = soft
+            if soft_dl is not None:
+                expiration = soft_dl
             else:
-                expiration = timedelta(hours=23, minutes=55)
-                # What is the minimal timeframe between a deadline and its first appearance in info?
-                #   ( = can the expiration time be increased?)
-        cache.set(penalty_key, penalty, expiration)
-        return ProblemInfo(full, penalty)
+                expiration = timedelta(days=4, hours=23, minutes=55)
+        cache.set(penalty_key, current_penalty, expiration)
+
+        return ProblemInfo(full_score, run_penalty, current_penalty)
 
     page = session.get(problem.href)
     soup = BeautifulSoup(page.content, 'html.parser')
     task_area = soup.find('div', {'id': 'probNavTaskArea'})
     problem_info = task_area.find('table', {'class': 'line-table-wb'})
 
-    full = 0
-    penalty = 0
-    soft = None
+    full_score = 0
+    run_penalty = 0  # may be incorrect for kr
+    current_penalty = 0
+    soft_dl = None
 
     if problem_info is None:
         # may happen in kr contests?
-        return update_cache(full, penalty, None)
+        return update_cache(full_score, run_penalty, current_penalty, None)
 
     # TODO "Full score" can be missing (sm01-3)
     # in this case we should use max score from the table as full
@@ -488,13 +494,15 @@ def get_problem_info(problem, cache, session):
     for row in problem_info.find_all('tr'):
         key, value = row.find_all('td')
         if key.text == 'Full score:':
-            full = int(value.text)
+            full_score = int(value.text)
+        elif key.text == 'Run penalty:':
+            run_penalty = int(value.text)
         elif key.text == 'Current penalty:':
-            penalty = int(value.text)
+            current_penalty = int(value.text)
         elif key.text == 'Next soft deadline:':
-            soft = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            soft_dl = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
 
-    return update_cache(full, penalty, soft)
+    return update_cache(full_score, run_penalty, current_penalty, soft_dl)
 
 
 def check_session(links, session):

@@ -78,6 +78,11 @@ class Cache:
         if exp_time != -1:
             self._clean = False
 
+    def clear(self):
+        if self._data:
+            self._data = {}
+            self._clean = False
+
     def save(self):
         if self._clean:
             return
