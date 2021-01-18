@@ -1,9 +1,11 @@
+import re
 from collections import namedtuple
 from itertools import groupby
 
 import click
+from tqdm import tqdm
 
-from kks.ejudge import ejudge_standings, ejudge_summary, get_problem_info, Status, extract_contest_name
+from kks.ejudge import LinkTypes, Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
 from kks.util.common import get_valid_session, load_links
 from kks.util.cache import Cache
 
@@ -25,7 +27,9 @@ CONTEST_DELIMITER = ' | '
               help='Print the results of the selected contest')
 @click.option('-m', '--max',  'max_', is_flag=True,
               help='Print maximal possible scores (based on current deadlines)')
-def top(last, contests, all_, max_):
+@click.option('-nc', '--no-cache', is_flag=True,
+              help='Clear cache and reload task info (used with --max)')
+def top(last, contests, all_, max_, no_cache):
     """
     Parse and display user standings
 
@@ -48,7 +52,7 @@ def top(last, contests, all_, max_):
     standings = ejudge_standings(links, session)
 
     if max_:
-        standings = estimate_max(standings, links, session)
+        standings = estimate_max(standings, links, session, no_cache)
 
     contests = select_contests(standings, last, contests, all_)
     if contests is None:
@@ -129,24 +133,51 @@ def get_contest_widths(contests, tasks_by_contest):
     }
 
 
-def estimate_max(standings, links, session):
-
+def estimate_max(standings, links, session, force_reload):
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
+
+    sid_regex = re.compile('/S([0-9a-f]{16})')
+    sid = sid_regex.search(links.get(LinkTypes.USER_STANDINGS)).group(1)
+
+    def cached_problem(problem):
+        href = re.sub(sid_regex, '/S__SID__', problem.href, count=1)
+        return Problem(href, problem.short_name, extract_contest_name(problem.short_name))
+
+    def with_fixed_href(problem):
+        href = problem.href.replace('__SID__', sid)
+        return Problem(href, problem.short_name, problem.contest)
 
     standings.rows = list(standings.rows)
 
     with Cache('problem_info', compress=True).load() as cache:
-        problem_list = cache.get('problems', [])  # we can avoid loading summary
-        if len(problem_list) != len(standings.task_names):
-            problem_list = ejudge_summary(links, session)
-            problem_list = [Problem(p.href, p.short_name, extract_contest_name(p.short_name)) for p in problem_list]
-            cache.set('problems', problem_list)
-        problems = [get_problem_info(problem, cache, session) for problem in problem_list]
+        if force_reload:
+            cache.clear()
+
+        problem_list = cache.get('problem_links', [])  # we can avoid loading summary
+
+        with tqdm(total=len(standings.task_names), leave=False) as pbar:
+            def with_progress(func, *args, **kwargs):
+                result = func(*args, **kwargs)
+                pbar.update(1)
+                return result
+
+            if len(problem_list) != len(standings.task_names) or \
+                    any(problem.short_name != name for (problem, name) in zip(problem_list, standings.task_names)):
+                problem_list = ejudge_summary(links, session)
+                problem_list = [cached_problem(p) for p in problem_list]
+                cache.set('problem_links', problem_list)
+            problems = [with_progress(get_problem_info, with_fixed_href(problem), cache, session) for problem in problem_list]
 
     for row in standings.rows:
         for task_score, problem in zip(row.tasks, problems):
-            if not task_score.score:  # may be (empty string?) or None
-                max_score = problem.full - problem.penalty
+            if task_score.score is None or task_score.score == '0':
+                if task_score.status == Status.REJECTED:
+                    max_score = problem.full_score
+                else:
+                    max_score = problem.full_score - problem.current_penalty
+                    if task_score.score == '0':
+                        max_score -= problem.run_penalty
+                        # actually may be lower
                 if max_score > 0:
                     row.solved += 1
                     row.score += max_score
