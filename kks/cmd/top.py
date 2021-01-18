@@ -1,9 +1,15 @@
+from collections import namedtuple
 from itertools import groupby
 
 import click
 
-from kks.ejudge import ejudge_standings, ejudge_summary, get_problem_info, Status
+from kks.ejudge import ejudge_standings, ejudge_summary, get_problem_info, Status, extract_contest_name
 from kks.util.common import get_valid_session, load_links
+from kks.util.cache import Cache
+
+
+Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # used for caching the problem list
+
 
 ROW_FORMAT = "{:>6}  {:25} {:>7} {:>6}{}"
 PREFIX_LENGTH = sum([6, 2, 25, 1, 7, 1, 6])
@@ -124,20 +130,18 @@ def get_contest_widths(contests, tasks_by_contest):
 
 
 def estimate_max(standings, links, session):
-    # TODO the current implementation considers only the "Current penalty" field
-    # - What happens after the hard deadline? 0 or 20 points? If 20, is it max or min?
-    # - Can there be multiple soft deadlines?
-    # - Is it useful to parse the penalty formula?
-    # - START DATE CAN BE CHANGED
 
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
+
     standings.rows = list(standings.rows)
 
-    problems = [get_problem_info(problem.href, session) for problem in ejudge_summary(links, session)]
-    # TODO implement caching (loading everything is too slow - 12s on 42 tasks)
-    # store known full scores and deadlines
-    # load deadlines/penalties once for each contest
-    # (resync cached deadlines once per day?)
+    with Cache('problem_info', compress=True).load() as cache:
+        problem_list = cache.get('problems', [])  # we can avoid loading summary
+        if len(problem_list) != len(standings.task_names):
+            problem_list = ejudge_summary(links, session)
+            problem_list = [Problem(p.href, p.short_name, extract_contest_name(p.short_name)) for p in problem_list]
+            cache.set('problems', problem_list)
+        problems = [get_problem_info(problem, cache, session) for problem in problem_list]
 
     for row in standings.rows:
         for task_score, problem in zip(row.tasks, problems):
