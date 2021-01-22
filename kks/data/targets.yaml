@@ -2,7 +2,7 @@ __version__: KKS_TARGETS_VERSION  # You shouldn't modify the version
 
 
 default:
-    files: ['*.c', '*.S', '*.s']
+    compiler: gcc
     flags:
       - '-std=gnu11'
       - '-g'
@@ -10,6 +10,8 @@ default:
       - '-Wall'
       - '-Wextra'
       - '-ftrapv'  # catch signed overflow on addition, subtraction, multiplication operations
+
+    files: ['*.c', '*.S', '*.s']
 
     libs: [m]  # math lib
     asm64bit: false
@@ -33,7 +35,7 @@ default:
 # to build a binary for this target, run "kks run -tg example" or "kks test -tg example"
 example:
     files: ['main.c', 'TASKNAME.*']  # use main.c and the default solution file (TASKNAME.c or TASKNAME.S)
-    flags: [DEFAULT, '-DDBG', '-Dtask=TASKNAME', '-fstack-protector']  # pass these flags to gcc (you shouldn't specify libs in this list)
+    flags: [DEFAULT, '-DDBG', '-Dtask=TASKNAME', '-fstack-protector']  # pass these flags to the compiler (you shouldn't specify libs in this list)
     libs: [DEFAULT, pthread]  # will become [m, pthread] if "libs" in "default" target is [m]
     asm64bit: true  # use 64-bit mode for asm files (default is false -- if any of the source files has a ".S" or ".s" suffix, then "-m32" flag is added)
     out: example-main
