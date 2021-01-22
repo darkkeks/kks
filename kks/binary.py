@@ -44,7 +44,7 @@ def compile_solution(directory, target_name, verbose, options):
     if verbose:
         click.secho(f'Selected target: {target}')
 
-    # gcc can compile c and asm files together, so everything should be ok
+    # gcc (clang) can compile c and asm files together, so everything should be ok
     source_files = list(chain(*[directory.glob(f) for f in target.files]))
 
     if len(source_files) == 0:
@@ -66,7 +66,7 @@ def compile_solution(directory, target_name, verbose, options):
 
 
 def compile_c(workdir, files, target, verbose, options):
-    compiler_args = ['gcc'] + target.flags
+    compiler_args = [target.compiler] + target.flags
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
         compiler_args.append('-m32')
     return compile_gnu(

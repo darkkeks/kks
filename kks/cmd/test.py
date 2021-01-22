@@ -14,7 +14,7 @@ from kks.util.common import get_solution_directory, format_file, find_test_outpu
 @click.option('-T', '-tg', '--target', default='default',
               help='Target name to build')
 @click.option('-v', '--verbose', is_flag=True,
-              help='Verbose mode (show used gcc args)')
+              help='Verbose mode (show used compiler args)')
 @click.option('-t', '--test', 'tests', type=int, multiple=True,
               help='Test numbers to run (multiple are allowed)')
 @click.option('-r', '--range', 'test_range', type=int, nargs=2,
