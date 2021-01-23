@@ -4,7 +4,7 @@ import warnings
 
 import html2text
 from html2text import config
-from html2text.utils import skipwrap
+from html2text.utils import skipwrap, dumb_property_dict
 
 __h2t_version__ = (2020, 1, 16)
 if html2text.__version__ != __h2t_version__:
@@ -100,20 +100,44 @@ class HTML2Text(html2text.HTML2Text):
         self.headless_table = False
         self.bypass_tables = False
         self.ignore_tables = False
-        self.tag_callback = self.handle_tables
+        self.tag_callback = self.custom_handler
+        self.hidden = 0
+        self.next_single_break = False
 
     def handle(self, data: str) -> str:
         self.feed(data)
         self.feed("")
         markdown = self.optwrap(self.finish())
         if self.pad_tables:
-            return pad_tables_in_text(markdown)
+            return pad_tables_in_text(markdown)  # modified
         else:
             return markdown
 
-    def handle_tables(
+    def custom_handler(
         self, _, tag: str, attrs: Dict[str, Optional[str]], start: bool
     ) -> bool:
+        if tag == "div":
+            if start:
+                if self.hidden:
+                    self.hidden += 1
+                elif dumb_property_dict(attrs.get("style", "")).get("display") == "none":
+                    self.hidden = 1
+                    self.o("**[hidden text]**")
+                    self.next_single_break = True
+                    self.soft_br()
+                    # NOTE maybe preceding_data should be modified here
+                    return True
+
+            elif not start and self.hidden:
+                self.hidden -= 1
+                if not self.hidden:
+                    self.p_p = 0
+                    self.space = False
+                    self.soft_br()
+                    self.o("**[end of hidden text]**")
+                    self.p()
+                    return True
+
         if tag not in ["table", "tr", "td", "th"]:
             return False
 
@@ -178,6 +202,14 @@ class HTML2Text(html2text.HTML2Text):
         if tag in ["td", "th"] and start:
             self.td_count += 1
         return True
+
+    def p(self) -> None:
+        "Set pretty print to 1 or 2 lines"
+        if self.next_single_break:  # for hidden text marker
+            self.next_single_break = False
+            self.p_p = 1
+        else:
+            self.p_p = 1 if self.single_line_break else 2
 
     def optwrap(self, text: str) -> str:
         """
