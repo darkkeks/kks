@@ -3,7 +3,9 @@ from pathlib import Path
 import click
 
 from kks.ejudge_submit import submit_solution
-from kks.util.common import get_valid_session, load_links, prompt_choice, find_problem_rootdir
+from kks.util.common import prompt_choice, find_problem_rootdir
+from kks.util.ejudge import EjudgeSession
+from kks.errors import AuthError
 
 
 @click.command(short_help='Submit a solutions')
@@ -31,16 +33,12 @@ def submit(file, problem):
         if file is None:
             return
 
-    session = get_valid_session()
-    if session is None:
+    try:
+        session = EjudgeSession()
+    except AuthError:
         return
 
-    links = load_links()
-    if links is None:
-        click.secho('Auth data is invalid, use "kks auth" to authorize', fg='red', err=True)
-        return
-
-    res, msg = submit_solution(links, session, file, problem)
+    res, msg = submit_solution(session, file, problem)
     color = 'green' if res else 'red'
     click.secho(msg, fg=color)
 

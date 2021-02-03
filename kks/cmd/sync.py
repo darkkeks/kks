@@ -6,7 +6,9 @@ import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
-from kks.util.common import find_workspace, get_valid_session, load_links, get_task_dir, write_contests
+from kks.util.common import find_workspace, get_task_dir, write_contests
+from kks.util.ejudge import EjudgeSession
+from kks.errors import AuthError
 
 
 def source_suf(problem):
@@ -119,21 +121,19 @@ def sync(code, code_opt, force, filters):
         click.secho('You have to run sync under kks workspace (use "kks init" to create one)', fg='red', err=True)
         return
 
-    session = get_valid_session()
-    if session is None:
+    try:
+        session = EjudgeSession()
+    except AuthError:
         return
 
-    links = load_links()
-    if links is None:
-        click.secho('Auth data is invalid, use "kks auth" to authorize', fg='red', err=True)
+    problems = ejudge_summary(session)
+    if problems is None:
         return
-
-    problems = ejudge_summary(links, session)
 
     code_all = code_opt == 'all'
     code = code or code_all
     if code:
-        submissions = ejudge_submissions(links, session)
+        submissions = ejudge_submissions(session)
 
     md_width = int(environ.get('MDWIDTH', '100'))
 

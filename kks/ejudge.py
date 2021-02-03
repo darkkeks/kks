@@ -8,6 +8,7 @@ import click
 #from bs4 import BeautifulSoup
 #from bs4.element import NavigableString
 
+from kks.errors import AuthError
 from kks.util.h2t import HTML2Text
 
 CONTEST_ID_BY_GROUP = {
@@ -271,46 +272,18 @@ def get_contest_url_with_creds(auth_data):
     return url
 
 
-def ejudge_auth(auth_data, session):
-    import requests
+def ejudge_summary(session):
     from bs4 import BeautifulSoup
 
-    url = get_contest_url(auth_data)
-
-    page = session.post(url, data={
-        'login': auth_data.login,
-        'password': auth_data.password
-    })
-
-    if page.status_code != requests.codes.ok:
-        click.secho(f'Failed to authenticate (status code {page.status_code})', err=True, fg='red')
-
-    soup = BeautifulSoup(page.content, 'html.parser')
-
-    if 'Invalid contest' in soup.text or 'invalid contest_id' in soup.text:
-        click.secho(f'Invalid contest (contest id {auth_data.contest_id})', fg='red', err=True)
-        return None
-
-    if 'Permission denied' in soup.text:
-        click.secho('Permission denied (invalid username, password or contest id)', fg='red', err=True)
-        return None
-
-    buttons = soup.find_all('a', {'class': 'menu'}, href=True)
-
-    return {
-        button.text: button['href']
-        for button in buttons
-    }
-
-
-def ejudge_summary(links, session):
-    from bs4 import BeautifulSoup
-
-    summary = links.get(LinkTypes.SUMMARY, None)
+    summary = session.links.get(LinkTypes.SUMMARY, None)
     if summary is None:
         return None
 
-    page = session.get(summary)
+    try:
+        page = session.get(summary)
+    except AuthError:
+        return None
+
     soup = BeautifulSoup(page.content, 'html.parser')
 
     tasks = soup.find_all('td', class_='b1')
@@ -331,14 +304,18 @@ def ejudge_summary(links, session):
     return problems
 
 
-def ejudge_standings(links, session):
+def ejudge_standings(session):
     from bs4 import BeautifulSoup
 
-    standings = links.get(LinkTypes.USER_STANDINGS, None)
+    standings = session.links.get(LinkTypes.USER_STANDINGS, None)
     if standings is None:
         return None, None
 
-    page = session.get(standings)
+    try:
+        page = session.get(standings)
+    except AuthError:
+        return None, None
+
     soup = BeautifulSoup(page.content, 'html.parser')
 
     title = soup.find(class_='main_phrase').text
@@ -392,17 +369,19 @@ def to_task_score(task_name, cell):
 
 
 def ejudge_statement(problem_link, session):
+    # no AuthError
     page = session.get(problem_link)
     return Statement(page)
 
 
-def ejudge_submissions(links, session):
+def ejudge_submissions(session):
     from bs4 import BeautifulSoup
 
-    link = links.get(LinkTypes.SUBMISSIONS, None)
+    link = session.links.get(LinkTypes.SUBMISSIONS, None)
     if link is None:
         return []
 
+    # no AuthError
     page = session.get(link, params={'all_runs': 1})
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -419,6 +398,7 @@ def ejudge_submissions(links, session):
 def ejudge_report(link, session):
     from bs4 import BeautifulSoup
 
+    # no AuthError
     page = session.get(link)
     soup = BeautifulSoup(page.content, 'html.parser')
     message_table = soup.find('table', {'class': 'message-table'})
@@ -475,6 +455,7 @@ def get_problem_info(problem, cache, session):
 
         return ProblemInfo(full_score, run_penalty, current_penalty)
 
+    # no AuthError
     page = session.get(problem.href)
     soup = BeautifulSoup(page.content, 'html.parser')
     task_area = soup.find('div', {'id': 'probNavTaskArea'})
@@ -504,16 +485,6 @@ def get_problem_info(problem, cache, session):
             soft_dl = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
 
     return update_cache(full_score, run_penalty, current_penalty, soft_dl)
-
-
-def check_session(links, session):
-    summary = links.get(LinkTypes.SUMMARY, None)
-    if summary is None:
-        return False
-    response = session.get(summary)
-    if 'Invalid session' in response.text:
-        return False
-    return True
 
 
 def chunks(iterable, chunk_size):

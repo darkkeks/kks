@@ -35,16 +35,17 @@ def may_resubmit(runs):
     return click.confirm('This problem was already solved! Submit anyway?')
 
 
-def _get_problem_data(links, session, prob_id):
+def _get_problem_data(session, prob_id):
     from bs4 import BeautifulSoup
 
-    problems = ejudge_summary(links, session)
+    problems = ejudge_summary(session)
     if problems is None:
         return None, 'Auth error'
     matching = [p for p in problems if p.short_name == prob_id]
     if not matching:
         return None, 'Invalid problem ID'
     problem_link = matching[0].href
+    # no AuthError
     page = session.get(problem_link)
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -96,11 +97,12 @@ def submit_request(session, page, file):
     files = {
         'file': (file.name, open(file, 'rb')),
     }
+    # no AuthError
     return session.post(url, headers=headers, data=data, files=files)
 
 
-def submit_solution(links, session, file, prob_id):
-    page, msg = _get_problem_data(links, session, prob_id)
+def submit_solution(session, file, prob_id):
+    page, msg = _get_problem_data(session, prob_id)
     if page is None:
         return False, msg
 
