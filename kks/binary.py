@@ -44,6 +44,8 @@ def compile_solution(directory, target_name, verbose, options):
     if verbose:
         click.secho(f'Selected target: {target}')
 
+    if options.asan is None:
+        options.asan = target.default_asan  # will be used in run_solution
     # gcc (clang) can compile c and asm files together, so everything should be ok
     source_files = list(chain(*[directory.glob(f) for f in target.files]))
 

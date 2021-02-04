@@ -12,7 +12,7 @@ from kks.util.common import get_solution_directory, find_test_pairs, format_file
               help='Target name to build')
 @click.option('-v', '--verbose', is_flag=True,
               help='Verbose mode (show used compiler args)')
-@click.option('--asan/--no-asan', is_flag=True, default=True,
+@click.option('--asan/--no-asan', is_flag=True, default=None,
               help='Use asan (true by default)')  # if there are asan flags for the selected target and '--no-asan' is used, then only flags from the config will be used
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')

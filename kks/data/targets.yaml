@@ -15,6 +15,7 @@ default:
 
     libs: [m]  # math lib
     asm64bit: false
+    default_asan: true
     out: ''  # same as "a.out"
 
 
@@ -39,3 +40,9 @@ example:
     libs: [DEFAULT, pthread]  # will become [m, pthread] if "libs" in "default" target is [m]
     asm64bit: true  # use 64-bit mode for asm files (default is false -- if any of the source files has a ".S" or ".s" suffix, then "-m32" flag is added)
     out: example-main
+
+
+# build without stdlib (see sm10)
+nostd:
+    flags: [DEFAULT, '-nostdlib']
+    default_asan: false
