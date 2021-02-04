@@ -3,7 +3,7 @@ import webbrowser
 import click
 
 from kks.ejudge import get_contest_url_with_creds
-from kks.util.common import load_auth_data
+from kks.util.ejudge import load_auth_data
 
 
 @click.command(name='open')

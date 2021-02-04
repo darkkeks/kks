@@ -1,7 +1,8 @@
 import click
 
-from kks.ejudge import ejudge_auth, AuthData, get_contest_id
-from kks.util.common import store_session, save_auth_data, save_links
+from kks.ejudge import AuthData, get_contest_id
+from kks.util.ejudge import EjudgeSession
+from kks.errors import AuthError
 
 
 @click.command(short_help='Authorize and save authentication data to configuration directory')
@@ -38,19 +39,13 @@ def auth(login, password, group_id, contest_id, store_password):
             click.secho(f'Invalid group id "{group_id}" (should be between 191 and 1911)', fg='red', err=True)
             return
 
-    import requests
-
-    session = requests.session()
+    session = EjudgeSession(auth=False)
     auth_data = AuthData(login, contest_id, password)
 
-    links = ejudge_auth(auth_data, session)
-    if links is None:
+    try:
+        session.auth(auth_data, store_password)
+    except AuthError:
         return
 
     click.secho('Successfully logged in', fg='green')
-
-    save_auth_data(auth_data, store_password)
-    save_links(links)
-    store_session(session)
-
     click.secho('Successfully saved auth data', fg='green', err=True)

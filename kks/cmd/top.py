@@ -6,7 +6,8 @@ import click
 from tqdm import tqdm
 
 from kks.ejudge import LinkTypes, Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
-from kks.util.common import get_valid_session, load_links
+from kks.util.ejudge import EjudgeSession
+from kks.errors import AuthError
 from kks.util.cache import Cache
 
 
@@ -40,19 +41,18 @@ def top(last, contests, all_, max_, no_cache):
         kks top -c sm01 -c sm02
         kks top --last 2
     """
-    session = get_valid_session()
-    if session is None:
+
+    try:
+        session = EjudgeSession()
+    except AuthError:
         return
 
-    links = load_links()
-    if links is None:
-        click.secho('Auth data is invalid, use "kks auth" to authorize', fg='red', err=True)
+    standings = ejudge_standings(session)
+    if standings is None:
         return
-
-    standings = ejudge_standings(links, session)
 
     if max_:
-        standings = estimate_max(standings, links, session, no_cache)
+        standings = estimate_max(standings, session, no_cache)
 
     contests = select_contests(standings, last, contests, all_)
     if contests is None:
@@ -133,11 +133,11 @@ def get_contest_widths(contests, tasks_by_contest):
     }
 
 
-def estimate_max(standings, links, session, force_reload):
+def estimate_max(standings, session, force_reload):
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
 
     sid_regex = re.compile('/S([0-9a-f]{16})')
-    sid = sid_regex.search(links.get(LinkTypes.USER_STANDINGS)).group(1)
+    sid = sid_regex.search(session.links.get(LinkTypes.USER_STANDINGS)).group(1)
 
     def cached_problem(problem):
         href = re.sub(sid_regex, '/S__SID__', problem.href, count=1)
@@ -163,7 +163,7 @@ def estimate_max(standings, links, session, force_reload):
 
             if len(problem_list) != len(standings.task_names) or \
                     any(problem.short_name != name for (problem, name) in zip(problem_list, standings.task_names)):
-                problem_list = ejudge_summary(links, session)
+                problem_list = ejudge_summary(session)
                 problem_list = [cached_problem(p) for p in problem_list]
                 cache.set('problem_links', problem_list)
             problems = [with_progress(get_problem_info, with_fixed_href(problem), cache, session) for problem in problem_list]

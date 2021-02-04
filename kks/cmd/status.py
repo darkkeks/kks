@@ -1,7 +1,8 @@
 import click
 
 from kks.ejudge import ejudge_summary
-from kks.util.common import get_valid_session, load_links
+from kks.util.ejudge import EjudgeSession
+from kks.errors import AuthError
 
 
 @click.command(short_help='Parse and display task status')
@@ -13,16 +14,15 @@ def status(filters):
     If any FILTERS are specified, show status only for tasks with matching prefixes/names
     """
 
-    session = get_valid_session()
-    if session is None:
+    try:
+        session = EjudgeSession()
+    except AuthError:
         return
 
-    links = load_links()
-    if links is None:
-        click.secho('Auth data is invalid, use "kks auth" to authorize', fg='red', err=True)
+    problems = ejudge_summary(session)
+    if problems is None:
         return
 
-    problems = ejudge_summary(links, session)
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
         if not problems:
