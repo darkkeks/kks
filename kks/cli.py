@@ -2,6 +2,7 @@ import click
 
 from kks.util.click import GroupedGroup
 from kks.cmd.auth import auth
+from kks.cmd.convert import convert
 from kks.cmd.gen import gen
 from kks.cmd.hide import hide, unhide
 from kks.cmd.init import init
@@ -44,5 +45,6 @@ cli.add_command(run, group=Commands.solution)
 cli.add_command(gen, group=Commands.solution)
 cli.add_command(test_, group=Commands.solution)
 
+cli.add_command(convert, group=Commands.other)
 cli.add_command(upgrade, group=Commands.other)
 cli.add_command(update, group=Commands.other)

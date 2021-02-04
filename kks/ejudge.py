@@ -245,6 +245,7 @@ class Statement:
     def html(self):
         if self._html is None:
             return 'Statement is not available'
+        # NOTE "kks convert statement.html" will produce a slightly different .md file (more spaces, but rendered markdown is not affected)
         return self._html.prettify()
 
     def markdown(self, width=100):
