@@ -1,4 +1,5 @@
 from pathlib import Path
+from sys import exit
 
 import click
 
@@ -57,7 +58,7 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
         output = f'Running binary with arguments ' + click.style(' '.join(run_args), fg='red', bold=True)
         click.secho(output, fg='green', err=True)
 
-    run_solution(binary, list(run_args), options, test_data, capture_output=False)
+    exit(run_solution(binary, list(run_args), options, test_data, capture_output=False).returncode)
 
 
 def find_test_to_run(directory, test, file, sample):
