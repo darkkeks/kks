@@ -44,5 +44,13 @@ example:
 
 # build without stdlib (see sm10)
 nostd:
-    flags: [DEFAULT, '-nostdlib']
+    flags: [DEFAULT, '-fno-trapv', '-nostdlib']  # '-ftrapv' requiress stdlib
+    libs: []  # disable lm
+    default_asan: false
+
+
+# force 32-bit mode for c files (sm10-3, etc.)
+nostd32:
+    flags: [DEFAULT, '-fno-trapv', '-nostdlib', '-m32']
+    libs: []  # disable lm
     default_asan: false

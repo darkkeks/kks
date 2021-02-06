@@ -9,7 +9,7 @@ from kks.util.common import find_workspace, find_problem_rootdir, config_directo
 
 target_file = 'targets.yaml'
 
-targets_version = 3
+targets_version = 4
 
 global_comment = '# This is the default config file, it is used in any subdirectory of the workspace.\n'\
                  '# You can modify the default target (the changes will be applied only in this workspace).\n'\
@@ -140,13 +140,19 @@ def find_target(name):
         if root_target.need_default:
             # it makes no sense to look for default in CWD if the target is in workspace root
             default = get_target(root_cfg, 'default') or package_default
-            # TODO optimize? if root_target is "default", then default is "default" and the next condition is always true
+            # TODO optimize? if root_target is "default", then default == root_target and the next condition is always true
             if default.need_default:
                 default.replace_macros_add_missing(problem, package_default)
         root_target.replace_macros_add_missing(problem, default)
         return root_target
 
-    # not found
     if name == 'default':
         return package_default
-    return None
+
+    package_target = get_target(package_cfg, name)
+    if package_target is None:
+        # not found
+        return None
+
+    package_target.replace_macros_add_missing(problem, package_default)
+    return package_target
