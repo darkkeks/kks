@@ -1,7 +1,9 @@
 import configparser
 import difflib
 import pickle
+from functools import wraps
 from pathlib import Path
+from time import time, sleep
 
 import click
 
@@ -208,3 +210,30 @@ def find_problem_rootdir():
     if len(parts) < 2:
         return None
     return rootdir / parts[0] / parts[1]
+
+
+def with_retries(delay=0.5, multiplier=1.5, step=1, timeout=10):
+    def decorator(func):
+        initial_delay = delay
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            overall_start = time()
+            iteration = 1
+            while True:
+                start = time()
+                result = func(*args, **kwargs)
+                if result is not None:
+                    return result
+                elapsed = time() - start
+
+                if time() - overall_start > timeout:
+                    return None
+
+                sleep(max(0, delay - elapsed))
+                if iteration % step == 0:
+                    delay *= multiplier
+                iteration += 1
+
+        return wrapper
+    return decorator

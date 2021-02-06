@@ -1,8 +1,6 @@
 import json
 import pickle
 import re
-from collections import namedtuple
-
 import click
 
 from kks import __version__
@@ -71,10 +69,13 @@ def store_session(session):
 
 
 class RunStatus:
+    """A (very) limited wrapper class for responses from "run-status-json" method"""
+
     COMPILING = 98  # from github.com/blackav/ejudge-fuse
     COMPILED = 97
     RUNNING = 96
 
+    # this group is also used in test results
     OK = 0
     CE = 1
     RE = 2
@@ -91,116 +92,172 @@ class RunStatus:
 
     PENDING_REVIEW = 16
     REJECTED = 17
+    SKIPPED = 18
+
+    # There are more, but only these were seen on caos.ejudge.ru
+
+    _descriptions = {
+        COMPILING: 'Compiling',
+        COMPILED: 'Compiled',
+        RUNNING: 'Running',
+        OK: 'OK',
+        CE: 'Compilation error',
+        RE: 'Runtime error',
+        TL: 'Time limit exceeded',
+        PE: 'Presentation error',
+        WA: 'Wrong answer',
+        ML: 'Memory limit exceeded',
+        CHECK_FAILED: 'Check failed',
+        PARTIAL: 'Partial solution',
+        ACCEPTED: 'Accepted for testing',
+        IGNORED: 'Ignored',
+        PENDING: 'Pending check',
+        PENDING_REVIEW: 'Pending review',
+        REJECTED: 'Rejected',
+        SKIPPED: 'Skipped'
+    }
 
     @staticmethod
-    def is_testing(status):
-        return status >= 95 and status <= 99
+    def get_description(status_code):
+        return RunStatus._descriptions.get(status_code, f'Unknown status {status_code}')
+
+    def __init__(self, run_status):
+        self.status = run_status['run']['status']
+        self.tests = []
+        if 'testing_report' in run_status and 'tests' in run_status['testing_report']:
+            self.tests = run_status['testing_report']['tests']
+
+    def is_testing(self):
+        return self.status >= 95 and self.status <= 99
+
+    def __str__(self):
+        return self.get_description(self.status)
+
+    def with_tests(self, failed_only=False):
+        if not self.tests:
+            return str(self)
+
+        def test_descr(test):
+            return f"{test['num']} - {self.get_description(test['status'])}"
+
+        if failed_only:
+            test_results = '\n'.join(map(test_descr, [test for test in self.tests if test['status'] not in [self.OK, self.SKIPPED]]))
+        else:
+            test_results = '\n'.join(map(test_descr, self.tests))
+        return f'{self}\n{test_results}'
 
 
 class API:
-    class AuthData:
-        def __init__(self, ejsid, sid):
-            self.ejsid = ejsid
-            self.sid = sid
-
-    def __init__(self, auth_data=None):
+    def __init__(self, sids=None):
         import requests
 
         self._prefix = 'https://caos.ejudge.ru/cgi-bin/'
         self._http = requests.Session()
         self._http.headers = {'User-Agent': f'kokos/{__version__}'}
 
-        self.auth_data = auth_data
+        self._sids = sids
 
-    def _request(self, path, action, auth_data=None, decode=True, **kwargs):
+    def _request(self, url, need_json, **kwargs):
+        resp = self._http.post(url, **kwargs)  # all methods accept POST requests
+        resp.encoding = 'utf-8'  # ejudge doesn't set encoding header
+        try:
+            # all methods return errors in json
+            data = json.loads(resp.content)
+        except ValueError as e:
+            if not need_json:
+                return resp.content
+            raise APIError(f'Invalid response. resp={resp.content}, err={e}', APIError.INVALID_RESPONSE)
+
+        # if a submission is a valid JSON file, then api.download_run will fail
+        if not need_json or not data['ok']:
+            err = data.get('error', {})
+            raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
+        return data['result']
+
+    def _api_method(self, path, action, sids=None, need_json=True, **kwargs):
         """
-        Allowed values for `auth_data`:
-          - None (use self.auth_data)
-          - False (don't use sids)
-          - API.AuthData(ejsid, sid)
+        Allowed values for `sids`:
+          - None (use self._sids)
+          - {} (don't use sids)
+          - {'EJSID': str, 'SID': str}
         """
 
         url = self._prefix + path
 
-        data = kwargs.pop('data', {})
-        data['action'] = action
-        data['json'] = 1
-        if auth_data:
-            data['EJSID'], data['SID'] = auth_data.ejsid, auth_data.sid
-        elif auth_data is None:
-            data['EJSID'], data['SID'] = self.auth_data.ejsid, self.auth_data.sid
+        data = kwargs.setdefault('data', {})
+        data.update({'action': action, 'json': 1})
+        if sids is None:
+            sids = self._sids
+        data.update(sids)
 
-        resp = self._http.post(url, data=data, **kwargs)  # all methods accept POST requests
-        resp.encoding = 'utf-8'  # ejudge doesn't set encoding header
-
-        if decode:
-            try:
-                data = json.loads(resp.content)
-            except Exception as e:
-                raise APIError(f'Invalid response. resp={resp.content}, err={e}', -1)
-            if not data['ok']:
-                err = data['error']
-                raise APIError(err.get('message', 'Unknown error'), err.get('num', -1))
-            return data['result']
-        return resp.content
+        return self._request(url, need_json, **kwargs)
 
     def auth(self, creds):
         """get new sids"""
         # NOTE is 1step auth possible?
-        data = {
-            'login': creds.login,
-            'password': creds.password,
-        }
-        auth_data = self._request('register', 'login-json', False, data=data)
 
+        def extract_sids(resp):
+            return {'EJSID': resp['EJSID'], 'SID': resp['SID']}
+
+        sids = extract_sids(self.login(creds.login, creds.password))
+        self._sids = extract_sids(self.enter_contest(sids, creds.contest_id))
+
+    def login(self, login, password):
+        """get sids for enter_contest method"""
         data = {
-            'contest_id': creds.contest_id
+            'login': login,
+            'password': password,
         }
-        auth_data = self._request('register', 'enter-contest-json', (auth_data['EJSID'], auth_data['SID']), data=data)
-        self.auth_data = API.AuthData(auth_data['EJSID'], auth_data['SID'])
+        return self._api_method('register', 'login-json', {}, data=data)
+
+    def enter_contest(self, sids, contest_id):
+        data = {
+            'contest_id': contest_id
+        }
+        return self._api_method('register', 'enter-contest-json', sids, data=data)
 
     def contest_status(self):
-        return self._request('client', 'contest-status-json')
+        return self._api_method('client', 'contest-status-json')
 
     def problem_status(self, prob_id):
         data = {
             'problem': int(prob_id)
         }
-        return self._request('client', 'problem-status-json', data=data)
+        return self._api_method('client', 'problem-status-json', data=data)
 
     def problem_statement(self, prob_id):
         data = {
             'problem': int(prob_id)
         }
-        return self._request('client', 'problem-statement-json', data=data, decode=False)
+        return self._api_method('client', 'problem-statement-json', data=data, need_json=False)
 
-    def list_runs(self, prob_id):
+    def list_runs(self, prob_id=None):
         # newest runs go first
         # if no prob_id is passed then all runs are returned (useful for sync?)
-        if prob_id is not None:
-            data = {
-                'prob_id': int(prob_id)
-            }
-            return self._request('client', 'list-runs-json', data=data)['runs']
-        return self._request('client', 'list-runs-json')['runs']
+        if prob_id is None:
+            return self._api_method('client', 'list-runs-json')['runs']
+        data = {
+            'prob_id': int(prob_id)
+        }
+        return self._api_method('client', 'list-runs-json', data=data)['runs']
 
     def run_status(self, run_id):
         data = {
             'run_id': int(run_id)
         }
-        return self._request('client', 'run-status-json', data=data)
+        return self._api_method('client', 'run-status-json', data=data)
 
     def download_run(self, run_id):
         data = {
             'run_id': int(run_id)
         }
-        return self._request('client', 'download-run', data=data, decode=False)
+        return self._api_method('client', 'download-run', data=data, need_json=False)
 
     def run_messages(self, run_id):
         data = {
             'run_id': int(run_id)
         }
-        return self._request('client', 'run-messages-json', data=data)
+        return self._api_method('client', 'run-messages-json', data=data)
 
     # run-test-json - test results? unknown params
 
@@ -214,14 +271,14 @@ class API:
         files = {
             'file': (file.name, open(file, 'rb'))
         }
-        return self._request('client', 'submit-run', data=data, files=files)
+        return self._api_method('client', 'submit-run', data=data, files=files)
 
 
 class EjudgeSession():
     sid_regex = re.compile('/S([0-9a-f]{16})')
 
     def __init__(self, auth=True):
-        self._api_auth_data = API.AuthData(None, None)
+        self._sids = {'SID': None, 'EJSID': None}
 
         self.http = load_session()
         if self.http is not None:
@@ -295,24 +352,34 @@ class EjudgeSession():
         """
         Create an API wrapper with (EJ)SID from this session
         If cookies are outdated, api requests will raise an APIError
-        if api is used before any session requests are performed, the caller must handle possible errors
+        If api is used before any session requests are performed, use EjudgeSession.with_auth for the first request
         Example:
         >>> api = session.api()
-        >>> try:
-        >>>     info = api.contest_status()
-        >>> except APIError:
-        >>>     session.auth()
-        >>>     info = api.contest_status()
+        >>> problem = session.with_auth(api.problem_status, 123)
+        >>> ...
+        >>> info = api.contest_status()  # cookies are up to date
         """
-        return API(self._api_auth_data)
+        return API(self._sids)
+
+    def with_auth(self, api_method, *args, **kwargs):
+        """
+        api_method should only a method of API object that was created with .api() method of this instance
+        """
+        try:
+            return api_method(*args, **kwargs)
+        except APIError as e:
+            if e.code != APIError.INVALID_SESSION:
+                raise e
+            self.auth()
+            return api_method(*args, **kwargs)
+
 
     def _update_sid(self):
-        self._sid = EjudgeSession.sid_regex.search(self.links.get(LinkTypes.SUMMARY)).group(1)
-        self._api_auth_data.ejsid = self.http.cookies['EJSID']
-        self._api_auth_data.sid = self._sid
+        sid = EjudgeSession.sid_regex.search(self.links.get(LinkTypes.SUMMARY)).group(1)
+        self._sids.update({'SID': sid, 'EJSID':  self.http.cookies['EJSID']})
 
     def modify_url(self, url):
-        return re.sub(EjudgeSession.sid_regex, f'/S{self._sid}', url, count=1)
+        return re.sub(EjudgeSession.sid_regex, f"/S{self._sids['SID']}", url, count=1)
 
     def _request(self, method, url, *args, **kwargs):
         response = method(url, *args, **kwargs)

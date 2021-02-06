@@ -38,9 +38,8 @@ def submit(file, problem):
     except AuthError:
         return
 
-    res, msg = submit_solution(session, file, problem)
-    color = 'green' if res else 'red'
-    click.secho(msg, fg=color)
+    result = submit_solution(session, file, problem)
+    click.secho(result.msg, fg=result.color())
 
 
 def get_problem_id(rootdir):
