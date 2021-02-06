@@ -131,14 +131,17 @@ class TaskScore:
         return 'green' if self.status == Status.REVIEW \
             else 'green' if self.status == Status.OK \
             else 'bright_yellow' if self.status == Status.TESTING \
+            else 'yellow' if self.status == Status.REJECTED \
             else 'red' if self.status == Status.PARTIAL \
             else 'white'
+        # in standings CHECK has the same style as TESTING
 
     def bold(self):
-        return self.status == Status.OK
+        # TESTING is bold for more contrast with REJECTED
+        return self.status in [Status.OK, Status.TESTING]
 
     def table_score(self):
-        if self.status == Status.TESTING and self.score is None:
+        if self.status in [Status.TESTING, Status.REJECTED] and self.score is None:
             return '??'
         return self.score
 
