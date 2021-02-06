@@ -109,6 +109,12 @@ kks run --sample
 kks run --test 10
 kks run < input.txt
 
+# build without stdlib
+cd sm10/2
+kks run -T nostd
+# build without stdlib (force 32-bit mode)
+kks run -T nostd32
+
 # Format solution using clang-format
 kks lint
 
