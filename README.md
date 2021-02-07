@@ -100,9 +100,11 @@ kks ssh --hostname kek.ejudge.ru --login LOGIN --ej-fuse /path/to/ejudge-fuse --
 # Отключить ssh
 kks ssh -d
 
-# Увеличить таймаут (по умолчанию 5 секунд)
+# Увеличить таймаут для запросов к ssh (по умолчанию 5 секунд)
 KKS_SSH_TIMEOUT=10 kks sync
-KKS_SSH_TIMEOUT=10 kks submit main.c
+
+# Увеличить таймауты для запросов к ssh и получения статуса посылки
+KKS_SSH_TIMEOUT=10 kks submit main.c -t 30
 ```
 
 ### Examples

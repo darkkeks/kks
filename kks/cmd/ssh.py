@@ -1,6 +1,6 @@
 import click
 
-from kks.errors import EjudgeFuseError
+from kks.errors import EjudgeError
 from kks.util.common import read_config, write_config
 from kks.util.ejudge import load_auth_data
 
@@ -68,8 +68,8 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     click.secho('SSH connection estabilished, trying to mount ejudge-fuse', bold=True)
     try:
         client.mount_ej_fuse(ej_fuse, ej_url, auth_data.login, auth_data.password)
-    except EjudgeFuseError as e:
-        click.secho(f'ejudge-fuse error: {e}', fg='red')
+    except EjudgeError as e:
+        click.secho(f'Unable to mount ejudge-fuse: {e}', fg='red')
         return
     finally:
         client.close()

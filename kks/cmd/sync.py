@@ -124,17 +124,8 @@ def sync(code, code_opt, force, filters):
     use_ssh = ssh_enabled()
 
     if use_ssh:
-        from paramiko.ssh_exception import AuthenticationException, SSHException
-        try:
-            client = ssh_client()
-        except AuthenticationException:
-            click.secho('SSH auth error', fg='red', err=True)
-            return
-        except SSHException as e:
-            click.secho(f'SSH error: {e}', fg='red', err=True)
-            return
+        client = ssh_client()
         if client is None:
-            click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
             return
         get_problems = client.problems
         get_statement = lambda problem: client.statement(problem.id)

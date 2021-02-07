@@ -44,13 +44,29 @@ class AuthData:
 
 
 class Problem:
-    def __init__(self, short_name, name, href, status, tests_passed, score):
+    def __init__(self, short_name, name):
         self.short_name = short_name
         self.name = name
-        self.href = href  # NOTE contains SID -> quickly becomes outdated
+
+
+class BasicAPIProblem(Problem):
+    def __init__(self, id, short_name, name):
+        self.id = id
+        super().__init__(short_name, name)
+
+    @classmethod
+    def parse(cls, data):
+        """parse a problem description received from contest_status api method"""
+        return cls(data['id'], data['short_name'], data['long_name'])
+
+
+class WebProblem(Problem):
+    def __init__(self, short_name, name, href, status, tests_passed, score):
+        super().__init__(short_name, name)
         self.status = status
         self.tests_passed = tests_passed
         self.score = score
+        self.href = href  # NOTE contains SID -> quickly becomes outdated
 
     def color(self):
         return 'green' if self.status == Status.OK \
@@ -343,7 +359,7 @@ def ejudge_summary(session):
     for problem in chunks(tasks, 6):
         short, name, status, tests_passed, score, _ = problem
 
-        problems.append(Problem(
+        problems.append(WebProblem(
             short.text,
             name.text,
             name.a['href'],

@@ -41,12 +41,23 @@ def ssh_enabled():
 
 # not in kks.util.ssh because we need lazy loading
 def ssh_client():
+    from paramiko.ssh_exception import AuthenticationException, SSHException
     from kks.util.ssh import EjudgeSSHClient
+
     config = read_config()
     if not (config.has_section('SSH') and config.has_section('Auth')):
+        click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
         return None
+
     ssh_cfg = config['SSH']
-    return EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'])
+    try:
+        return EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'])
+    except AuthenticationException:
+        click.secho('SSH auth error', fg='red', err=True)
+        return None
+    except SSHException as e:
+        click.secho(f'SSH error: {e}', fg='red', err=True)
+        return None
 
 
 def get_clang_style_string():

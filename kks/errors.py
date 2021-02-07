@@ -19,14 +19,10 @@ class APIError(EjudgeError):
         super().__init__(message)
         self.code = code
 
+    @classmethod
+    def parse(cls, err):
+        return cls(err.get('message', 'Unknown error'), err.get('num', cls.UNKNOWN))
+
 
 class EjudgeFuseError(EjudgeError):
-    def __init__(self, msg, api_err=None):
-        super().__init__(msg)
-        self.api_err = api_err
-
-    def __str__(self):
-        s = super().__str__()
-        if self.api_err is not None:
-            s += f' ({self.api_err})'
-        return s
+    pass

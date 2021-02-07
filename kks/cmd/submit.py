@@ -8,11 +8,17 @@ from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 
 
+api_testing_timeout = 10
+ssh_testing_timeout = 20
+
+
 @click.command(short_help='Submit a solutions')
 @click.argument('file', type=click.Path(exists=True), required=False)
 @click.option('-p', '--problem', type=str,
               help='manually specify the problem ID')
-def submit(file, problem):
+@click.option('-t', '--timeout', type=int,
+              help=f'how long to wait for a testing report (default {api_testing_timeout}s / {ssh_testing_timeout}s with ssh)')
+def submit(file, problem, timeout):
     """
     Submit a solution
 
@@ -35,26 +41,17 @@ def submit(file, problem):
 
     use_ssh = ssh_enabled()
     if use_ssh:
-        from paramiko.ssh_exception import AuthenticationException, SSHException
-        try:
-            client = ssh_client()
-        except AuthenticationException:
-            click.secho('SSH auth error', fg='red', err=True)
-            return
-        except SSHException as e:
-            click.secho(f'SSH error: {e}', fg='red', err=True)
-            return
+        client = ssh_client()
         if client is None:
-            click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
             return
 
-        result = submit_solution_ssh(client, file, problem)
+        result = submit_solution_ssh(client, file, problem, timeout or ssh_testing_timeout)
     else:
         try:
             session = EjudgeSession()
         except AuthError:
             return
-        result = submit_solution_api(session, file, problem)
+        result = submit_solution_api(session, file, problem, timeout or api_testing_timeout)
 
     click.secho(result.msg, fg=result.color())
 

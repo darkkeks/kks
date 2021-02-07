@@ -171,8 +171,7 @@ class API:
 
         # if a submission is a valid JSON file, then api.download_run will fail
         if not need_json or not data['ok']:
-            err = data.get('error', {})
-            raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
+            raise APIError.parse(data.get('error', {}))
         return data['result']
 
     def _api_method(self, path, action, sids=None, need_json=True, **kwargs):

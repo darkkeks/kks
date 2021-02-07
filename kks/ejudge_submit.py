@@ -1,6 +1,6 @@
 import click
 
-from kks.errors import EjudgeError, APIError, AuthError, EjudgeFuseError
+from kks.errors import EjudgeError, AuthError
 from kks.util.common import prompt_choice, with_retries
 from kks.util.ejudge import RunStatus
 
@@ -92,35 +92,36 @@ def submit_solution(file, prob_name, get_contest_status, get_problem_status, sub
         return SubmissionResult.fail(str(e))
 
     click.secho('Testing...', bold=True)
-    return get_final_result(api, run_id) or SubmissionResult.unknown('Testing in progress')
+    return get_final_result(run_id) or SubmissionResult.unknown('Testing in progress')
 
 
-def submit_solution_ssh(client, file, prob_name):  # create base submit function?
-    @with_retries()
+def submit_solution_ssh(client, file, prob_name, timeout):
+
+    @with_retries(timeout=timeout)
     def get_status(run_id):
         try:
             res = RunStatus(client.run_status(prob_name, run_id))
-        except EjudgeFuseError as e:
+        except EjudgeError as e:
             click.secho(f'Cannot get run status ({e})', fg='yellow')
             return None
         if res.is_testing():
             return None
-        return res
+        return SubmissionResult.parse_status(res)
 
-    return submit_solution(file, prob_name, client.contest_status, client.get_problem_status, client.submit, get_status)
+    return submit_solution(file, prob_name, client.contest_status, client.problem_status, client.submit, get_status)
 
 
-def submit_solution_api(session, file, prob_name):
+def submit_solution_api(session, file, prob_name, timeout):
     api = session.api()
 
     def get_contest_status():
         return session.with_auth(api.contest_status)
 
-    @with_retries(step=2)
+    @with_retries(timeout=timeout, step=2)
     def get_run_status(run_id):
         res = RunStatus(api.run_status(run_id))
         if res.is_testing():
             return None
         return SubmissionResult.parse_status(res)
 
-    return submit_solution(file, prob_name, get_contest_status, api.get_problem_status, api.submit, get_run_status)
+    return submit_solution(file, prob_name, get_contest_status, api.problem_status, api.submit, get_run_status)
