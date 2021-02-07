@@ -39,6 +39,7 @@ class Target:
     def replace_macros_add_missing(self, problem, default_target):
         def modify(x):
             return x.replace('TASKNAME', problem)
+
         def modify_list(lst, default):
             if lst is None:
                 return default
@@ -54,7 +55,7 @@ class Target:
         self.libs = modify_list(self.libs, default_target.libs)
         self.out = modify(self.out) if self.out is not None else default_target.out  # "or" doesn't work
         self.asm64bit = self.asm64bit if self.asm64bit is not None else default_target.asm64bit
-        self.default_asan = self.default_asan if self.default_asan  is not None else default_target.default_asan
+        self.default_asan = self.default_asan if self.default_asan is not None else default_target.default_asan
 
 
 def _copy_default(dest):

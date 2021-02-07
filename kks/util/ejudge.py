@@ -274,7 +274,7 @@ class API:
         return self._api_method('client', 'submit-run', data=data, files=files)
 
 
-class EjudgeSession():
+class EjudgeSession:
     sid_regex = re.compile('/S([0-9a-f]{16})')
 
     def __init__(self, auth=True):
@@ -372,7 +372,6 @@ class EjudgeSession():
                 raise e
             self.auth()
             return api_method(*args, **kwargs)
-
 
     def _update_sid(self):
         sid = EjudgeSession.sid_regex.search(self.links.get(LinkTypes.SUMMARY)).group(1)
