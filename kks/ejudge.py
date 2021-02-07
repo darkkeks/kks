@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from itertools import groupby
 from urllib.parse import quote as urlquote
 
-import click
 #import requests  # we use lazy imports to improve load time for local commands
 #from bs4 import BeautifulSoup
 #from bs4.element import NavigableString
@@ -312,12 +311,12 @@ def ejudge_standings(session):
 
     standings = session.links.get(LinkTypes.USER_STANDINGS, None)
     if standings is None:
-        return None, None
+        return None
 
     try:
         page = session.get(standings)
     except AuthError:
-        return None, None
+        return None
 
     soup = BeautifulSoup(page.content, 'html.parser')
 

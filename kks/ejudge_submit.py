@@ -1,4 +1,3 @@
-from time import time, sleep
 import click
 
 from kks.errors import APIError, AuthError
@@ -44,6 +43,7 @@ class SubmissionResult:
         if run_status.status in [RunStatus.ACCEPTED, RunStatus.PENDING]:  # PENDING == "Pending check" =?= ACCEPTED
             return cls.check(str(run_status))
         return cls.fail(run_status.with_tests(failed_only=True))  # there can be 100+ passed tests and a few failed
+
 
 def get_lang(available, all_langs):
     def choice(langs):
