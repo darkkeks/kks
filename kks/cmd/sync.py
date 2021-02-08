@@ -6,7 +6,7 @@ import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
-from kks.util.common import find_workspace, get_task_dir, write_contests, ssh_enabled, ssh_client
+from kks.util.common import DefaultEnv, find_workspace, get_task_dir, write_contests, ssh_enabled, ssh_client
 from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 
@@ -146,7 +146,7 @@ def sync(code, code_opt, force, filters):
     if code:
         submissions = ejudge_submissions(session)
 
-    md_width = int(environ.get('MDWIDTH', '100'))
+    md_width = int(environ.get('MDWIDTH', DefaultEnv.MDWIDTH))
 
     contests = set()
     bad_contests = set()

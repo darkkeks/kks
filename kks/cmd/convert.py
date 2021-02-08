@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from kks.util.common import format_file
+from kks.util.common import DefaultEnv, format_file
 from kks.util.h2t import HTML2Text
 
 
@@ -13,7 +13,7 @@ from kks.util.h2t import HTML2Text
 def convert(force, files):
     """Convert statements from HTML to Markdown (e.g. kr statements copied by scp)"""
 
-    md_width = int(environ.get('MDWIDTH', '100'))
+    md_width = int(environ.get('MDWIDTH', DefaultEnv.MDWIDTH))
     converter = HTML2Text(bodywidth=md_width, baseurl='https://caos.ejudge.ru/ej/client')  # NOTE baseurl may be incorrect
     converter.pad_tables = True
 

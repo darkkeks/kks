@@ -18,13 +18,13 @@ EJ_FUSE_BUFSIZE = 4096
 
 
 class EjudgeSSHClient(SSHClient):
-    def __init__(self, hostname, login, password, mnt_dir=None, contest=None):
+    def __init__(self, hostname, login, password, mnt_dir=None, contest=None, timeout=None):
         super().__init__()
         self.set_missing_host_key_policy(AutoAddPolicy)
         self.connect(hostname, username=login, password=password)
         self.contest = contest
+        self._timeout = timeout
         self._root = PurePosixPath(mnt_dir or '/tmp/foo')
-        self._timeout = int(environ.get('KKS_SSH_TIMEOUT', 5))
         self._sftp = None
         self._sftp_fail = False
 

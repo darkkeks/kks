@@ -11,6 +11,11 @@ import click
 from kks.ejudge import AuthData
 
 
+class DefaultEnv:
+    MDWIDTH = '100'
+    KKS_SSH_TIMEOUT = '5'
+
+
 # from stackoverflow.com/q/6760685
 class Singleton(ABCMeta):
     _instances = {}
@@ -62,8 +67,9 @@ def ssh_client():
         return None
 
     ssh_cfg = config['SSH']
+    timeout = int(environ.get('KKS_SSH_TIMEOUT', DefaultEnv.KKS_SSH_TIMEOUT))
     try:
-        return EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'])
+        return EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'], timeout)
     except AuthenticationException:
         click.secho('SSH auth error', fg='red', err=True)
         return None

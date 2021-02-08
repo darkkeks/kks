@@ -1,7 +1,7 @@
 import click
 
 from kks.errors import EjudgeError
-from kks.util.common import Config
+from kks.util.common import Config, DefaultEnv
 from kks.util.ejudge import load_auth_data
 
 
@@ -67,8 +67,9 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
         'mnt_dir': mnt_dir
     }
 
+    timeout = int(environ.get('KKS_SSH_TIMEOUT', DefaultEnv.KKS_SSH_TIMEOUT))
     try:
-        client = EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'])
+        client = EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], timeout)
     except AuthenticationException:
         click.secho('SSH auth error', fg='red')
         return
