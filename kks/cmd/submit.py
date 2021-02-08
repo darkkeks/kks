@@ -12,11 +12,17 @@ API_TESTING_TIMEOUT = 10
 SSH_TESTING_TIMEOUT = 20
 
 
+def set_default_timeout(ctx, param, value):
+    if value is not None:
+        return value
+    return SSH_TESTING_TIMEOUT if ssh_enabled() else API_TESTING_TIMEOUT
+
+
 @click.command(short_help='Submit a solutions')
 @click.argument('file', type=click.Path(exists=True), required=False)
 @click.option('-p', '--problem', type=str,
               help='manually specify the problem ID')
-@click.option('-t', '--timeout', type=int,
+@click.option('-t', '--timeout', type=float, callback=set_default_timeout,
               help=f'how long to wait for a testing report (default {API_TESTING_TIMEOUT}s / {SSH_TESTING_TIMEOUT}s with ssh)')
 def submit(file, problem, timeout):
     """
@@ -44,13 +50,13 @@ def submit(file, problem, timeout):
         if client is None:
             return
 
-        result = submit_solution_ssh(client, file, problem, timeout or SSH_TESTING_TIMEOUT)
+        result = submit_solution_ssh(client, file, problem, timeout)
     else:
         try:
             session = EjudgeSession()
         except AuthError:
             return
-        result = submit_solution_api(session, file, problem, timeout or API_TESTING_TIMEOUT)
+        result = submit_solution_api(session, file, problem, timeout)
 
     click.secho(result.msg, fg=result.color())
 
