@@ -49,7 +49,6 @@ def submit(file, problem, timeout):
         client = ssh_client()
         if client is None:
             return
-
         submit_solution = submit_solution_ssh
         connections = [client]  # may also need session in future
     else:
