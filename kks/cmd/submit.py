@@ -2,16 +2,28 @@ from pathlib import Path
 
 import click
 
-from kks.ejudge_submit import submit_solution
-from kks.util.common import prompt_choice, find_problem_rootdir
+from kks.ejudge_submit import submit_solution_api, submit_solution_ssh
+from kks.util.common import prompt_choice, find_problem_rootdir, ssh_enabled, ssh_client
 from kks.util.ejudge import EjudgeSession
+
+
+API_TESTING_TIMEOUT = 10
+SSH_TESTING_TIMEOUT = 20
+
+
+def default_timeout(ctx, param, value):
+    if value is not None:
+        return value
+    return SSH_TESTING_TIMEOUT if ssh_enabled() else API_TESTING_TIMEOUT
 
 
 @click.command(short_help='Submit a solutions')
 @click.argument('file', type=click.Path(exists=True), required=False)
 @click.option('-p', '--problem', type=str,
               help='manually specify the problem ID')
-def submit(file, problem):
+@click.option('-t', '--timeout', type=float, callback=default_timeout,
+              help=f'how long to wait for a testing report (default {API_TESTING_TIMEOUT}s / {SSH_TESTING_TIMEOUT}s with ssh)')
+def submit(file, problem, timeout):
     """
     Submit a solution
 
@@ -32,9 +44,18 @@ def submit(file, problem):
         if file is None:
             return
 
-    session = EjudgeSession()
+    if ssh_enabled():
+        client = ssh_client()
+        if client is None:
+            return
+        submit_solution = submit_solution_ssh
+        connections = [client]  # may also need session in future
+    else:
+        session = EjudgeSession()
+        submit_solution = submit_solution_api
+        connections = [session]
 
-    result = submit_solution(session, file, problem)
+    result = submit_solution(file, problem, timeout, *connections)
     click.secho(result.msg, fg=result.color())
 
 

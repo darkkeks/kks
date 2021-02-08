@@ -1,11 +1,9 @@
 import json
-import pickle
 import re
 import click
 
 from kks import __version__
 from kks.ejudge import AuthData, get_contest_url
-from kks.util.common import config_directory
 from kks.errors import AuthError, APIError
 from kks.util.storage import Config, PickleStorage
 
@@ -143,8 +141,7 @@ class API:
 
         # if a submission is a valid JSON file, then api.download_run will fail
         if not need_json or not data['ok']:
-            err = data.get('error', {})
-            raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
+            raise APIError.parse(data.get('error', {}))
         return data['result']
 
     def _api_method(self, path, action, sids=None, need_json=True, use_sids=True, **kwargs):

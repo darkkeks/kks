@@ -24,3 +24,11 @@ class APIError(EjudgeError):
     def __init__(self, message, code):
         super().__init__(message)
         self.code = code
+
+    @classmethod
+    def parse(cls, err):
+        return cls(err.get('message', 'Unknown error'), err.get('num', cls.UNKNOWN))
+
+
+class EjudgeFuseError(EjudgeError):
+    pass

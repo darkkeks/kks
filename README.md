@@ -109,6 +109,33 @@ pip3 install .
 
 Почти у всех команд есть адекватный `--help`, там бывают полезные аргументы, не описанные ниже.
 
+### SSH integration
+
+**Интеграция с SSH находится в стадии разработки и может работать нестабильно**
+
+Команда `kks ssh` может использоваться для сдачи КР.
+Влияет только на команды `sync` и `submit`
+Подключение к ssh - глобальное (будет использоваться для всех воркспейсов и задач)
+
+```shell script
+# Подключиться к ssh с настройками по умолчанию (теоретически это должно сработать)
+kks ssh
+
+# Использовать кастомные настройки подключения
+# LOGIN - логин для ssh (может отличаться от логина для ejudge)
+kks ssh --hostname kek.ejudge.ru --login LOGIN --ej-fuse /path/to/ejudge-fuse --mnt-dir "~/contest"
+
+# Отключить ssh
+kks ssh -d
+
+# Увеличить таймаут для запросов к ssh (по умолчанию 5 секунд)
+KKS_SSH_TIMEOUT=10 kks sync
+
+# Увеличить таймауты для запросов к ssh и получения статуса посылки
+KKS_SSH_TIMEOUT=10 kks submit main.c -t 30
+```
+
+### Examples
 ```shell script
 # Create .kks-workspace in current directory to mark kks workspace root
 kks init
@@ -214,13 +241,15 @@ kks run -tg debug
     - [ ] test solve.py
 - gen
     - [ ] support .cpp and .c generator/solution
-- build
-    - [ ] configure compiler
-    - [ ] support asm
 - ejudge
     - top
         - [ ] max score
         - [ ] optimistic scoreboard
         - [ ] sort/filter
+    - ssh
+        - [ ] test on ejudge sandbox
+        - [ ] ejudge-fuse alternatives (see NOTE in `kks.util.ssh`)
+        - [ ] sync submissions over ssh
+        - [ ] sync problem info (TL/ML)
 - sync
     - [ ] templates

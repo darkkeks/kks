@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from kks.util.common import find_workspace, find_problem_rootdir, config_directory
+from kks.util.common import find_workspace, find_problem_rootdir
 
 
 target_file = 'targets.yaml'

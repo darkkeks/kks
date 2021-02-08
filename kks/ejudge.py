@@ -44,13 +44,29 @@ class AuthData:
 
 
 class Problem:
-    def __init__(self, short_name, name, href, status, tests_passed, score):
+    def __init__(self, short_name, name):
         self.short_name = short_name
         self.name = name
-        self.href = href  # NOTE contains SID -> quickly becomes outdated
+
+
+class BasicAPIProblem(Problem):
+    def __init__(self, id, short_name, name):
+        super().__init__(short_name, name)
+        self.id = id
+
+    @classmethod
+    def parse(cls, data):
+        """parse a problem description received from contest_status api method"""
+        return cls(data['id'], data['short_name'], data['long_name'])
+
+
+class WebProblem(Problem):
+    def __init__(self, short_name, name, href, status, tests_passed, score):
+        super().__init__(short_name, name)
         self.status = status
         self.tests_passed = tests_passed
         self.score = score
+        self.href = href  # NOTE contains SID -> quickly becomes outdated
 
     def color(self):
         return 'green' if self.status == Status.OK \
@@ -193,16 +209,34 @@ class ProblemInfo:
 
 
 class Statement:
-    keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
-
-    def __init__(self, page):
-        from bs4 import BeautifulSoup
-        from bs4.element import NavigableString
-
+    """Base statement class"""
+    def __init__(self):
         self.input_data = None
         self.output_data = None
         self._html = None
+        self.url = '__BASE_URL__'
+
+    def html(self):
+        return 'Statement is not available'
+
+    def markdown(self, width=None):
+        return 'Statement is not available'
+
+    def _markdown(self, html, width):
+        converter = HTML2Text(bodywidth=width, baseurl=self.url)
+        converter.pad_tables = True
+        return converter.handle(html)
+
+
+class WebStatement(Statement):
+    keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
+
+    def __init__(self, page):
+        super().__init__()
         self.url = page.url
+
+        from bs4 import BeautifulSoup
+        from bs4.element import NavigableString
 
         soup = BeautifulSoup(page.content, 'html.parser')
         task_area = soup.find('div', {'id': 'probNavTaskArea'})
@@ -228,7 +262,7 @@ class Statement:
         info_avail = False
         for row in problem_info.find_all('tr'):
             key, value = row.find_all('td')
-            if key.text in Statement.keep_info:
+            if key.text in type(self).keep_info:
                 info_avail = True
                 info.append(copy(row))
 
@@ -262,9 +296,41 @@ class Statement:
     def markdown(self, width=100):
         if self._html is None:
             return 'Statement is not available'
-        converter = HTML2Text(bodywidth=width, baseurl=self.url)
-        converter.pad_tables = True
-        return converter.handle(str(self._html))
+        return self._markdown(str(self._html), width)
+
+
+class APIStatement(Statement):
+    def __init__(self, html):
+        super().__init__()
+        self.url = 'https://caos.ejudge.ru/ej/client/view-problem-submit/S0000000000000000'
+        self._html = html
+
+        if self._html is None:
+            return
+
+        from bs4 import BeautifulSoup
+        from bs4.element import NavigableString
+
+        soup = BeautifulSoup(html, 'html.parser')
+
+        input_title = soup.find('h4', text='Input')
+        if input_title is not None:
+            self.input_data = input_title.find_next('pre').text
+
+        output_title = soup.find('h4', text='Output')
+        if output_title is not None:
+            self.output_data = output_title.find_next('pre').text
+        # TODO add TL/ML info
+
+    def html(self):
+        if self._html is None:
+            return 'Statement is not available'
+        return self._html  # raw html from API is more or less readable
+
+    def markdown(self, width=100):
+        if self._html is None:
+            return 'Statement is not available'
+        return self._markdown(self._html, width)
 
 
 def get_contest_id(group_id):
@@ -297,7 +363,7 @@ def ejudge_summary(session):
     for problem in chunks(tasks, 6):
         short, name, status, tests_passed, score, _ = problem
 
-        problems.append(Problem(
+        problems.append(WebProblem(
             short.text,
             name.text,
             name.a['href'],
@@ -371,7 +437,7 @@ def to_task_score(contest, cell):
 
 def ejudge_statement(problem_link, session):
     page = session.get(problem_link)
-    return Statement(page)
+    return WebStatement(page)
 
 
 def ejudge_submissions(session):

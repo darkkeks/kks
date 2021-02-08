@@ -1,5 +1,6 @@
 import difflib
 import pickle
+import socket
 from abc import ABCMeta
 from functools import wraps
 from pathlib import Path
@@ -7,9 +8,8 @@ from time import time, sleep
 
 import click
 
-from kks.ejudge import AuthData
 
-
+# from stackoverflow.com/q/6760685
 class Singleton(ABCMeta):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -22,6 +22,36 @@ def config_directory():
     directory = Path(click.get_app_dir('kks', force_posix=True))
     directory.mkdir(exist_ok=True)
     return directory
+
+
+def ssh_enabled():
+    """used to avoid loading kks.util.ssh when it's not required"""
+    from kks.util.storage import Config
+    return Config().ssh.hostname is not None  # == ssh section exists
+
+
+# not in kks.util.ssh because we need lazy loading
+def ssh_client():
+    from paramiko.ssh_exception import AuthenticationException, SSHException
+    from kks.util.ssh import EjudgeSSHClient
+    from kks.util.storage import Config
+
+    config = Config()
+    if config.ssh.login is None or config.auth.login is None:
+        click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
+        return None
+
+    ssh_cfg = config.ssh
+    timeout = config.options.kks_ssh_timeout
+    try:
+        # we assume that all these options exist
+        return EjudgeSSHClient.create_connected(ssh_cfg.hostname, ssh_cfg.login, ssh_cfg.password, ssh_cfg.mnt_dir, config.Auth.contest, timeout)
+    except AuthenticationException:
+        click.secho('SSH auth error', fg='red', err=True)
+        return None
+    except (SSHException, socket.timeout) as e:
+        click.secho(f'SSH error: {e}', fg='red', err=True)
+        return None
 
 
 def get_clang_style_string():

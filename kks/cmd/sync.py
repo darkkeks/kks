@@ -5,7 +5,7 @@ import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
-from kks.util.common import find_workspace, get_task_dir, write_contests
+from kks.util.common import find_workspace, get_task_dir, write_contests, ssh_enabled, ssh_client
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Config
 
@@ -123,9 +123,21 @@ def sync(code, code_opt, force, filters):
         return
 
     config = Config()
-
     session = EjudgeSession()
-    problems = ejudge_summary(session)
+
+    use_ssh = ssh_enabled()
+    if use_ssh:
+        client = ssh_client()
+        if client is None:
+            return
+        if code or code_opt:
+            # TODO if submission sync works correctly, remove warning. otherwise, implement sync over ssh
+            click.secho('Submission sync doesn\'t use ssh and may fail for "kr" tasks', fg='bright_yellow', bold=True)
+        problems = client.problems()
+        if problems is None:
+            return
+    else:
+        problems = ejudge_summary(session)
 
     code_all = code_opt == 'all'
     code = code or code_all
@@ -197,7 +209,11 @@ def sync(code, code_opt, force, filters):
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
-        statement = ejudge_statement(problem.href, session)  # TODO use API? (kr contests, see #55)
+        if use_ssh:
+            statement = client.statement(problem.id)
+        else:
+            # TODO use api?
+            statement = ejudge_statement(problem.href, session)
 
         html_statement_path = task_dir / 'statement.html'
         md_statement_path = task_dir / 'statement.md'
@@ -227,6 +243,9 @@ def sync(code, code_opt, force, filters):
             sync_code(problem, task_dir, submissions, session, code_all)
 
     write_contests(workspace, contests)
+
+    if use_ssh:
+        client.close()
 
     color = 'green' if old_problems + new_problems == total_problems else 'red'
     click.secho('Sync done!', fg='green')

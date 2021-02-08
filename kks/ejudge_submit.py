@@ -1,6 +1,6 @@
 import click
 
-from kks.errors import APIError
+from kks.errors import EjudgeError
 from kks.util.common import prompt_choice, with_retries
 from kks.util.ejudge import RunStatus
 
@@ -59,19 +59,10 @@ def get_lang(available, all_langs):
     return choice(langs)['id']
 
 
-@with_retries(step=2)
-def get_final_result(api, run_id):
-    res = RunStatus(api.run_status(run_id))
-    if res.is_testing():
-        return None
-    return SubmissionResult.parse_status(res)
-
-
-def submit_solution(session, file, prob_name):
-    api = session.api()
+def submit_solution(file, prob_name, get_contest_status, get_problem_status, submit_file, get_final_result):
     try:
-        contest = session.with_auth(api.contest_status)
-    except APIError as e:
+        contest = get_contest_status()
+    except EjudgeError as e:
         return SubmissionResult.fail(str(e))
 
     prob_id = None
@@ -82,7 +73,11 @@ def submit_solution(session, file, prob_name):
     if prob_id is None:
         return SubmissionResult.fail('Invalid problem ID')
 
-    problem = api.problem_status(prob_id)
+    try:
+        problem = get_problem_status(prob_id)
+    except EjudgeError as e:
+        return SubmissionResult.fail(str(e))
+
     problem, problem_status = problem['problem'], problem['problem_status']
     if not problem_status.get('is_submittable'):
         return SubmissionResult.fail('Cannot submit a solution for this problem')
@@ -92,8 +87,41 @@ def submit_solution(session, file, prob_name):
 
     lang = get_lang(problem.get('compilers', []), contest['compilers'])
     try:
-        run_id = api.submit(prob_id, file, lang)['run_id']
-    except APIError as e:  # Duplicate / empty file / etc.
+        run_id = submit_file(prob_id, file, lang)['run_id']
+    except EjudgeError as e:  # Duplicate / empty file / etc.
         return SubmissionResult.fail(str(e))
+
     click.secho('Testing...', bold=True)
-    return get_final_result(api, run_id) or SubmissionResult.unknown('Testing in progress')
+    return get_final_result(run_id) or SubmissionResult.unknown('Testing in progress')
+
+
+def submit_solution_ssh(file, prob_name, timeout, client):
+
+    @with_retries(timeout=timeout)
+    def get_status(run_id):
+        try:
+            res = RunStatus(client.run_status(prob_name, run_id))
+        except EjudgeError as e:
+            click.secho(f'Cannot get run status ({e})', fg='yellow')
+            return None
+        if res.is_testing():
+            return None
+        return SubmissionResult.parse_status(res)
+
+    return submit_solution(file, prob_name, client.contest_status, client.problem_status, client.submit, get_status)
+
+
+def submit_solution_api(file, prob_name, timeout, session):
+    api = session.api()
+
+    def get_contest_status():
+        return session.with_auth(api.contest_status)
+
+    @with_retries(timeout=timeout, step=2)
+    def get_run_status(run_id):
+        res = RunStatus(api.run_status(run_id))
+        if res.is_testing():
+            return None
+        return SubmissionResult.parse_status(res)
+
+    return submit_solution(file, prob_name, get_contest_status, api.problem_status, api.submit, get_run_status)
