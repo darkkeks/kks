@@ -12,7 +12,7 @@ API_TESTING_TIMEOUT = 10
 SSH_TESTING_TIMEOUT = 20
 
 
-def set_default_timeout(ctx, param, value):
+def default_timeout(ctx, param, value):
     if value is not None:
         return value
     return SSH_TESTING_TIMEOUT if ssh_enabled() else API_TESTING_TIMEOUT
@@ -22,7 +22,7 @@ def set_default_timeout(ctx, param, value):
 @click.argument('file', type=click.Path(exists=True), required=False)
 @click.option('-p', '--problem', type=str,
               help='manually specify the problem ID')
-@click.option('-t', '--timeout', type=float, callback=set_default_timeout,
+@click.option('-t', '--timeout', type=float, callback=default_timeout,
               help=f'how long to wait for a testing report (default {API_TESTING_TIMEOUT}s / {SSH_TESTING_TIMEOUT}s with ssh)')
 def submit(file, problem, timeout):
     """
