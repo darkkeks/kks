@@ -213,13 +213,15 @@ kks run -tg debug
     - [ ] test solve.py
 - gen
     - [ ] support .cpp and .c generator/solution
-- build
-    - [ ] configure compiler
-    - [ ] support asm
 - ejudge
     - top
         - [ ] max score
         - [ ] optimistic scoreboard
         - [ ] sort/filter
+    - ssh
+        - [ ] test on ejudge sandbox
+        - [ ] ejudge-fuse alternatives (see NOTE in `kks.util.ssh`)
+        - [ ] sync submissions
+        - [ ] sync problem info (TL/ML)
 - sync
     - [ ] templates
