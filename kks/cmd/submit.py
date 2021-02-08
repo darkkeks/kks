@@ -8,8 +8,8 @@ from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 
 
-api_testing_timeout = 10
-ssh_testing_timeout = 20
+API_TESTING_TIMEOUT = 10
+SSH_TESTING_TIMEOUT = 20
 
 
 @click.command(short_help='Submit a solutions')
@@ -17,7 +17,7 @@ ssh_testing_timeout = 20
 @click.option('-p', '--problem', type=str,
               help='manually specify the problem ID')
 @click.option('-t', '--timeout', type=int,
-              help=f'how long to wait for a testing report (default {api_testing_timeout}s / {ssh_testing_timeout}s with ssh)')
+              help=f'how long to wait for a testing report (default {API_TESTING_TIMEOUT}s / {SSH_TESTING_TIMEOUT}s with ssh)')
 def submit(file, problem, timeout):
     """
     Submit a solution
@@ -45,13 +45,13 @@ def submit(file, problem, timeout):
         if client is None:
             return
 
-        result = submit_solution_ssh(client, file, problem, timeout or ssh_testing_timeout)
+        result = submit_solution_ssh(client, file, problem, timeout or SSH_TESTING_TIMEOUT)
     else:
         try:
             session = EjudgeSession()
         except AuthError:
             return
-        result = submit_solution_api(session, file, problem, timeout or api_testing_timeout)
+        result = submit_solution_api(session, file, problem, timeout or API_TESTING_TIMEOUT)
 
     click.secho(result.msg, fg=result.color())
 

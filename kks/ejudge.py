@@ -51,8 +51,8 @@ class Problem:
 
 class BasicAPIProblem(Problem):
     def __init__(self, id, short_name, name):
-        self.id = id
         super().__init__(short_name, name)
+        self.id = id
 
     @classmethod
     def parse(cls, data):
@@ -253,7 +253,7 @@ class WebStatement(Statement):
         info_avail = False
         for row in problem_info.find_all('tr'):
             key, value = row.find_all('td')
-            if key.text in self.__class__.keep_info:
+            if key.text in type(self).keep_info:
                 info_avail = True
                 info.append(copy(row))
 
