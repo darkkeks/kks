@@ -5,14 +5,28 @@ from kks.util.common import Config
 from kks.util.ejudge import load_auth_data
 
 
+# defaults. we use callbacks to avoid loading config when importing this module into kks.cli
+def get_hostname():
+    return Config().get('SSH', 'hostname', fallback='sandbox.ejudge.ru')
+
+def get_login():
+    return Config().get('SSH', 'login', fallback=None) or Config().get('Auth', 'login', fallback=None)
+
+def get_password():
+    return Config().get('SSH', 'password', fallback=None)
+
+def get_mnt_dir():
+    return Config().get('SSH', 'mnt_dir', fallback='/tmp/ejudge_fuse_mnt')
+
+
 @click.command(short_help='Configure ssh tunneling')
 @click.option('-d', '--disable', is_flag=True)
-@click.option('-hn', '--hostname')
-@click.option('-l', '--login')
-@click.option('-p', '--password')
+@click.option('-hn', '--hostname', default=get_hostname)
+@click.option('-l', '--login', default=get_login)
+@click.option('-p', '--password', default=get_password)
 @click.option('--ej-fuse', default='/opt/ejudge/bin/ejudge-fuse', help='Path to ejudge-fuse on remote host')
 @click.option('--ej-url', default='https://caos.ejudge.ru/cgi-bin/', help='URL for ejudge-fuse')
-@click.option('--mnt-dir', help='Remote mount directory')
+@click.option('--mnt-dir', default=get_mnt_dir, help='Remote mount directory')
 def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     """Enable / disable ssh tunneling for "sync" and "submit" commands"""
 
@@ -23,12 +37,6 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     config = Config()
     if disable:
         if config.has_section('SSH'):
-            ssh_cfg = config['SSH']
-            hostname = hostname or ssh_cfg['hostname']
-            login = login or ssh_cfg['login']
-            password = password or config['SSH'].get('password')
-            mnt_dir = mnt_dir or ssh_cfg['mnt_dir']
-
             try:
                 client = EjudgeSSHClient(hostname, login, password, mnt_dir)
             except AuthenticationException:
@@ -50,13 +58,13 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
         return
 
     if password is None:
-        password = click.prompt(f'{auth_data.login}\'s SSH password', hide_input=True)  # not the same as ejudge password
+        password = click.prompt(f'{login}\'s SSH password', hide_input=True)  # not the same as ejudge password
 
-    ssh_cfg = config['SSH'] = {
-        'hostname': hostname or 'sandbox.ejudge.ru',
-        'login': login or auth_data.login,
+    ssh_cfg = {
+        'hostname': hostname,
+        'login': login,
         'password': password,
-        'mnt_dir': mnt_dir or '/tmp/ejudge_fuse_mnt'
+        'mnt_dir': mnt_dir
     }
 
     try:
@@ -74,5 +82,6 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     finally:
         client.close()
 
+    config['SSH'] = ssh_cfg
     config.save()
     click.secho('SSH + ejudge-fuse enabled', fg='green')

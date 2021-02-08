@@ -39,8 +39,7 @@ def submit(file, problem, timeout):
         if file is None:
             return
 
-    use_ssh = ssh_enabled()
-    if use_ssh:
+    if ssh_enabled():
         client = ssh_client()
         if client is None:
             return
