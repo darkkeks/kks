@@ -32,6 +32,12 @@ class EjudgeSSHClient(SSHClient):
     def connect(self):
         super().connect(self.hostname, username=self.login, password=self.password, timeout=self._timeout, banner_timeout=self._timeout)
 
+    @classmethod
+    def create_connected(cls, *args, **kwargs):
+        instance = cls(*args, **kwargs)
+        instance.connect()
+        return instance
+
     def mount_ej_fuse(self, ej_fuse_path, url, login, password):
         self.unmount_ej_fuse()
         cmd = f'mkdir -p {self._root}; {ej_fuse_path} --user {login} --url {url} {self._root} -o use_ino'

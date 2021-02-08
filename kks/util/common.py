@@ -71,8 +71,7 @@ def ssh_client():
     ssh_cfg = config['SSH']
     timeout = int(environ.get('KKS_SSH_TIMEOUT', DefaultEnv.KKS_SSH_TIMEOUT))
     try:
-        client = EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'], timeout)
-        client.connect()
+        return EjudgeSSHClient.create_connected(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'], timeout)
     except AuthenticationException:
         click.secho('SSH auth error', fg='red', err=True)
         return None
