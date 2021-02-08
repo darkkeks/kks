@@ -19,13 +19,18 @@ EJ_FUSE_BUFSIZE = 4096
 class EjudgeSSHClient(SSHClient):
     def __init__(self, hostname, login, password, mnt_dir=None, contest=None, timeout=None):
         super().__init__()
-        self.set_missing_host_key_policy(AutoAddPolicy)
-        self.connect(hostname, username=login, password=password)
+        self.hostname = hostname
+        self.login = login
+        self.password = password
         self.contest = contest
         self._timeout = timeout
         self._root = PurePosixPath(mnt_dir)
         self._sftp = None
         self._sftp_fail = False
+        self.set_missing_host_key_policy(AutoAddPolicy)
+
+    def connect(self):
+        super().connect(self.hostname, username=self.login, password=self.password, timeout=self._timeout, banner_timeout=self._timeout)
 
     def mount_ej_fuse(self, ej_fuse_path, url, login, password):
         self.unmount_ej_fuse()

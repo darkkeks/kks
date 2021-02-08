@@ -1,5 +1,6 @@
 import difflib
 import pickle
+import socket
 from abc import ABCMeta
 from configparser import ConfigParser
 from functools import wraps
@@ -70,11 +71,12 @@ def ssh_client():
     ssh_cfg = config['SSH']
     timeout = int(environ.get('KKS_SSH_TIMEOUT', DefaultEnv.KKS_SSH_TIMEOUT))
     try:
-        return EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'], timeout)
+        client = EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'], timeout)
+        client.connect()
     except AuthenticationException:
         click.secho('SSH auth error', fg='red', err=True)
         return None
-    except SSHException as e:
+    except (SSHException, socket.timeout) as e:
         click.secho(f'SSH error: {e}', fg='red', err=True)
         return None
 

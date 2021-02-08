@@ -1,3 +1,4 @@
+import socket
 from os import environ
 
 import click
@@ -36,14 +37,16 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     from kks.util.ssh import EjudgeSSHClient
     # TODO add public key auth (also no-store-password?)
 
+    timeout = int(environ.get('KKS_SSH_TIMEOUT', DefaultEnv.KKS_SSH_TIMEOUT))
     config = Config()
     if disable:
         if config.has_section('SSH'):
             try:
-                client = EjudgeSSHClient(hostname, login, password, mnt_dir)
+                client = EjudgeSSHClient(hostname, login, password, mnt_dir, timeout=timeout)
+                client.connect()
             except AuthenticationException:
                 click.secho('Cannot unmount remote ejudge-fuse (SSH auth error)', fg='yellow')
-            except SSHException as e:
+            except (SSHException, socket.timeout) as e:
                 click.secho(f'Cannot unmount remote ejudge-fuse (SSH error: {e})', fg='yellow')
             else:
                 client.unmount_ej_fuse()
@@ -69,11 +72,14 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
         'mnt_dir': mnt_dir
     }
 
-    timeout = int(environ.get('KKS_SSH_TIMEOUT', DefaultEnv.KKS_SSH_TIMEOUT))
     try:
-        client = EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], timeout)
+        client = EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], timeout=timeout)
+        client.connect()
     except AuthenticationException:
         click.secho('SSH auth error', fg='red')
+        return
+    except (SSHException, socket.timeout) as e:
+        click.secho(f'SSH error: {e}', fg='red')
         return
 
     click.secho('SSH connection estabilished, trying to mount ejudge-fuse', bold=True)
