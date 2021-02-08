@@ -20,7 +20,7 @@ class Singleton(ABCMeta):
         return cls._instances[cls]
 
 
-class Config(ConfigParser):#, metaclass=Singleton):
+class Config(ConfigParser, metaclass=Singleton):
     """global kks config"""
 
     def __init__(self):
