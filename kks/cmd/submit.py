@@ -50,14 +50,17 @@ def submit(file, problem, timeout):
         if client is None:
             return
 
-        result = submit_solution_ssh(client, file, problem, timeout)
+        submit_solution = submit_solution_ssh
+        connections = [client]  # may also need session in future
     else:
         try:
             session = EjudgeSession()
         except AuthError:
             return
-        result = submit_solution_api(session, file, problem, timeout)
+        submit_solution = submit_solution_api
+        connections = [session]
 
+    result = submit_solution(file, problem, timeout, *connections)
     click.secho(result.msg, fg=result.color())
 
 

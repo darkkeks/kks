@@ -95,7 +95,7 @@ def submit_solution(file, prob_name, get_contest_status, get_problem_status, sub
     return get_final_result(run_id) or SubmissionResult.unknown('Testing in progress')
 
 
-def submit_solution_ssh(client, file, prob_name, timeout):
+def submit_solution_ssh(file, prob_name, timeout, client):
 
     @with_retries(timeout=timeout)
     def get_status(run_id):
@@ -111,7 +111,7 @@ def submit_solution_ssh(client, file, prob_name, timeout):
     return submit_solution(file, prob_name, client.contest_status, client.problem_status, client.submit, get_status)
 
 
-def submit_solution_api(session, file, prob_name, timeout):
+def submit_solution_api(file, prob_name, timeout, session):
     api = session.api()
 
     def get_contest_status():
