@@ -31,6 +31,24 @@ def write_config(config):
         config.write(f)
 
 
+def ssh_enabled():
+    """used to avoid loading kks.util.ssh when it's not required"""
+    # NOTE config is read several times (ssh_enabled, ssh_client, load_data, load_links, ...)
+    # Consider using a global config (create a wrapper class?)
+    config = read_config()
+    return config.has_section('SSH')
+
+
+# not in kks.util.ssh because we need lazy loading
+def ssh_client():
+    from kks.util.ssh import EjudgeSSHClient
+    config = read_config()
+    if not (config.has_section('SSH') and config.has_section('Auth')):
+        return None
+    ssh_cfg = config['SSH']
+    return EjudgeSSHClient(ssh_cfg['hostname'], ssh_cfg['login'], ssh_cfg['password'], ssh_cfg['mnt_dir'], config['Auth']['contest'])
+
+
 def get_clang_style_string():
     cfg = config_directory() / '.clang-format'
     if cfg.exists():

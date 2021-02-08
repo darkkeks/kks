@@ -1,6 +1,7 @@
 import json
 import pickle
 import re
+
 import click
 
 from kks import __version__

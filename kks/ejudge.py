@@ -184,17 +184,34 @@ class ProblemInfo:
 
 
 class Statement:
-
-    keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
-
-    def __init__(self, page):
-        from bs4 import BeautifulSoup
-        from bs4.element import NavigableString
-
+    """Base statement class"""
+    def __init__(self):
         self.input_data = None
         self.output_data = None
         self._html = None
+        self.url = '__BASE_URL__'
+
+    def html(self):
+        return 'Statement is not available'
+
+    def markdown(self, width=None):
+        return 'Statement is not available'
+
+    def _markdown(self, html, width):
+        converter = HTML2Text(bodywidth=width, baseurl=self.url)
+        converter.pad_tables = True
+        return converter.handle(str(self._html))
+
+
+class WebStatement(Statement):
+    keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
+
+    def __init__(self, page):
+        super().__init__()
         self.url = page.url
+
+        from bs4 import BeautifulSoup
+        from bs4.element import NavigableString
 
         soup = BeautifulSoup(page.content, 'html.parser')
         task_area = soup.find('div', {'id': 'probNavTaskArea'})
@@ -220,7 +237,7 @@ class Statement:
         info_avail = False
         for row in problem_info.find_all('tr'):
             key, value = row.find_all('td')
-            if key.text in Statement.keep_info:
+            if key.text in self.__class__.keep_info:
                 info_avail = True
                 info.append(copy(row))
 
@@ -254,9 +271,41 @@ class Statement:
     def markdown(self, width=100):
         if self._html is None:
             return 'Statement is not available'
-        converter = HTML2Text(bodywidth=width, baseurl=self.url)
-        converter.pad_tables = True
-        return converter.handle(str(self._html))
+        return self._markdown(str(self._html), width)
+
+
+class APIStatement(Statement):
+    def __init__(self, html):
+        super().__init__()
+        self.url = 'https://caos.ejudge.ru/ej/client/view-problem-submit/S0000000000000000'
+        self._html = html
+
+        if self._html is None:
+            return
+
+        from bs4 import BeautifulSoup
+        from bs4.element import NavigableString
+
+        soup = BeautifulSoup(html, 'html.parser')
+
+        input_title = soup.find('h4', text='Input')
+        if input_title is not None:
+            self.input_data = input_title.find_next('pre').text
+
+        output_title = soup.find('h4', text='Output')
+        if output_title is not None:
+            self.output_data = output_title.find_next('pre').text
+        # TODO add TL/ML info
+
+    def html(self):
+        if self._html is None:
+            return 'Statement is not available'
+        return self._html  # raw html from API is more or less readable
+
+    def markdown(self, width=100):
+        if self._html is None:
+            return 'Statement is not available'
+        return self._markdown(self._html, width)
 
 
 def get_contest_id(group_id):
@@ -373,7 +422,7 @@ def to_task_score(task_name, cell):
 def ejudge_statement(problem_link, session):
     # no AuthError
     page = session.get(problem_link)
-    return Statement(page)
+    return WebStatement(page)
 
 
 def ejudge_submissions(session):

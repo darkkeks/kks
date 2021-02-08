@@ -81,6 +81,31 @@ pip3 install .
 
 Почти у всех команд есть адекватный `--help`, там бывают полезные аргументы, не описанные ниже.
 
+### SSH integration
+
+**Интеграция с SSH находится в стадии разработки и может работать нестабильно**
+
+Команда `kks ssh` может использоваться для сдачи КР.
+Влияет только на команды `sync` и `submit`
+Подключение к ssh - глобальное (будет использоваться для всех воркспейсов и задач)
+
+```shell script
+# Подключиться к ssh с настройками по умолчанию (теоретически это должно сработать)
+kks ssh
+
+# Использовать кастомные настройки подключения
+# LOGIN - логин для ssh (может отличаться от логина для ejudge)
+kks ssh --hostname kek.ejudge.ru --login LOGIN --ej-fuse /path/to/ejudge-fuse --mnt-dir "~/contest"
+
+# Отключить ssh
+kks ssh -d
+
+# Увеличить таймаут (по умолчанию 5 секунд)
+KKS_SSH_TIMEOUT=10 kks sync
+KKS_SSH_TIMEOUT=10 kks submit main.c
+```
+
+### Examples
 ```shell script
 # Create .kks-workspace in current directory to mark kks workspace root
 kks init

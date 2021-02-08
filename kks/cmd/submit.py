@@ -2,8 +2,8 @@ from pathlib import Path
 
 import click
 
-from kks.ejudge_submit import submit_solution
-from kks.util.common import prompt_choice, find_problem_rootdir
+from kks.ejudge_submit import submit_solution_api, submit_solution_ssh
+from kks.util.common import prompt_choice, find_problem_rootdir, ssh_enabled, ssh_client
 from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 
@@ -33,12 +33,29 @@ def submit(file, problem):
         if file is None:
             return
 
-    try:
-        session = EjudgeSession()
-    except AuthError:
-        return
+    use_ssh = ssh_enabled()
+    if use_ssh:
+        from paramiko.ssh_exception import AuthenticationException, SSHException
+        try:
+            client = ssh_client()
+        except AuthenticationException:
+            click.secho('SSH auth error', fg='red', err=True)
+            return
+        except SSHException as e:
+            click.secho(f'SSH error: {e}', fg='red', err=True)
+            return
+        if client is None:
+            click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
+            return
 
-    result = submit_solution(session, file, problem)
+        result = submit_solution_ssh(client, file, problem)
+    else:
+        try:
+            session = EjudgeSession()
+        except AuthError:
+            return
+        result = submit_solution_api(session, file, problem)
+
     click.secho(result.msg, fg=result.color())
 
 

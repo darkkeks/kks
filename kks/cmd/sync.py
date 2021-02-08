@@ -6,7 +6,7 @@ import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
-from kks.util.common import find_workspace, get_task_dir, write_contests
+from kks.util.common import find_workspace, get_task_dir, write_contests, ssh_enabled, ssh_client
 from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 
@@ -121,17 +121,37 @@ def sync(code, code_opt, force, filters):
         click.secho('You have to run sync under kks workspace (use "kks init" to create one)', fg='red', err=True)
         return
 
-    try:
-        session = EjudgeSession()
-    except AuthError:
-        return
+    use_ssh = ssh_enabled()
 
-    problems = ejudge_summary(session)
+    if use_ssh:
+        from paramiko.ssh_exception import AuthenticationException, SSHException
+        try:
+            client = ssh_client()
+        except AuthenticationException:
+            click.secho('SSH auth error', fg='red', err=True)
+            return
+        except SSHException as e:
+            click.secho(f'SSH error: {e}', fg='red', err=True)
+            return
+        if client is None:
+            click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
+            return
+        get_problems = client.problems
+        get_statement = lambda problem: client.statement(problem.id)
+    else:
+        try:
+            session = EjudgeSession()
+        except AuthError:
+            return
+        get_problems = lambda: ejudge_summary(session)
+        get_statement = lambda problem: ejudge_statement(problem.href, session)
+
+    problems = get_problems()
     if problems is None:
         return
 
     code_all = code_opt == 'all'
-    code = code or code_all
+    code = (code or code_all) and not use_ssh  # TODO implement submission sync over ssh
     if code:
         submissions = ejudge_submissions(session)
 
@@ -200,7 +220,8 @@ def sync(code, code_opt, force, filters):
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
-        statement = ejudge_statement(problem.href, session)  # TODO use API? (kr contests, see #55)
+        # TODO use api for web-based sync?
+        statement = get_statement(problem)
 
         with (task_dir / 'statement.html').open('w') as f:
             f.write(statement.html())
@@ -220,6 +241,9 @@ def sync(code, code_opt, force, filters):
             sync_code(problem, task_dir, submissions, session, code_all)
 
     write_contests(workspace, contests)
+
+    if use_ssh:
+        client.close()
 
     color = 'green' if old_problems + new_problems == total_problems else 'red'
     click.secho('Sync done!', fg='green')

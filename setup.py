@@ -23,7 +23,8 @@ setup(
         'tqdm',
         'beautifulsoup4',
         'html2text==2020.1.16',
-        'pyyaml'
+        'pyyaml',
+        'paramiko'
     ],
     entry_points='''
         [console_scripts]
