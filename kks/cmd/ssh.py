@@ -1,7 +1,7 @@
 import click
 
 from kks.errors import EjudgeError
-from kks.util.common import read_config, write_config
+from kks.util.common import Config
 from kks.util.ejudge import load_auth_data
 
 
@@ -20,7 +20,7 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     from kks.util.ssh import EjudgeSSHClient
     # TODO add public key auth (also no-store-password?)
 
-    config = read_config()
+    config = Config()
     if disable:
         if config.has_section('SSH'):
             ssh_cfg = config['SSH']
@@ -40,7 +40,7 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
                 client.close()
 
         config.remove_section('SSH')
-        write_config(config)
+        config.save()
         click.secho('SSH disabled', fg='green')
         return
 
@@ -74,5 +74,5 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
     finally:
         client.close()
 
-    write_config(config)
+    config.save()
     click.secho('SSH + ejudge-fuse enabled', fg='green')

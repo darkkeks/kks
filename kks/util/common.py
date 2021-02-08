@@ -1,6 +1,7 @@
-import configparser
 import difflib
 import pickle
+from abc import ABCMeta
+from configparser import ConfigParser
 from functools import wraps
 from pathlib import Path
 from time import time, sleep
@@ -10,33 +11,44 @@ import click
 from kks.ejudge import AuthData
 
 
+# from stackoverflow.com/q/6760685
+class Singleton(ABCMeta):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Config(ConfigParser):#, metaclass=Singleton):
+    """global kks config"""
+
+    def __init__(self):
+        super().__init__()
+        self.optionxform = str
+        self._file = config_directory() / 'config.ini'
+        if self._file.is_file():
+            self.read(self._file)
+
+    def save(self):
+        with self._file.open('w') as f:
+            self.write(f)
+
+    def reload(self):
+        """force reload from disk"""
+        if self._file.is_file():
+            self.read(self._file)
+
+
 def config_directory():
     directory = Path(click.get_app_dir('kks', force_posix=True))
     directory.mkdir(exist_ok=True)
     return directory
 
 
-def read_config():
-    config = configparser.ConfigParser()
-    config.optionxform = str
-    cfg = config_directory() / 'config.ini'
-    if cfg.is_file():
-        config.read(cfg)
-    return config
-
-
-def write_config(config):
-    cfg = config_directory() / 'config.ini'
-    with cfg.open('w') as f:
-        config.write(f)
-
-
 def ssh_enabled():
     """used to avoid loading kks.util.ssh when it's not required"""
-    # NOTE config is read several times (ssh_enabled, ssh_client, load_data, load_links, ...)
-    # Consider using a global config (create a wrapper class?)
-    config = read_config()
-    return config.has_section('SSH')
+    return Config().has_section('SSH')
 
 
 # not in kks.util.ssh because we need lazy loading
@@ -44,7 +56,7 @@ def ssh_client():
     from paramiko.ssh_exception import AuthenticationException, SSHException
     from kks.util.ssh import EjudgeSSHClient
 
-    config = read_config()
+    config = Config()
     if not (config.has_section('SSH') and config.has_section('Auth')):
         click.secho('Corrupted config, try running "kks ssh" or "kks auth"', fg='red', err=True)
         return None

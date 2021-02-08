@@ -6,12 +6,12 @@ import click
 
 from kks import __version__
 from kks.ejudge import LinkTypes, AuthData, get_contest_url
-from kks.util.common import config_directory, read_config, write_config
+from kks.util.common import Config, config_directory
 from kks.errors import AuthError, APIError
 
 
 def load_auth_data():
-    config = read_config()
+    config = Config()
     if not config.has_section('Auth'):
         return None
     auth = config['Auth']
@@ -21,7 +21,7 @@ def load_auth_data():
 
 
 def save_auth_data(auth_data, store_password=True):
-    config = read_config()
+    config = Config()
     config['Auth'] = {
         'login': auth_data.login,
         'contest': auth_data.contest_id
@@ -30,20 +30,20 @@ def save_auth_data(auth_data, store_password=True):
     if store_password and auth_data.password is not None:
         config['Auth']['password'] = auth_data.password
 
-    write_config(config)
+    config.save()
 
 
 def load_links():
-    config = read_config()
+    config = Config()
     if config.has_section('Links'):
         return config['Links']
     return None
 
 
 def save_links(links):
-    config = read_config()
+    config = Config()
     config['Links'] = links
-    write_config(config)
+    config.save()
 
 
 def load_session():
