@@ -1,3 +1,5 @@
+from os import environ
+
 import click
 
 from kks.errors import EjudgeError

@@ -1,7 +1,6 @@
 import json
 import re
 import shlex
-from os import environ
 from pathlib import PurePosixPath
 from socket import timeout
 from time import sleep
