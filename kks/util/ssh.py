@@ -24,7 +24,7 @@ class EjudgeSSHClient(SSHClient):
         self.connect(hostname, username=login, password=password)
         self.contest = contest
         self._timeout = timeout
-        self._root = PurePosixPath(mnt_dir or '/tmp/foo')
+        self._root = PurePosixPath(mnt_dir)
         self._sftp = None
         self._sftp_fail = False
 
