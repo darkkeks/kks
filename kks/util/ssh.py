@@ -96,7 +96,7 @@ class EjudgeSSHClient(SSHClient):
         try:
             content = self._read_file(self._problem_dir(prob_id) / 'statement.html', lazy=True)
         except EjudgeFuseError as e:
-            if 'No such file or directory' in e.args[0]:
+            if 'no such file' in e.args[0].lower():
                 return APIStatement(None)
             else:
                 raise
