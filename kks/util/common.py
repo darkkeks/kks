@@ -31,6 +31,22 @@ def write_config(config):
         config.write(f)
 
 
+def has_boolean_option(config, option):
+    return config.has_option('Options', option)
+
+
+def get_boolean_option(config, option, default=False):
+    if not config.has_section('Options'):
+        return default
+    return config.getboolean('Options', option, fallback=default)
+
+
+def set_boolean_option(config, option, value):
+    if not config.has_section('Options'):
+        config.add_section('Options')
+    return config.set('Options', option, 'yes' if value else 'no')
+
+
 def get_clang_style_string():
     cfg = config_directory() / '.clang-format'
     if cfg.exists():
@@ -215,6 +231,7 @@ def find_problem_rootdir():
 def with_retries(delay=0.5, multiplier=1.5, step=1, timeout=10):
     def decorator(func):
         initial_delay = delay
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             delay = initial_delay
@@ -236,4 +253,5 @@ def with_retries(delay=0.5, multiplier=1.5, step=1, timeout=10):
                 iteration += 1
 
         return wrapper
+
     return decorator

@@ -6,10 +6,13 @@ import click
 from tqdm import tqdm
 
 from kks.ejudge import LinkTypes, Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
+from kks.util.common import read_config, write_config, set_boolean_option, get_boolean_option, has_boolean_option
 from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 from kks.util.cache import Cache
+from kks.util.stat import send_standings, get_global_standings
 
+GLOBAL_OPT_OUT = 'global-opt-out'
 
 Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # used for caching the problem list
 
@@ -30,7 +33,11 @@ CONTEST_DELIMITER = ' | '
               help='Print maximal possible scores (based on current deadlines)')
 @click.option('-nc', '--no-cache', is_flag=True,
               help='Clear cache and reload task info (used with --max)')
-def top(last, contests, all_, max_, no_cache):
+@click.option('-g', '--global', 'global_', is_flag=True,
+              help='Use global standings instead of group one. May be outdated')
+@click.option('--global-opt-out', is_flag=True,
+              help='Opt out from submitting your group results')
+def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
     """
     Parse and display user standings
 
@@ -42,6 +49,29 @@ def top(last, contests, all_, max_, no_cache):
         kks top --last 2
     """
 
+    config = read_config()
+
+    if global_opt_out:
+        if click.confirm('Do you really want to opt out from sending your group standings to kks.darkkeks.me?'):
+            set_boolean_option(config, GLOBAL_OPT_OUT, True)
+            write_config(config)
+            click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
+                        '~/.kks/config.ini', color='red', err=True)
+        return
+    elif not has_boolean_option(config, GLOBAL_OPT_OUT):
+        click.secho('Standings can be sent for aggregation to kks api. '
+                    'This allows us to create global standings (you can try it out with kks top --global)', err=True)
+        click.secho('You can always disable sending using kks top --global-opt-out', err=True)
+        if click.confirm('Do you want to send group standings to kks api?', default=True):
+            click.secho('Thanks a lot for you contribution! We appreciate it!', color='green', err=True)
+            set_boolean_option(config, GLOBAL_OPT_OUT, False)
+            write_config(config)
+        else:
+            click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
+                        '~/.kks/config.ini', color='red', err=True)
+            set_boolean_option(config, GLOBAL_OPT_OUT, True)
+            write_config(config)
+
     try:
         session = EjudgeSession()
     except AuthError:
@@ -51,9 +81,23 @@ def top(last, contests, all_, max_, no_cache):
     if standings is None:
         return
 
+    if not get_boolean_option(config, GLOBAL_OPT_OUT):
+        if not send_standings(standings):
+            click.secho('Failed to send standings to kks api', color='yellow', err=True)
+
+    if global_:
+        standings = get_global_standings()
+        if standings is None:
+            click.secho('Standings are not available now :(', color='yellow', err=True)
+            return
+
     if max_:
         standings = estimate_max(standings, session, no_cache)
 
+    display_standings(standings, last, contests, all_)
+
+
+def display_standings(standings, last, contests, all_):
     contests = select_contests(standings, last, contests, all_)
     if contests is None:
         return
@@ -155,14 +199,14 @@ def estimate_max(standings, session, force_reload):
 
         problem_list = cache.get('problem_links', [])  # we can avoid loading summary
 
-        with tqdm(total=len(standings.task_names), leave=False) as pbar:
+        with tqdm(total=len(standings.tasks), leave=False) as pbar:
             def with_progress(func, *args, **kwargs):
                 result = func(*args, **kwargs)
                 pbar.update(1)
                 return result
 
-            if len(problem_list) != len(standings.task_names) or \
-                    any(problem.short_name != name for (problem, name) in zip(problem_list, standings.task_names)):
+            if len(problem_list) != len(standings.tasks) or \
+                    any(problem.short_name != task.name for problem, task in zip(problem_list, standings.tasks)):
                 problem_list = ejudge_summary(session)
                 problem_list = [cached_problem(p) for p in problem_list]
                 cache.set('problem_links', problem_list)
