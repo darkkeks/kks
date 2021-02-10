@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from itertools import groupby
 from urllib.parse import quote as urlquote
 
-#import requests  # we use lazy imports to improve load time for local commands
-#from bs4 import BeautifulSoup
-#from bs4.element import NavigableString
+# import requests  # we use lazy imports to improve load time for local commands
+# from bs4 import BeautifulSoup
+# from bs4.element import NavigableString
 
 from kks.errors import AuthError
 from kks.util.h2t import HTML2Text
@@ -120,9 +120,8 @@ class Report:
 
 
 class TaskScore:
-    def __init__(self, contest, task_name, score, status):
+    def __init__(self, contest, score, status):
         self.contest = contest
-        self.task_name = task_name
         self.score = score
         self.status = status
 
@@ -145,17 +144,10 @@ class TaskScore:
         return self.score
 
 
-class Standings:
-    def __init__(self, task_names, rows):
-        self.task_names = task_names
-        self.rows = rows
-
-        self.contests = [contest for contest, _ in groupby(task_names, extract_contest_name)]
-
-        self.tasks_by_contest = {
-            contest: list(tasks)
-            for contest, tasks in groupby(task_names, extract_contest_name)
-        }
+class TaskInfo:
+    def __init__(self, name, contest):
+        self.name = name
+        self.contest = contest
 
 
 class StandingsRow:
@@ -174,6 +166,22 @@ class StandingsRow:
         return self.is_self
 
 
+class Standings:
+    def __init__(self, tasks, rows):
+        self.tasks = tasks
+        self.rows = rows
+
+        self.contests = [
+            contest
+            for contest, tasks in groupby(self.tasks, lambda task: task.contest)
+        ]
+
+        self.tasks_by_contest = {
+            contest: list(tasks)
+            for contest, tasks in groupby(self.tasks, lambda task: task.contest)
+        }
+
+
 class ProblemInfo:
     """Subset of task info table used for max score estimation"""
 
@@ -184,7 +192,6 @@ class ProblemInfo:
 
 
 class Statement:
-
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
 
     def __init__(self, page):
@@ -326,7 +333,10 @@ def ejudge_standings(session):
     table = soup.find('table', class_='standings')
     rows = table.find_all('tr')
 
-    task_names = [task.text for task in rows[0].find_all(class_='st_prob')]
+    tasks = [
+        TaskInfo(task.text, extract_contest_name(task.text))
+        for task in rows[0].find_all(class_='st_prob')
+    ]
 
     # skip table header and stats at the bottom
     rows = rows[1:-3]
@@ -340,22 +350,22 @@ def ejudge_standings(session):
                 row.find(class_='st_place').text,
                 user,
                 [
-                    to_task_score(task_name, cell)
-                    for task_name, cell in zip(task_names, score_cells)
+                    to_task_score(task.contest, cell)
+                    for task, cell in zip(tasks, score_cells)
                 ],
                 int(row.find(class_='st_total').text),
                 int(row.find(class_='st_score').text),
                 name == user
             )
 
-    return Standings(task_names, parse_rows())
+    return Standings(tasks, list(parse_rows()))
 
 
 def extract_contest_name(task_name):
     return task_name.split('-')[0]
 
 
-def to_task_score(task_name, cell):
+def to_task_score(contest, cell):
     score = cell.text
     if not score or score.isspace():
         score = None
@@ -367,7 +377,7 @@ def to_task_score(task_name, cell):
         else Status.OK if score is not None \
         else Status.NOT_SUBMITTED
 
-    return TaskScore(extract_contest_name(task_name), task_name, score, status)
+    return TaskScore(contest, score, status)
 
 
 def ejudge_statement(problem_link, session):
