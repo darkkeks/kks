@@ -16,13 +16,14 @@ CONTEST_ID_BY_GROUP = {
 }
 
 
-class LinkTypes:
-    SETTINGS = 'Settings'
-    SUMMARY = 'Summary'
-    SUBMISSIONS = 'Submissions'
-    USER_STANDINGS = 'User standings'
-    SUBMIT_CLAR = 'Submit clar'
-    CLARS = 'Clars'
+class Links:
+    WEB_CLIENT_ROOT = 'https://caos.ejudge.ru/ej/client'
+    SETTINGS = f'{WEB_CLIENT_ROOT}/view-settings/S__SID__'
+    SUMMARY = f'{WEB_CLIENT_ROOT}/view-problem-summary/S__SID__'
+    SUBMISSIONS = f'{WEB_CLIENT_ROOT}/view-submissions/S__SID__'
+    USER_STANDINGS = f'{WEB_CLIENT_ROOT}/standings/S__SID__'
+    SUBMIT_CLAR = f'{WEB_CLIENT_ROOT}/view-clar-submit/S__SID__'
+    CLARS = f'{WEB_CLIENT_ROOT}/view-clars/S__SID__'
 
 
 class Status:
@@ -101,18 +102,20 @@ class Report:
         else:
             self.lines = []
 
-        has_failed_tests = False
+        need_tests_header = True
 
         for test in tests:
-            t_id, status, *_ = map(lambda cell: cell.text, test.find_all('td'))
-            if status != Status.OK:
-                if not has_failed_tests:
-                    if comments:
-                        self.lines.append('\n')
-                    self.lines.append(f'Total tests: {len(tests)}\n')
-                    self.lines.append('Failed tests:\n')
-                    has_failed_tests = True
-                self.lines.append(f'{t_id} - {status}\n')
+            test_num, status, *_ = test.find_all('td')
+            if status == Status.OK:
+                continue
+
+            if need_tests_header:
+                if comments:
+                    self.lines.append('\n')
+                self.lines.append(f'Total tests: {len(tests)}\n')
+                self.lines.append('Failed tests:\n')
+                need_tests_header = False
+            self.lines.append(f'{test_num.text} - {status.text}\n')
 
     def as_comment(self):
         sep_lines = 3
@@ -284,12 +287,8 @@ def get_contest_url_with_creds(auth_data):
 def ejudge_summary(session):
     from bs4 import BeautifulSoup
 
-    summary = session.links.get(LinkTypes.SUMMARY, None)
-    if summary is None:
-        return None
-
     try:
-        page = session.get(summary)
+        page = session.get(Links.SUMMARY)
     except AuthError:
         return None
 
@@ -316,12 +315,8 @@ def ejudge_summary(session):
 def ejudge_standings(session):
     from bs4 import BeautifulSoup
 
-    standings = session.links.get(LinkTypes.USER_STANDINGS, None)
-    if standings is None:
-        return None
-
     try:
-        page = session.get(standings)
+        page = session.get(Links.USER_STANDINGS)
     except AuthError:
         return None
 
@@ -389,12 +384,11 @@ def ejudge_statement(problem_link, session):
 def ejudge_submissions(session):
     from bs4 import BeautifulSoup
 
-    link = session.links.get(LinkTypes.SUBMISSIONS, None)
-    if link is None:
+    try:
+        page = session.get(Links.SUBMISSIONS, params={'all_runs': 1})
+    except AuthError:
         return []
 
-    # no AuthError
-    page = session.get(link, params={'all_runs': 1})
     soup = BeautifulSoup(page.content, 'html.parser')
 
     sub_table = soup.find('table', {'class': 'table'})

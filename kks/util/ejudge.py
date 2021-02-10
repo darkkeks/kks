@@ -4,13 +4,14 @@ import re
 import click
 
 from kks import __version__
-from kks.ejudge import LinkTypes, AuthData, get_contest_url
-from kks.util.common import config_directory, read_config, write_config
+from kks.ejudge import AuthData, get_contest_url
+from kks.util.common import config_directory
 from kks.errors import AuthError, APIError
+from kks.util.storage import Config, PickleStorage
 
 
 def load_auth_data():
-    config = read_config()
+    config = Config()
     if not config.has_section('Auth'):
         return None
     auth = config['Auth']
@@ -20,7 +21,7 @@ def load_auth_data():
 
 
 def save_auth_data(auth_data, store_password=True):
-    config = read_config()
+    config = Config()
     config['Auth'] = {
         'login': auth_data.login,
         'contest': auth_data.contest_id
@@ -29,43 +30,7 @@ def save_auth_data(auth_data, store_password=True):
     if store_password and auth_data.password is not None:
         config['Auth']['password'] = auth_data.password
 
-    write_config(config)
-
-
-def load_links():
-    config = read_config()
-    if config.has_section('Links'):
-        return config['Links']
-    return None
-
-
-def save_links(links):
-    config = read_config()
-    config['Links'] = links
-    write_config(config)
-
-
-def load_session():
-    import requests
-
-    cookies = config_directory() / 'cookies.pickle'
-    if not cookies.is_file():
-        return None
-
-    session = requests.session()
-    with open(cookies, 'rb') as f:
-        try:
-            cookies = pickle.load(f)
-        except Exception:
-            return None
-        session.cookies.update(cookies)
-    return session
-
-
-def store_session(session):
-    cookies = config_directory() / 'cookies.pickle'
-    with open(cookies, 'wb') as f:
-        pickle.dump(session.cookies, f)
+    config.save()
 
 
 class RunStatus:
@@ -147,6 +112,19 @@ class RunStatus:
         return f'{self}\n{test_results}'
 
 
+class Sids:
+    def __init__(self, sid, ejsid):
+        self.sid = sid
+        self.ejsid = ejsid
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data['SID'], data['EJSID'])
+
+    def as_dict(self):
+        return {'SID': self.sid, 'EJSID': self.ejsid}
+
+
 class API:
     def __init__(self, sids=None):
         import requests
@@ -174,12 +152,9 @@ class API:
             raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
         return data['result']
 
-    def _api_method(self, path, action, sids=None, need_json=True, **kwargs):
+    def _api_method(self, path, action, sids=None, need_json=True, use_sids=True, **kwargs):
         """
-        Allowed values for `sids`:
-          - None (use self._sids)
-          - {} (don't use sids)
-          - {'EJSID': str, 'SID': str}
+        if sids is None and use_sids is True, will use self._sids
         """
 
         url = self._prefix + path
@@ -188,7 +163,8 @@ class API:
         data.update({'action': action, 'json': 1})
         if sids is None:
             sids = self._sids
-        data.update(sids)
+        if use_sids:
+            data.update(sids.as_dict())
 
         return self._request(url, need_json, **kwargs)
 
@@ -196,11 +172,8 @@ class API:
         """get new sids"""
         # NOTE is 1step auth possible?
 
-        def extract_sids(resp):
-            return {'EJSID': resp['EJSID'], 'SID': resp['SID']}
-
-        sids = extract_sids(self.login(creds.login, creds.password))
-        self._sids = extract_sids(self.enter_contest(sids, creds.contest_id))
+        top_level_sids = Sids.from_dict(self.login(creds.login, creds.password))
+        self._sids = Sids.from_dict(self.enter_contest(top_level_sids, creds.contest_id))
 
     def login(self, login, password):
         """get sids for enter_contest method"""
@@ -275,43 +248,35 @@ class API:
 
 
 class EjudgeSession:
-    sid_regex = re.compile('/S([0-9a-f]{16})')
+    sid_regex = re.compile('/S([0-9a-f]{16}|__SID__)')
 
     def __init__(self, auth=True):
-        self._sids = {'SID': None, 'EJSID': None}
+        import requests
+        self.http = requests.session()
 
-        self.http = load_session()
-        if self.http is not None:
-            self.links = load_links()
+        self._storage = PickleStorage('creds')
+        self._load_sids()
 
-        if self.http is None or self.links is None:
-            if auth:
-                self.auth()
-        else:
-            self._update_sid()
+        if self.sids.sid and self.sids.ejsid:
+            self.http.cookies.set('EJSID', self.sids.ejsid, domain='caos.ejudge.ru')
+        elif auth:
+            self.auth()
 
-    def auth(self, auth_data=None, store_password=None):
+    def auth(self, auth_data=None):
         if auth_data is None:
             click.secho('Cookies are either missing or invalid, trying to auth with saved data', fg='yellow', err=True)
             auth_data = load_auth_data()
 
-            if auth_data is not None:
-                store_password = True
-                if auth_data.password is None:
-                    store_password = False
-                    auth_data.password = click.prompt('Password', hide_input=True)
+            if auth_data is not None and auth_data.password is None:
+                auth_data.password = click.prompt('Password', hide_input=True)
 
         if auth_data is None:
             click.secho('No valid cookies or auth data, please use "kks auth" to log in', fg='yellow', err=True)
             raise AuthError()
 
         import requests
-        from bs4 import BeautifulSoup
 
-        if self.http is None:
-            self.http = requests.session()
-        else:
-            self.http.cookies.clear()
+        self.http.cookies.clear()
         url = get_contest_url(auth_data)
         page = self.http.post(url, data={
             'login': auth_data.login,
@@ -322,31 +287,16 @@ class EjudgeSession:
             click.secho(f'Failed to authenticate (status code {page.status_code})', err=True, fg='red')
             raise AuthError()
 
-        soup = BeautifulSoup(page.content, 'html.parser')
-
-        if 'Invalid contest' in soup.text or 'invalid contest_id' in soup.text:
+        if 'Invalid contest' in page.text or 'invalid contest_id' in page.text:
             click.secho(f'Invalid contest (contest id {auth_data.contest_id})', fg='red', err=True)
             raise AuthError()
 
-        if 'Permission denied' in soup.text:
+        if 'Permission denied' in page.text:
             click.secho('Permission denied (invalid username, password or contest id)', fg='red', err=True)
             raise AuthError()
 
-        buttons = soup.find_all('a', {'class': 'menu'}, href=True)
-
-        self.links = {
-            button.text: button['href']
-            for button in buttons
-        }
-
-        if self.links is None:
-            click.secho('Auth data is invalid, use "kks auth" to authorize', fg='red', err=True)
-            raise AuthError()
-
-        save_auth_data(auth_data, store_password)
-        save_links(self.links)
-        store_session(self.http)
-        self._update_sid()
+        self._update_sids(page.url)
+        self._store_sids()
 
     def api(self):
         """
@@ -359,7 +309,7 @@ class EjudgeSession:
         >>> ...
         >>> info = api.contest_status()  # cookies are up to date
         """
-        return API(self._sids)
+        return API(self.sids)
 
     def with_auth(self, api_method, *args, **kwargs):
         """
@@ -373,19 +323,26 @@ class EjudgeSession:
             self.auth()
             return api_method(*args, **kwargs)
 
-    def _update_sid(self):
-        sid = EjudgeSession.sid_regex.search(self.links.get(LinkTypes.SUMMARY)).group(1)
-        self._sids.update({'SID': sid, 'EJSID':  self.http.cookies['EJSID']})
+    def _update_sids(self, url):
+        self.sids.sid = EjudgeSession.sid_regex.search(url).group(1)
+        self.sids.ejsid = self.http.cookies['EJSID']
+
+    def _store_sids(self):
+        with self._storage.load() as storage:
+            storage.set('sids', self.sids)
+
+    def _load_sids(self):
+        with self._storage.load() as storage:
+            self.sids = storage.get('sids') or Sids(None, None)
 
     def modify_url(self, url):
-        return re.sub(EjudgeSession.sid_regex, f"/S{self._sids['SID']}", url, count=1)
+        return re.sub(EjudgeSession.sid_regex, f'/S{self.sids.sid}', url, count=1)
 
     def _request(self, method, url, *args, **kwargs):
-        response = method(url, *args, **kwargs)
+        response = method(self.modify_url(url), *args, **kwargs)
         if 'Invalid session' in response.text:
             self.auth()
-            url = self.modify_url(url)
-            response = method(url, *args, **kwargs)
+            response = method(self.modify_url(url), *args, **kwargs)
         return response
 
     def get(self, url, *args, **kwargs):
