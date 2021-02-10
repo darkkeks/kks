@@ -126,7 +126,8 @@ def sync(code, code_opt, force, filters):
     except AuthError:
         return
 
-    if ssh_enabled():
+    use_ssh = ssh_enabled()
+    if use_ssh:
         client = ssh_client()
         if client is None:
             return
@@ -134,10 +135,8 @@ def sync(code, code_opt, force, filters):
             # TODO if submission sync works correctly, remove warning. otherwise, implement sync over ssh
             click.secho('Submission sync doesn\'t use ssh and may fail for "kr" tasks', fg='bright_yellow', bold=True)
         problems = client.problems()
-        get_statement = lambda problem: client.statement(problem.id)
     else:
         problems = ejudge_summary(session)
-        get_statement = lambda problem: ejudge_statement(problem.href, session)
 
     if problems is None:
         return
@@ -212,8 +211,11 @@ def sync(code, code_opt, force, filters):
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
-        # TODO use api for web-based sync?
-        statement = get_statement(problem)
+        if use_ssh:
+            statement = client.statement(problem.id)
+        else:
+            # TODO use api?
+            statement = ejudge_statement(problem.href, session)
 
         with (task_dir / 'statement.html').open('w') as f:
             f.write(statement.html())
@@ -234,7 +236,7 @@ def sync(code, code_opt, force, filters):
 
     write_contests(workspace, contests)
 
-    if ssh_enabled():
+    if use_ssh:
         client.close()
 
     color = 'green' if old_problems + new_problems == total_problems else 'red'
