@@ -21,6 +21,7 @@ ROW_FORMAT = "{:>6}  {:25} {:>7} {:>6}{}"
 PREFIX_LENGTH = sum([6, 2, 25, 1, 7, 1, 6])
 CONTEST_DELIMITER = ' | '
 
+PAGER_THRESHOLD = 50
 
 @click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
@@ -115,7 +116,8 @@ def display_standings(standings, last, contests, all_):
     ])
     header = ROW_FORMAT.format("Place", "User", "Solved", "Score", contests_header)
 
-    click.secho(header, fg='white', bold=True)
+    output = click.style(header, fg='white', bold=True)
+    output += '\n'
 
     for row in standings.rows:
         tasks = ''.join([
@@ -128,7 +130,13 @@ def display_standings(standings, last, contests, all_):
         ])
 
         string = ROW_FORMAT.format(row.place, row.user, row.solved, row.score, tasks)
-        click.secho(string, fg=row.color(), bold=row.bold())
+        output += click.style(string, fg=row.color(), bold=row.bold())
+        output += '\n'
+
+    if len(standings.rows) > PAGER_THRESHOLD:
+        click.echo_via_pager(output)
+    else:
+        click.secho(output)
 
 
 def select_contests(standings, last, contests, all_):
