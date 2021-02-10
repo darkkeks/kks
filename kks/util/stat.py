@@ -11,18 +11,14 @@ def send_standings(standings):
     import requests
     from requests import RequestException
 
-    data = {}
-
-    data.update(standings_to_dict(standings))
-
     auth_data = load_auth_data()
     if not auth_data:
         return False
 
-    data.update({
-        'contest_id': auth_data.contest_id,
-        'login': auth_data.login,
-    })
+    data = {}
+
+    data.update(auth_data_to_dict(auth_data))
+    data.update(standings_to_dict(standings))
 
     try:
         response = requests.post(f"{KKS_STAT_API}/send", json=data, timeout=KKS_STAT_TIMEOUT)
@@ -35,8 +31,14 @@ def get_global_standings():
     import requests
     from requests import RequestException
 
+    parameters = {}
+
+    auth_data = load_auth_data()
+    if auth_data:
+        parameters.update(auth_data_to_dict(auth_data))
+
     try:
-        response = requests.get(f"{KKS_STAT_API}/get", timeout=KKS_STAT_TIMEOUT)
+        response = requests.get(f"{KKS_STAT_API}/get", params=parameters, timeout=KKS_STAT_TIMEOUT)
     except RequestException as e:
         click.secho(f'Failed to receive global standings: {e}', color='red', err=True)
         return None
@@ -47,6 +49,13 @@ def get_global_standings():
 
     json_response = response.json()
     return standings_from_dict(json_response['standings'])
+
+
+def auth_data_to_dict(auth_data):
+    return {
+        'contest_id': auth_data.contest_id,
+        'login': auth_data.login,
+    }
 
 
 def standings_to_dict(standings):
