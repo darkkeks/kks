@@ -1,3 +1,5 @@
+import click
+
 from kks.ejudge import Standings, TaskInfo, StandingsRow, TaskScore
 from kks.util.ejudge import load_auth_data
 
@@ -30,9 +32,16 @@ def send_standings(standings):
 
 def get_global_standings():
     import requests
+    from requests import RequestException
 
-    response = requests.get(f"{KKS_STAT_API}/get")
+    try:
+        response = requests.get(f"{KKS_STAT_API}/get")
+    except RequestException as e:
+        click.secho(f'Failed to receive global standings: {e}', color='red', err=True)
+        return None
+
     if not response.ok:
+        click.secho(f'Server response was not successful: {response.text}', color='red', err=True)
         return None
 
     json_response = response.json()
