@@ -52,7 +52,8 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
     config = read_config()
 
     if global_opt_out:
-        if click.confirm('Do you really want to opt out from sending your group standings to kks.darkkeks.me?'):
+        if click.confirm(click.style('Do you really want to opt out from sending your group standings to '
+                                     'kks.darkkeks.me?', bold=True, fg='red')):
             opt_out(config)
         return
     elif not has_boolean_option(config, GLOBAL_OPT_OUT):
@@ -69,12 +70,12 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
 
     if not get_boolean_option(config, GLOBAL_OPT_OUT):
         if not send_standings(standings):
-            click.secho('Failed to send standings to kks api', color='yellow', err=True)
+            click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
     if global_:
         standings = get_global_standings()
         if standings is None:
-            click.secho('Standings are not available now :(', color='yellow', err=True)
+            click.secho('Standings are not available now :(', fg='yellow', err=True)
             return
 
     if max_:
@@ -87,18 +88,18 @@ def init_opt_out(config):
     click.secho('Standings can be sent for aggregation to kks api. '
                 'This allows us to create global standings (you can try it out with kks top --global)', err=True)
     click.secho('You can always disable sending using kks top --global-opt-out', err=True)
-    if click.confirm('Do you want to send group standings to kks api?', default=True):
-        opt_out(config)
-    else:
-        click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
-                    '~/.kks/config.ini', color='red', err=True)
-        set_boolean_option(config, GLOBAL_OPT_OUT, True)
+    if click.confirm(click.style('Do you want to send group standings to kks api?', bold=True, fg='red'), default=True):
+        click.secho('Thanks a lot for you contribution! We appreciate it!', fg='green', bold=True, err=True)
+        set_boolean_option(config, GLOBAL_OPT_OUT, False)
         write_config(config)
+    else:
+        opt_out(config)
 
 
 def opt_out(config):
-    click.secho('Thanks a lot for you contribution! We appreciate it!', color='green', err=True)
-    set_boolean_option(config, GLOBAL_OPT_OUT, False)
+    click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
+                '~/.kks/config.ini', color='red', err=True)
+    set_boolean_option(config, GLOBAL_OPT_OUT, True)
     write_config(config)
 
 
