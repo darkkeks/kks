@@ -121,28 +121,29 @@ def sync(code, code_opt, force, filters):
         click.secho('You have to run sync under kks workspace (use "kks init" to create one)', fg='red', err=True)
         return
 
-    use_ssh = ssh_enabled()
+    try:
+        session = EjudgeSession()
+    except AuthError:
+        return
 
-    if use_ssh:
+    if ssh_enabled():
         client = ssh_client()
         if client is None:
             return
-        get_problems = client.problems
+        if code or code_opt:
+            # TODO if submission sync works correctly, remove warning. otherwise, implement sync over ssh
+            click.secho('Submission sync doesn\'t use ssh and may fail for "kr" tasks', fg='bright_yellow', bold=True)
+        problems = client.problems()
         get_statement = lambda problem: client.statement(problem.id)
     else:
-        try:
-            session = EjudgeSession()
-        except AuthError:
-            return
-        get_problems = lambda: ejudge_summary(session)
+        problems = ejudge_summary(session)
         get_statement = lambda problem: ejudge_statement(problem.href, session)
 
-    problems = get_problems()
     if problems is None:
         return
 
     code_all = code_opt == 'all'
-    code = (code or code_all) and not use_ssh  # TODO implement submission sync over ssh
+    code = code or code_all
     if code:
         submissions = ejudge_submissions(session)
 
@@ -233,7 +234,7 @@ def sync(code, code_opt, force, filters):
 
     write_contests(workspace, contests)
 
-    if use_ssh:
+    if ssh_enabled():
         client.close()
 
     color = 'green' if old_problems + new_problems == total_problems else 'red'
