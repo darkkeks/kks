@@ -4,6 +4,7 @@ from kks.ejudge import Standings, TaskInfo, StandingsRow, TaskScore
 from kks.util.ejudge import load_auth_data
 
 KKS_STAT_API = 'https://kks.darkkeks.me/api'
+KKS_STAT_TIMEOUT = 3  # seconds
 
 
 def send_standings(standings):
@@ -24,7 +25,7 @@ def send_standings(standings):
     })
 
     try:
-        response = requests.post(f"{KKS_STAT_API}/send", json=data)
+        response = requests.post(f"{KKS_STAT_API}/send", json=data, timeout=KKS_STAT_TIMEOUT)
         return response.ok
     except RequestException:
         return False
@@ -35,7 +36,7 @@ def get_global_standings():
     from requests import RequestException
 
     try:
-        response = requests.get(f"{KKS_STAT_API}/get")
+        response = requests.get(f"{KKS_STAT_API}/get", timeout=KKS_STAT_TIMEOUT)
     except RequestException as e:
         click.secho(f'Failed to receive global standings: {e}', color='red', err=True)
         return None
