@@ -9,14 +9,17 @@ def send_standings(standings):
     from requests import RequestException
 
     data = {}
+
     data.update(standings_to_dict(standings))
 
     auth_data = load_auth_data()
-    if auth_data:
-        data.update({
-            'contest_id': auth_data.contest_id,
-            'login': auth_data.login,
-        })
+    if not auth_data:
+        return False
+
+    data.update({
+        'contest_id': auth_data.contest_id,
+        'login': auth_data.login,
+    })
 
     try:
         response = requests.post(f"{KKS_STAT_API}/send", json=data)
