@@ -1,7 +1,7 @@
 import click
 
 from kks.ejudge import AuthData, get_contest_id
-from kks.util.ejudge import EjudgeSession
+from kks.util.ejudge import EjudgeSession, save_auth_data
 from kks.errors import AuthError
 
 
@@ -43,7 +43,8 @@ def auth(login, password, group_id, contest_id, store_password):
     auth_data = AuthData(login, contest_id, password)
 
     try:
-        session.auth(auth_data, store_password)
+        session.auth(auth_data)
+        save_auth_data(auth_data, store_password)
     except AuthError:
         return
 

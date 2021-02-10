@@ -1,6 +1,6 @@
-import configparser
 import difflib
 import pickle
+from abc import ABCMeta
 from functools import wraps
 from pathlib import Path
 from time import time, sleep
@@ -10,41 +10,18 @@ import click
 from kks.ejudge import AuthData
 
 
+class Singleton(ABCMeta):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
 def config_directory():
     directory = Path(click.get_app_dir('kks', force_posix=True))
     directory.mkdir(exist_ok=True)
     return directory
-
-
-def read_config():
-    config = configparser.ConfigParser()
-    config.optionxform = str
-    cfg = config_directory() / 'config.ini'
-    if cfg.is_file():
-        config.read(cfg)
-    return config
-
-
-def write_config(config):
-    cfg = config_directory() / 'config.ini'
-    with cfg.open('w') as f:
-        config.write(f)
-
-
-def has_boolean_option(config, option):
-    return config.has_option('Options', option)
-
-
-def get_boolean_option(config, option, default=False):
-    if not config.has_section('Options'):
-        return default
-    return config.getboolean('Options', option, fallback=default)
-
-
-def set_boolean_option(config, option, value):
-    if not config.has_section('Options'):
-        config.add_section('Options')
-    return config.set('Options', option, 'yes' if value else 'no')
 
 
 def get_clang_style_string():

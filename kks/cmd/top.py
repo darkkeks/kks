@@ -6,17 +6,16 @@ from itertools import groupby
 import click
 from tqdm import tqdm
 
-from kks.ejudge import LinkTypes, Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
+from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
 from kks.errors import AuthError
-from kks.util.cache import Cache
-from kks.util.common import read_config, write_config, set_boolean_option, get_boolean_option, has_boolean_option
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
+from kks.util.storage import Cache, Config
 
-GLOBAL_OPT_OUT = 'global-opt-out'
 
 Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # used for caching the problem list
 
+GLOBAL_OPT_OUT = 'global-opt-out'
 
 ROW_FORMAT = "{:>6}  {:25} {:>7} {:>6}{}"
 PREFIX_LENGTH = sum([6, 2, 25, 1, 7, 1, 6])
@@ -52,14 +51,14 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
         kks top --last 2
     """
 
-    config = read_config()
+    config = Config()
 
     if global_opt_out:
         if click.confirm(click.style('Do you really want to opt out from sending your group standings to '
                                      'kks.darkkeks.me?', bold=True, fg='red')):
             opt_out(config)
         return
-    elif not has_boolean_option(config, GLOBAL_OPT_OUT):
+    elif not config.has_boolean_option(GLOBAL_OPT_OUT):
         init_opt_out(config)
 
     try:
@@ -71,7 +70,7 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
     if standings is None:
         return
 
-    if not get_boolean_option(config, GLOBAL_OPT_OUT):
+    if not config.get_boolean_option(GLOBAL_OPT_OUT):
         if not send_standings(standings):
             click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
@@ -93,8 +92,8 @@ def init_opt_out(config):
     click.secho('You can always disable sending using kks top --global-opt-out', err=True)
     if click.confirm(click.style('Do you want to send group standings to kks api?', bold=True, fg='red'), default=True):
         click.secho('Thanks a lot for you contribution! We appreciate it!', fg='green', bold=True, err=True)
-        set_boolean_option(config, GLOBAL_OPT_OUT, False)
-        write_config(config)
+        config.set_boolean_option(GLOBAL_OPT_OUT, False)
+        config.save()
     else:
         opt_out(config)
 
@@ -102,8 +101,8 @@ def init_opt_out(config):
 def opt_out(config):
     click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
                 '~/.kks/config.ini', color='red', err=True)
-    set_boolean_option(config, GLOBAL_OPT_OUT, True)
-    write_config(config)
+    config.set_boolean_option(GLOBAL_OPT_OUT, True)
+    config.save()
 
 
 def display_standings(standings, last, contests, all_):
@@ -198,16 +197,8 @@ def get_contest_widths(contests, tasks_by_contest):
 def estimate_max(standings, session, force_reload):
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
 
-    sid_regex = re.compile('/S([0-9a-f]{16})')
-    sid = sid_regex.search(session.links.get(LinkTypes.USER_STANDINGS)).group(1)
-
     def cached_problem(problem):
-        href = re.sub(sid_regex, '/S__SID__', problem.href, count=1)
-        return Problem(href, problem.short_name, extract_contest_name(problem.short_name))
-
-    def with_fixed_href(problem):
-        href = problem.href.replace('__SID__', sid)
-        return Problem(href, problem.short_name, problem.contest)
+        return Problem(problem.href, problem.short_name, extract_contest_name(problem.short_name))
 
     standings.rows = list(standings.rows)
 
@@ -228,7 +219,7 @@ def estimate_max(standings, session, force_reload):
                 problem_list = ejudge_summary(session)
                 problem_list = [cached_problem(p) for p in problem_list]
                 cache.set('problem_links', problem_list)
-            problems = [with_progress(get_problem_info, with_fixed_href(problem), cache, session) for problem in problem_list]
+            problems = [with_progress(get_problem_info, problem, cache, session) for problem in problem_list]
 
     for row in standings.rows:
         for task_score, problem in zip(row.tasks, problems):
