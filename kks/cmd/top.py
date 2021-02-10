@@ -1,3 +1,4 @@
+import os
 import re
 from collections import namedtuple
 from itertools import groupby
@@ -6,10 +7,10 @@ import click
 from tqdm import tqdm
 
 from kks.ejudge import LinkTypes, Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
-from kks.util.common import read_config, write_config, set_boolean_option, get_boolean_option, has_boolean_option
-from kks.util.ejudge import EjudgeSession
 from kks.errors import AuthError
 from kks.util.cache import Cache
+from kks.util.common import read_config, write_config, set_boolean_option, get_boolean_option, has_boolean_option
+from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 
 GLOBAL_OPT_OUT = 'global-opt-out'
@@ -23,6 +24,7 @@ CONTEST_DELIMITER = ' | '
 
 PAGER_THRESHOLD = 50
 
+
 @click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
               help='Print result of last N contest')
@@ -30,7 +32,7 @@ PAGER_THRESHOLD = 50
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Print the results of the selected contest')
-@click.option('-m', '--max',  'max_', is_flag=True,
+@click.option('-m', '--max', 'max_', is_flag=True,
               help='Print maximal possible scores (based on current deadlines)')
 @click.option('-nc', '--no-cache', is_flag=True,
               help='Clear cache and reload task info (used with --max)')
@@ -134,6 +136,8 @@ def display_standings(standings, last, contests, all_):
         output += '\n'
 
     if len(standings.rows) > PAGER_THRESHOLD:
+        if 'LESS' not in os.environ:
+            os.environ['LESS'] = '-S -R'
         click.echo_via_pager(output)
     else:
         click.secho(output)
