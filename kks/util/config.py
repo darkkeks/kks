@@ -9,8 +9,6 @@ from kks.util.common import find_workspace, find_problem_rootdir, config_directo
 
 target_file = 'targets.yaml'
 
-targets_version = 4
-
 global_comment = '# This is the default config file, it is used in any subdirectory of the workspace.\n'\
                  '# You can modify the default target (the changes will be applied only in this workspace).\n'\
                  '# Also, you can add/overwrite targets by creating another "targets.yaml" file in your working directory.\n'\
@@ -58,36 +56,23 @@ class Target:
         self.default_asan = self.default_asan if self.default_asan is not None else default_target.default_asan
 
 
-def _copy_default(dest):
-    from pkg_resources import resource_stream
-    default_cfg = resource_stream('kks', f'data/{target_file}').read()
-    dest.write_bytes(default_cfg.replace(b'KKS_TARGETS_VERSION', str(targets_version).encode(), 1))
-
-
-cfg_file = config_directory() / target_file
-if not cfg_file.exists():
-    _copy_default(cfg_file)
-package_cfg = yaml.safe_load(cfg_file.read_text())
-if package_cfg['__version__'] != targets_version:  # update
-    _copy_default(cfg_file)
-    package_cfg = yaml.safe_load(cfg_file.read_text())
-
-# package_default should have all fields set
-package_default = Target('default', package_cfg['default'])
-
-
-def check_version(cfg_file, cfg, is_global=False):
-    if cfg.get('__version__', package_cfg['__version__']) == package_cfg['__version__']:
+def check_version(cfg_file, cfg, new_version, is_global=False):
+    if cfg.get('__version__', new_version) == new_version:
         return
 
     old_version = cfg['__version__']
-    new_version = package_cfg['__version__']
     click.echo(click.style(str(cfg_file.absolute()), fg='blue', bold=True) +
                click.style(' is outdated. You can run "kks init --config=update" if you want to update the default target manually (see README on Github)', fg='yellow'))
     cfg_file.write_text(re.sub(rf'^(__version__: +){old_version}', rf'\g<1>{new_version}', cfg_file.read_text(), 1, re.M))
 
 
 def find_target(name):
+    cfg_file = Path(__file__).parents[1] / 'data' / target_file  # we don't use pkg_resources, because it takes 300+ ms to load
+    package_cfg = yaml.safe_load(cfg_file.read_text())
+
+    # package_default should have all fields set
+    package_default = Target('default', package_cfg['default'])
+
     def load_config(config_file):
         with config_file.open('r') as f:
             try:
@@ -113,7 +98,7 @@ def find_target(name):
         root_file = workspace / target_file  # we load root config even if we won't need it
         root_cfg = load_config(root_file) if root_file.is_file() else None
         if root_cfg is not None:
-            check_version(root_file, root_cfg, True)
+            check_version(root_file, root_cfg, package_cfg['__version__'], True)
     else:
         root_cfg = None
 
@@ -121,7 +106,7 @@ def find_target(name):
         local_file = cwd / target_file
         local_cfg = load_config(local_file) if local_file.is_file() else None
         if local_cfg is not None:
-            check_version(local_file, local_cfg)
+            check_version(local_file, local_cfg, package_cfg['__version__'])
     else:
         local_cfg = None
 

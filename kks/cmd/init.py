@@ -4,7 +4,7 @@ import click
 
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_hidden_dir, format_file
-from kks.util.config import target_file, global_comment, targets_version
+from kks.util.config import target_file, global_comment
 
 
 @click.command(cls=OptFlagCommand)
@@ -82,7 +82,6 @@ def create_config(directory, is_global, update, force):
                 return
 
     data = resource_stream('kks', f'data/{target_file}').read().decode()
-    data = data.replace('KKS_TARGETS_VERSION', str(targets_version), 1)
     if is_global:
         data = global_comment + data
     file.write_text(data)
