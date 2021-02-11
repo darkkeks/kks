@@ -17,6 +17,9 @@ class Config(ConfigParser, metaclass=Singleton):
         self._file = config_directory() / 'config.ini'
         if self._file.is_file():
             self.read(self._file)
+        # delete legacy section
+        if self.has_section('Links'):
+            self.remove_section('Links')
 
     def save(self):
         with self._file.open('w') as f:
