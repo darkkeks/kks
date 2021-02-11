@@ -1,4 +1,3 @@
-from cgi import parse_header
 from mimetypes import guess_extension
 from os import environ
 
@@ -8,7 +7,7 @@ from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissi
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_task_dir, write_contests
 from kks.util.ejudge import EjudgeSession
-from kks.errors import AuthError
+from kks.util.storage import Config
 
 
 def source_suf(problem):
@@ -26,6 +25,8 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
         return f'{prefix(submission)}-{submission.short_status()}'
 
     def get_extension(problem, resp):
+        from cgi import parse_header
+
         mimetype, _ = parse_header(resp.headers.get('Content-Type', ''))
         mimetype = mimetype.lower()
         if mimetype == 'text/plain':
@@ -121,21 +122,15 @@ def sync(code, code_opt, force, filters):
         click.secho('You have to run sync under kks workspace (use "kks init" to create one)', fg='red', err=True)
         return
 
-    try:
-        session = EjudgeSession()
-    except AuthError:
-        return
-
+    session = EjudgeSession()
     problems = ejudge_summary(session)
-    if problems is None:
-        return
 
     code_all = code_opt == 'all'
     code = code or code_all
     if code:
         submissions = ejudge_submissions(session)
 
-    md_width = int(environ.get('MDWIDTH', '100'))
+    md_width = Config().options.mdwidth
 
     contests = set()
     bad_contests = set()

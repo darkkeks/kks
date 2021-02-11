@@ -1,7 +1,9 @@
 import gzip
 import pickle
+import sys
 from configparser import ConfigParser
 from datetime import datetime, timedelta
+from os import environ
 from time import time
 
 import click
@@ -9,44 +11,140 @@ import click
 from kks.util.common import Singleton, config_directory
 
 
-class Config(ConfigParser, metaclass=Singleton):
+class Section:
+    """
+    in config.ini all option names are lowercase and all underscores are replaced with dashes
+    """
+    def __init__(self, config, name):
+        super().__setattr__('_config', config)
+        super().__setattr__('_name', Section.canonical_name(name))
+
+    @staticmethod
+    def canonical_name(name):
+        return name.capitalize()
+
+    @staticmethod
+    def to_option(name):
+        return name.lower().replace('_', '-')
+
+    def _convert(self, key, value):
+        type_ = self.__annotations__[key]
+        if type_ is bool:
+            return self._config._convert_to_boolean(value)
+        return type_(value)
+
+    def _is_option(self, key):
+        return key in super().__getattribute__('__annotations__')
+
+    def _check_key(self, key):
+        if not self._is_option(key):
+            raise AttributeError(f'Option "{key}" is not allowed in config section "{self._name}"')
+
+    def __getattribute__(self, key):
+        if not super().__getattribute__('_is_option')(key):
+            return super().__getattribute__(key)
+
+        value = self._config.get(self._name, Section.to_option(key), fallback=None)
+        if value is None:
+            value = getattr(type(self), key, None)  # default
+        if value is None:
+            return None
+        return self._convert(key, value)
+
+    def __setattr__(self, key, value):
+        self._check_key(key)
+        if not self._config.has_section(self._name):
+            self._config.add_section(self._name)
+        self._config.set(self._name, Section.to_option(key), str(value))
+
+    def __delattr__(self, key):
+        self._check_key(key)
+        if not self._config.has_section(self._name):
+            return
+        self._config.remove_option(self._name, Section.to_option(key))
+
+
+class EnvSection(Section):
+    @staticmethod
+    def to_envvar(name):
+        return name.upper()
+
+    def __getattribute__(self, key):
+        if not super().__getattribute__('_is_option')(key):
+            return super().__getattribute__(key)  # how to avoid second check?
+
+        envvar = environ.get(EnvSection.to_envvar(key))
+        if envvar is not None:
+            return self._convert(key, envvar)
+        return super().__getattribute__(key)
+
+
+class AuthSection(Section):
+    login: str
+    password: str
+    contest: int
+
+
+class SSHSection(Section):
+    hostname: str
+    login: str
+    password: str
+    mnt_dir: str
+
+
+class OptionsSection(EnvSection):
+    mdwidth: int = 100
+    kks_ssh_timeout: int = 5  # will be used later
+    global_opt_out: bool
+
+
+class ConfigModel:
+    auth: AuthSection
+    ssh: SSHSection  # will be used later
+    options: OptionsSection
+
+
+class Config(metaclass=Singleton):
     """global kks config"""
+
     def __init__(self):
-        super().__init__()
-        self.optionxform = str
         self._file = config_directory() / 'config.ini'
+        self._config = ConfigParser()
         if self._file.is_file():
-            self.read(self._file)
+            self._config.read(self._file)
         # delete legacy section
-        if self.has_section('Links'):
-            self.remove_section('Links')
+        if self._config.has_section('Links'):
+            self._config.remove_section('Links')
+            self.save()
 
     def save(self):
         with self._file.open('w') as f:
-            self.write(f)
+            self._config.write(f)
 
     def reload(self):
         """force reload from disk"""
         if self._file.is_file():
-            self.read(self._file)
+            self._config.read(self._file)
+        else:
+            self._config.clear()
 
-    def has_boolean_option(self, option):
-        return self.has_option('Options', option)
+    def __getattribute__(self, key):
+        if key in ConfigModel.__annotations__:
+            section_type = ConfigModel.__annotations__[key]
+            return section_type(self._config, key)
+        return super().__getattribute__(key)
 
-    def get_boolean_option(self, option, default=False):
-        return self.getboolean('Options', option, fallback=default)
-
-    def set_boolean_option(self, option, value):
-        if not self.has_section('Options'):
-            self.add_section('Options')
-        return self.set('Options', option, 'yes' if value else 'no')
+    def __delattr__(self, key):
+        if key in ConfigModel.__annotations__:
+            self._config.remove_section(Section.canonical_name(key))
+        else:
+            super().__delattr__(key)
 
 
 class PickleStorage:
     _service_keys = ('__version__',)
 
     def __init__(self, name, compress=False, version=1):
-
         self.name = name
         self.compress = compress
 
@@ -76,9 +174,12 @@ class PickleStorage:
                     data = gzip.decompress(data)
                 self._data.update(pickle.loads(data))
             except Exception:
-                # anyway we cannot restore it
-                click.secho(f'Storage file {self._file} is corrupted, erasing all saved data', bg='red', err=True)
-                self._init_data(False)
+                click.secho(f'Storage file {self._file} is corrupted', bg='red', err=True)
+                if click.confirm(click.style('Erase all saved data?', fg='red', bold=True)):
+                    self._init_data(False)
+                else:
+                    click.secho(f'You need to fix or delete {self._file.absolute()} manually', fg='red', err=True)
+                    sys.exit()
 
         if self._data['__version__'] != self._version:
             click.secho(f'{self._file} uses an incompatible storage version, clearing saved data', bg='red', err=True)

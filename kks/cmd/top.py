@@ -7,15 +7,12 @@ import click
 from tqdm import tqdm
 
 from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name
-from kks.errors import AuthError
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
 
 
 Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # used for caching the problem list
-
-GLOBAL_OPT_OUT = 'global-opt-out'
 
 ROW_FORMAT = "{:>6}  {:25} {:>7} {:>6}{}"
 PREFIX_LENGTH = sum([6, 2, 25, 1, 7, 1, 6])
@@ -58,19 +55,13 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
                                      'kks.darkkeks.me?', bold=True, fg='red')):
             opt_out(config)
         return
-    elif not config.has_boolean_option(GLOBAL_OPT_OUT):
+    elif config.options.global_opt_out is None:
         init_opt_out(config)
 
-    try:
-        session = EjudgeSession()
-    except AuthError:
-        return
-
+    session = EjudgeSession()
     standings = ejudge_standings(session)
-    if standings is None:
-        return
 
-    if not config.get_boolean_option(GLOBAL_OPT_OUT):
+    if not config.options.global_opt_out:
         if not send_standings(standings):
             click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
@@ -92,7 +83,7 @@ def init_opt_out(config):
     click.secho('You can always disable sending using kks top --global-opt-out', err=True)
     if click.confirm(click.style('Do you want to send group standings to kks api?', bold=True, fg='red'), default=True):
         click.secho('Thanks a lot for you contribution! We appreciate it!', fg='green', bold=True, err=True)
-        config.set_boolean_option(GLOBAL_OPT_OUT, False)
+        config.options.global_opt_out = False
         config.save()
     else:
         opt_out(config)
@@ -101,7 +92,7 @@ def init_opt_out(config):
 def opt_out(config):
     click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
                 '~/.kks/config.ini', color='red', err=True)
-    config.set_boolean_option(GLOBAL_OPT_OUT, True)
+    config.options.global_opt_out = True
     config.save()
 
 

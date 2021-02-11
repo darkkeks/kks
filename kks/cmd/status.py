@@ -2,7 +2,6 @@ import click
 
 from kks.ejudge import ejudge_summary
 from kks.util.ejudge import EjudgeSession
-from kks.errors import AuthError
 
 
 @click.command(short_help='Parse and display task status')
@@ -14,14 +13,8 @@ def status(filters):
     If any FILTERS are specified, show status only for tasks with matching prefixes/names
     """
 
-    try:
-        session = EjudgeSession()
-    except AuthError:
-        return
-
+    session = EjudgeSession()
     problems = ejudge_summary(session)
-    if problems is None:
-        return
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
