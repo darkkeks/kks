@@ -7,7 +7,6 @@ from urllib.parse import quote as urlquote
 # from bs4 import BeautifulSoup
 # from bs4.element import NavigableString
 
-from kks.errors import AuthError
 from kks.util.h2t import HTML2Text
 
 CONTEST_ID_BY_GROUP = {
@@ -102,20 +101,19 @@ class Report:
         else:
             self.lines = []
 
-        need_tests_header = True
+        failed_tests = []
 
         for test in tests:
             test_num, status, *_ = test.find_all('td')
-            if status == Status.OK:
-                continue
+            if status.text != Status.OK:
+                failed_tests.append(f'{test_num.text} - {status.text}\n')
 
-            if need_tests_header:
-                if comments:
-                    self.lines.append('\n')
-                self.lines.append(f'Total tests: {len(tests)}\n')
-                self.lines.append('Failed tests:\n')
-                need_tests_header = False
-            self.lines.append(f'{test_num.text} - {status.text}\n')
+        if failed_tests:
+            if comments:
+                self.lines.append('\n')
+            self.lines.append(f'Total tests: {len(tests)}\n')
+            self.lines.append('Failed tests:\n')
+            self.lines += failed_tests
 
     def as_comment(self):
         sep_lines = 3
@@ -284,13 +282,12 @@ def get_contest_url_with_creds(auth_data):
     return url
 
 
+# NOTE all "ejudge_xxx" methods may raise kks.errors.AuthError
+# If session was used previously to make a request, and no errors were raised, AuthError will not be raised
 def ejudge_summary(session):
     from bs4 import BeautifulSoup
 
-    try:
-        page = session.get(Links.SUMMARY)
-    except AuthError:
-        return None
+    page = session.get(Links.SUMMARY)
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -315,10 +312,7 @@ def ejudge_summary(session):
 def ejudge_standings(session):
     from bs4 import BeautifulSoup
 
-    try:
-        page = session.get(Links.USER_STANDINGS)
-    except AuthError:
-        return None
+    page = session.get(Links.USER_STANDINGS)
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -376,7 +370,6 @@ def to_task_score(contest, cell):
 
 
 def ejudge_statement(problem_link, session):
-    # no AuthError
     page = session.get(problem_link)
     return Statement(page)
 
@@ -384,10 +377,7 @@ def ejudge_statement(problem_link, session):
 def ejudge_submissions(session):
     from bs4 import BeautifulSoup
 
-    try:
-        page = session.get(Links.SUBMISSIONS, params={'all_runs': 1})
-    except AuthError:
-        return []
+    page = session.get(Links.SUBMISSIONS, params={'all_runs': 1})
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -404,7 +394,6 @@ def ejudge_submissions(session):
 def ejudge_report(link, session):
     from bs4 import BeautifulSoup
 
-    # no AuthError
     page = session.get(link)
     soup = BeautifulSoup(page.content, 'html.parser')
     message_table = soup.find('table', {'class': 'message-table'})
@@ -466,7 +455,6 @@ def get_problem_info(problem, cache, session):
 
         return ProblemInfo(full_score, run_penalty, current_penalty)
 
-    # no AuthError
     page = session.get(problem.href)
     soup = BeautifulSoup(page.content, 'html.parser')
     task_area = soup.find('div', {'id': 'probNavTaskArea'})

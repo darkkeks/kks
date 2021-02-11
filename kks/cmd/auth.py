@@ -2,7 +2,6 @@ import click
 
 from kks.ejudge import AuthData, get_contest_id
 from kks.util.ejudge import EjudgeSession, save_auth_data
-from kks.errors import AuthError
 
 
 @click.command(short_help='Authorize and save authentication data to configuration directory')
@@ -42,11 +41,8 @@ def auth(login, password, group_id, contest_id, store_password):
     session = EjudgeSession(auth=False)
     auth_data = AuthData(login, contest_id, password)
 
-    try:
-        session.auth(auth_data)
-        save_auth_data(auth_data, store_password)
-    except AuthError:
-        return
+    session.auth(auth_data)
+    save_auth_data(auth_data, store_password)
 
     click.secho('Successfully logged in', fg='green')
     click.secho('Successfully saved auth data', fg='green', err=True)

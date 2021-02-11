@@ -2,7 +2,6 @@ import re
 from pathlib import Path
 
 import click
-import yaml
 
 from kks.util.common import find_workspace, find_problem_rootdir, config_directory
 
@@ -67,11 +66,7 @@ def check_version(cfg_file, cfg, new_version, is_global=False):
 
 
 def find_target(name):
-    cfg_file = Path(__file__).parents[1] / 'data' / target_file  # we don't use pkg_resources, because it takes 300+ ms to load
-    package_cfg = yaml.safe_load(cfg_file.read_text())
-
-    # package_default should have all fields set
-    package_default = Target('default', package_cfg['default'])
+    import yaml
 
     def load_config(config_file):
         with config_file.open('r') as f:
@@ -88,6 +83,12 @@ def find_target(name):
         if target_name in config:
             return Target(target_name, config[target_name])
         return None
+
+    # we don't use pkg_resources, because it takes 300+ ms to load
+    package_cfg = load_config(Path(__file__).parents[1] / 'data' / target_file)
+
+    # package_default should have all fields set
+    package_default = Target('default', package_cfg['default'])
 
     cwd = Path.cwd()
     workspace = find_workspace()

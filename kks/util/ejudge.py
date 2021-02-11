@@ -11,24 +11,19 @@ from kks.util.storage import Config, PickleStorage
 
 
 def load_auth_data():
-    config = Config()
-    if not config.has_section('Auth'):
-        return None
-    auth = config['Auth']
-    if 'login' in auth and 'contest' in auth:
-        return AuthData(auth['login'], auth['contest'], auth.get('password', None))
+    auth = Config().auth
+    if auth.login and auth.contest:
+        return AuthData(auth.login, auth.contest, auth.password)
     return None
 
 
 def save_auth_data(auth_data, store_password=True):
     config = Config()
-    config['Auth'] = {
-        'login': auth_data.login,
-        'contest': auth_data.contest_id
-    }
+    config.auth.login = auth_data.login
+    config.auth.contest = auth_data.contest_id
 
     if store_password and auth_data.password is not None:
-        config['Auth']['password'] = auth_data.password
+        config.auth.password = auth_data.password
 
     config.save()
 
@@ -255,7 +250,7 @@ class EjudgeSession:
         self.http = requests.session()
 
         self._storage = PickleStorage('storage')
-        self._load_sids()
+        self.sids = self._load_sids() or Sids(None, None)
 
         if self.sids.sid and self.sids.ejsid:
             self.http.cookies.set('EJSID', self.sids.ejsid, domain='caos.ejudge.ru')
@@ -263,16 +258,14 @@ class EjudgeSession:
             self.auth()
 
     def auth(self, auth_data=None):
-        if auth_data is None:
-            click.secho('Cookies are either missing or invalid, trying to auth with saved data', fg='yellow', err=True)
+        if auth_data is None:  # auto-auth
             auth_data = load_auth_data()
+            if auth_data is None:
+                raise AuthError('Auth data is not found, please use "kks auth" to log in', fg='yellow')
 
-            if auth_data is not None and auth_data.password is None:
+            click.secho('Ejudge session is missing or invalid, trying to auth with saved data', fg='yellow', err=True)
+            if auth_data.password is None:
                 auth_data.password = click.prompt('Password', hide_input=True)
-
-        if auth_data is None:
-            click.secho('No valid cookies or auth data, please use "kks auth" to log in', fg='yellow', err=True)
-            raise AuthError()
 
         import requests
 
@@ -284,16 +277,13 @@ class EjudgeSession:
         })
 
         if page.status_code != requests.codes.ok:
-            click.secho(f'Failed to authenticate (status code {page.status_code})', err=True, fg='red')
-            raise AuthError()
+            raise AuthError(f'Failed to authenticate (status code {page.status_code})')
 
         if 'Invalid contest' in page.text or 'invalid contest_id' in page.text:
-            click.secho(f'Invalid contest (contest id {auth_data.contest_id})', fg='red', err=True)
-            raise AuthError()
+            raise AuthError(f'Invalid contest (contest id {auth_data.contest_id})')
 
         if 'Permission denied' in page.text:
-            click.secho('Permission denied (invalid username, password or contest id)', fg='red', err=True)
-            raise AuthError()
+            raise AuthError('Permission denied (invalid username, password or contest id)')
 
         self._update_sids(page.url)
         self._store_sids()
@@ -318,10 +308,10 @@ class EjudgeSession:
         try:
             return api_method(*args, **kwargs)
         except APIError as e:
-            if e.code != APIError.INVALID_SESSION:
-                raise e
-            self.auth()
-            return api_method(*args, **kwargs)
+            if e.code == APIError.INVALID_SESSION:
+                self.auth()
+                return api_method(*args, **kwargs)
+            raise e
 
     def _update_sids(self, url):
         self.sids.sid = EjudgeSession.sid_regex.search(url).group(1)
@@ -333,7 +323,7 @@ class EjudgeSession:
 
     def _load_sids(self):
         with self._storage.load() as storage:
-            self.sids = storage.get('sids') or Sids(None, None)
+            return storage.get('sids')
 
     def modify_url(self, url):
         return re.sub(EjudgeSession.sid_regex, f'/S{self.sids.sid}', url, count=1)

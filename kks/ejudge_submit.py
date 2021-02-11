@@ -1,6 +1,6 @@
 import click
 
-from kks.errors import APIError, AuthError
+from kks.errors import APIError
 from kks.util.common import prompt_choice, with_retries
 from kks.util.ejudge import RunStatus
 
@@ -71,8 +71,6 @@ def submit_solution(session, file, prob_name):
     api = session.api()
     try:
         contest = session.with_auth(api.contest_status)
-    except AuthError:
-        return SubmissionResult.fail('Auth error')
     except APIError as e:
         return SubmissionResult.fail(str(e))
 

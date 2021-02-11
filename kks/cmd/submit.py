@@ -5,7 +5,6 @@ import click
 from kks.ejudge_submit import submit_solution
 from kks.util.common import prompt_choice, find_problem_rootdir
 from kks.util.ejudge import EjudgeSession
-from kks.errors import AuthError
 
 
 @click.command(short_help='Submit a solutions')
@@ -33,10 +32,7 @@ def submit(file, problem):
         if file is None:
             return
 
-    try:
-        session = EjudgeSession()
-    except AuthError:
-        return
+    session = EjudgeSession()
 
     result = submit_solution(session, file, problem)
     click.secho(result.msg, fg=result.color())
