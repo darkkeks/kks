@@ -1,6 +1,7 @@
 import click
 
 from kks.util.click import GroupedGroup
+from kks.util.common import config_directory
 from kks.cmd.auth import auth
 from kks.cmd.convert import convert
 from kks.cmd.gen import gen
@@ -17,9 +18,17 @@ from kks.cmd.top import top
 from kks.cmd.upgrade import upgrade, update
 
 
+def cleanup():
+    for filename in ['cookies.pickle', 'targets.yaml']:
+        file = config_directory() / filename
+        if file.exists():
+            file.unlink()
+
+
 @click.group(cls=GroupedGroup)
 def cli():
     """KoKoS helper tool"""
+    cleanup()
 
 
 class Commands:

@@ -254,7 +254,7 @@ class EjudgeSession:
         import requests
         self.http = requests.session()
 
-        self._storage = PickleStorage('creds')
+        self._storage = PickleStorage('storage')
         self._load_sids()
 
         if self.sids.sid and self.sids.ejsid:
