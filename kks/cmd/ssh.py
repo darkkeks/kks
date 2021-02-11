@@ -24,7 +24,7 @@ def get_mnt_dir():
 
 @click.command(short_help='Configure ssh tunneling')
 @click.option('-d', '--disable', is_flag=True)
-@click.option('-hn', '--hostname', default=get_hostname)
+@click.option('-h', '--hostname', default=get_hostname)
 @click.option('-l', '--login', default=get_login)
 @click.option('-p', '--password', default=get_password)
 @click.option('--ej-fuse', default='/opt/ejudge/bin/ejudge-fuse', help='Path to ejudge-fuse on remote host')
