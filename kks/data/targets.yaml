@@ -1,4 +1,4 @@
-__version__: KKS_TARGETS_VERSION  # You shouldn't modify the version
+__version__: 4 # You shouldn't modify the version
 
 
 default:
