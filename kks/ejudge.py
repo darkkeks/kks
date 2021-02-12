@@ -425,10 +425,6 @@ def ejudge_report(link, session):
 def get_problem_info(problem, cache, session):
     from bs4 import BeautifulSoup
 
-    # TODO
-    # - Should max_score be set to 0 after the hard deadline?
-    # - Can there be multiple soft deadlines?
-
     # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
 
     need_loading = False
@@ -448,21 +444,30 @@ def get_problem_info(problem, cache, session):
     if not need_loading:
         return ProblemInfo(full_score, run_penalty, current_penalty)
 
-    def update_cache(full_score, run_penalty, current_penalty, soft_dl):
+    now = datetime.now()
+    def update_cache(full_score, run_penalty, current_penalty, soft_dl, hard_dl):
+        past_deadline = hard_dl is not None and now > hard_dl
+
+        if past_deadline:
+            # see issue #72
+            full_score = 0
+            current_penalty = 0
+
         full_scores[problem.short_name] = full_score
         run_penalties[problem.short_name] = run_penalty
         cache.set('full', full_scores)
         cache.set('run', run_penalties)
 
-        if current_penalty >= full_score and current_penalty != 0:
+        if current_penalty >= full_score and current_penalty != 0 or past_deadline:
             expiration = None
-            # max_score will not change
+            # max_score = 0, will not change
             # NOTE may need patching for kr contests
         else:
             if soft_dl is not None:
                 expiration = soft_dl
             else:
                 expiration = timedelta(days=4, hours=23, minutes=55)
+
         cache.set(penalty_key, current_penalty, expiration)
 
         return ProblemInfo(full_score, run_penalty, current_penalty)
@@ -477,6 +482,7 @@ def get_problem_info(problem, cache, session):
     run_penalty = 0  # may be incorrect for kr
     current_penalty = 0
     soft_dl = None
+    hard_dl = None
 
     if problem_info is None:
         # may happen in kr contests?
@@ -484,7 +490,6 @@ def get_problem_info(problem, cache, session):
 
     # TODO "Full score" can be missing (sm01-3)
     # in this case we should use max score from the table as full
-    # If the penalty can be missing too, we should also parse hard deadlines
     for row in problem_info.find_all('tr'):
         key, value = row.find_all('td')
         if key.text == 'Full score:':
@@ -495,8 +500,10 @@ def get_problem_info(problem, cache, session):
             current_penalty = int(value.text)
         elif key.text == 'Next soft deadline:':
             soft_dl = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+        elif key.text == 'Deadline:':
+            hard_dl = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
 
-    return update_cache(full_score, run_penalty, current_penalty, soft_dl)
+    return update_cache(full_score, run_penalty, current_penalty, soft_dl, hard_dl)
 
 
 def chunks(iterable, chunk_size):
