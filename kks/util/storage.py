@@ -29,7 +29,7 @@ class Section:
 
     def _convert(self, key, value):
         type_ = self.__annotations__[key]
-        if type_ is bool and not isinstance(value, bool):
+        if type_ is bool:
             return self._config._convert_to_boolean(value)
         return type_(value)
 
@@ -45,11 +45,9 @@ class Section:
             return super().__getattribute__(key)
 
         value = self._config.get(self._name, Section.to_option(key), fallback=None)
-        if value is None:
-            value = getattr(type(self), key, None)  # default
-        if value is None:
-            return None
-        return self._convert(key, value)
+        if value is not None:
+            return self._convert(key, value)
+        return getattr(type(self), key)  # default
 
     def __setattr__(self, key, value):
         self._check_key(key)
