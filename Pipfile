@@ -13,6 +13,8 @@ configparser = "*"
 beautifulsoup4 = "*"
 tqdm = "*"
 html2text = "2020.1.16"
+pyyaml = "*"
+paramiko = "*"
 
 [requires]
 python_version = "3.9"
