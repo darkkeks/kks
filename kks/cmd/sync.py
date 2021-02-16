@@ -122,6 +122,8 @@ def sync(code, code_opt, force, filters):
         click.secho('You have to run sync under kks workspace (use "kks init" to create one)', fg='red', err=True)
         return
 
+    config = Config()
+
     session = EjudgeSession()
     problems = ejudge_summary(session)
 
@@ -130,7 +132,7 @@ def sync(code, code_opt, force, filters):
     if code:
         submissions = ejudge_submissions(session)
 
-    md_width = Config().options.mdwidth
+    md_width = config.options.mdwidth
 
     contests = set()
     bad_contests = set()
@@ -197,10 +199,20 @@ def sync(code, code_opt, force, filters):
 
         statement = ejudge_statement(problem.href, session)  # TODO use API? (kr contests, see #55)
 
-        with (task_dir / 'statement.html').open('w') as f:
-            f.write(statement.html())
-        with (task_dir / 'statement.md').open('w') as f:
-            f.write(statement.markdown(width=md_width))
+        html_statement_path = task_dir / 'statement.html'
+        md_statement_path = task_dir / 'statement.md'
+
+        if config.options.save_html_statements:
+            with html_statement_path.open('w') as f:
+                f.write(statement.html())
+        elif html_statement_path.is_file():
+            html_statement_path.unlink()
+
+        if config.options.save_md_statements:
+            with md_statement_path.open('w') as f:
+                f.write(statement.markdown(width=md_width))
+        elif md_statement_path.is_file():
+            md_statement_path.unlink()
 
         if statement.input_data is not None:
             with (tests_dir / '000.in').open('w') as f:

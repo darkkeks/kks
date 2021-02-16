@@ -29,7 +29,7 @@ class Section:
 
     def _convert(self, key, value):
         type_ = self.__annotations__[key]
-        if type_ is bool:
+        if type_ is bool and not isinstance(value, bool):
             return self._config._convert_to_boolean(value)
         return type_(value)
 
@@ -93,6 +93,8 @@ class SSHSection(Section):
 
 
 class OptionsSection(EnvSection):
+    save_html_statements: bool = True
+    save_md_statements: bool = True
     mdwidth: int = 100
     kks_ssh_timeout: int = 5  # will be used later
     global_opt_out: bool
