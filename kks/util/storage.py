@@ -47,7 +47,7 @@ class Section:
         value = self._config.get(self._name, Section.to_option(key), fallback=None)
         if value is not None:
             return self._convert(key, value)
-        return getattr(type(self), key)  # default
+        return getattr(type(self), key, None)  # default
 
     def __setattr__(self, key, value):
         self._check_key(key)
