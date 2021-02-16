@@ -45,11 +45,9 @@ class Section:
             return super().__getattribute__(key)
 
         value = self._config.get(self._name, Section.to_option(key), fallback=None)
-        if value is None:
-            value = getattr(type(self), key, None)  # default
-        if value is None:
-            return None
-        return self._convert(key, value)
+        if value is not None:
+            return self._convert(key, value)
+        return getattr(type(self), key, None)  # default
 
     def __setattr__(self, key, value):
         self._check_key(key)
@@ -93,6 +91,8 @@ class SSHSection(Section):
 
 
 class OptionsSection(EnvSection):
+    save_html_statements: bool = True
+    save_md_statements: bool = True
     mdwidth: int = 100
     kks_ssh_timeout: int = 5  # will be used later
     global_opt_out: bool
