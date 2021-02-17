@@ -70,7 +70,7 @@ class EjudgeSSHClient(SSHClient):
     def unmount_ej_fuse(self):
         # result is not checked
         cmd = f'fusermount -u {self._root}'
-        _ = self.exec_command(cmd)
+        _ = self.exec_command(cmd, timeout=self._timeout)
 
     def contest_status(self):
         file = self._root / str(self.contest) / 'info.json'

@@ -42,14 +42,15 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
 
     if disable:
         if ssh_enabled():
+            client = None
             try:
                 client = EjudgeSSHClient.create_connected(hostname, login, password, mnt_dir, timeout=timeout)
+                client.unmount_ej_fuse()
             except AuthenticationException:
                 click.secho('Cannot unmount remote ejudge-fuse (SSH auth error)', fg='yellow')
             except (SSHException, socket.timeout) as e:
                 click.secho(f'Cannot unmount remote ejudge-fuse (SSH error: {e})', fg='yellow')
-            else:
-                client.unmount_ej_fuse()
+            if client is not None:
                 client.close()
 
         del config.ssh
