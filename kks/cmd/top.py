@@ -198,7 +198,10 @@ class FancyTable:
         self.columns.append(column)
 
     def calc_width(self):
-        return sum([column.width() for column in self.columns])
+        content = sum([column.width() for column in self.columns])
+        # небольшой костыль:
+        # на самом деле возвращает на 1 больше, чтобы удобнее использовать это значение для расчета оставшегося места
+        return content + len(self.columns)
 
     def render(self, rows):
         output = ' '.join([
