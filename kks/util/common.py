@@ -45,7 +45,7 @@ def ssh_client():
     timeout = config.options.kks_ssh_timeout
     try:
         # we assume that all these options exist
-        return EjudgeSSHClient.create_connected(ssh_cfg.hostname, ssh_cfg.login, ssh_cfg.password, ssh_cfg.mnt_dir, config.Auth.contest, timeout)
+        return EjudgeSSHClient.create_connected(ssh_cfg.hostname, ssh_cfg.login, ssh_cfg.password, ssh_cfg.mnt_dir, config.auth.contest, timeout)
     except AuthenticationException:
         click.secho('SSH auth error', fg='red', err=True)
         return None
