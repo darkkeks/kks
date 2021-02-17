@@ -138,8 +138,7 @@ class EjudgeSSHClient(SSHClient):
             self._sftp.get_channel().settimeout(self._timeout)
             return self._sftp
         except SSHException as e:
-            msg = str(e)
-            if msg == 'Channel closed.':  # sftp disabled
+            if str(e)== 'Channel closed.':  # sftp disabled
                 click.secho('SFTP file transfer not available, using fallback method', fg='yellow')
                 self._sftp_fail = True
                 return None
@@ -184,7 +183,7 @@ class EjudgeSSHClient(SSHClient):
                 sleep(get_delay())
                 return f.read()
         except timeout:
-                raise EjudgeFuseError('Connection timeout')
+            raise EjudgeFuseError('Connection timeout')
         except OSError as e:
             raise EjudgeFuseError(f'{e} ({file})')
 
