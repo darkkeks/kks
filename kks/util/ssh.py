@@ -42,11 +42,11 @@ class EjudgeSSHClient(SSHClient):
         self.unmount_ej_fuse()
         cmd = f'mkdir -p {self._root}; {ej_fuse_path} --user {login} --url {url} {self._root} -o use_ino'
         i, o, e = self.exec_command(cmd, get_pty=True, timeout=self._timeout)
-        # if we write password into i immediately, it will freeze
-        # if ejudge-fuse cannot be run, output will contain a part of the error message
-        output = o.read(len('Password:'))
-        i.write(password + '\n')
         try:
+            # if we write password into i immediately, it will freeze
+            # if ejudge-fuse cannot be run, output will contain a part of the error message
+            output = o.read(len('Password:'))
+            i.write(password + '\n')
             output += o.read()
         except timeout:
             raise EjudgeFuseError('Connection timeout')
