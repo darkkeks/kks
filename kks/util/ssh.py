@@ -17,7 +17,7 @@ EJ_FUSE_BUFSIZE = 4096
 
 
 class EjudgeSSHClient(SSHClient):
-    def __init__(self, hostname, login, password, mnt_dir=None, contest=None, timeout=None):
+    def __init__(self, hostname, login, password, mnt_dir, contest=None, timeout=None):
         super().__init__()
         self.hostname = hostname
         self.login = login
