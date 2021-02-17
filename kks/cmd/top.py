@@ -1,8 +1,10 @@
 import os
+import sys
 from collections import namedtuple
 from itertools import groupby
 
 import click
+from click._compat import isatty
 from tqdm import tqdm
 
 from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name, get_group_id
@@ -13,8 +15,6 @@ from kks.util.storage import Cache, Config
 Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # used for caching the problem list
 
 CONTEST_DELIMITER = ' | '
-
-PAGER_THRESHOLD = 50
 
 
 @click.command(short_help='Parse and display user standings')
@@ -70,7 +70,7 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
     if max_:
         standings = estimate_max(standings, session, no_cache)
 
-    display_standings(standings, last, contests, all_, use_contest_id=global_)
+    display_standings(standings, last, contests, all_, global_)
 
 
 def init_opt_out(config):
@@ -92,24 +92,25 @@ def opt_out(config):
     config.save()
 
 
-def display_standings(standings, last, contests, all_, use_contest_id=False):
+def display_standings(standings, last, contests, all_, global_):
     table = FancyTable()
 
-    table.add_column(StaticColumn("Place", 6, lambda row: row.place))
+    table.add_column(StaticColumn('Place', 6, lambda row: row.place))
+    table.add_column(StaticColumn.padding(1))
+    table.add_column(StaticColumn('User', 24, lambda row: row.user, right_just=False))
+    table.add_column(StaticColumn('Solved', 6, lambda row: row.solved))
+    table.add_column(StaticColumn('Score', 6, lambda row: row.score))
 
-    # extra space
-    table.add_column(StaticColumn(None, 0, lambda _: ''))
+    if global_:
+        table.add_column(StaticColumn('Group', 6, lambda row: get_group_id(row.contest_id)))
 
-    table.add_column(StaticColumn("User", 24, lambda row: row.user, right_just=False))
-    table.add_column(StaticColumn("Solved", 6, lambda row: row.solved))
-    table.add_column(StaticColumn("Score", 6, lambda row: row.score))
+    if isatty(sys.stdout):
+        contests_width = max_table_width() - table.calc_width()
+        default_contest_count = \
+            get_default_contest_count(standings.contests, standings.tasks_by_contest, contests_width)
+    else:
+        default_contest_count = len(standings.contests)
 
-    if use_contest_id:
-        table.add_column(StaticColumn("Group", 6, lambda row: get_group_id(row.contest_id)))
-
-    contests_width = max_table_width() - table.calc_width()
-
-    default_contest_count = get_default_contest_count(standings.contests, standings.tasks_by_contest, contests_width)
     contests = select_contests(standings, last, contests, all_, default_contest_count)
     if contests is None:
         return
@@ -118,7 +119,7 @@ def display_standings(standings, last, contests, all_, use_contest_id=False):
 
     output = table.render(standings.rows)
 
-    if len(standings.rows) > PAGER_THRESHOLD:
+    if global_ and not isatty(sys.stdout):
         if 'LESS' not in os.environ:
             os.environ['LESS'] = '-S -R'
         click.echo_via_pager(output)
@@ -151,13 +152,18 @@ class StaticColumn(Column):
             else value.ljust(self.actual_width, ' ')
 
     def header(self):
-        return self._justify(self.name)
+        return click.style(self._justify(self.name), fg='white', bold=True)
 
     def value(self, row):
-        return self._justify(str(self.mapper(row)))
+        return click.style(self._justify(str(self.mapper(row))), fg=row.color(), bold=row.bold())
 
     def width(self):
         return self.actual_width
+
+    @classmethod
+    def padding(cls, width):
+        # width - 1, так как лишняя колонка уже добавляет один пробел
+        return cls(None, width - 1, lambda _: '')
 
 
 class TasksColumn(Column):
@@ -168,7 +174,8 @@ class TasksColumn(Column):
     def header(self):
         contest_widths = get_contest_widths(self.contests, self.tasks_by_contest)
         return ''.join([
-            ' | ' + contest.ljust(contest_widths[contest], ' ')
+            click.style(' | ', fg='white', bold=False) +
+            click.style(contest.ljust(contest_widths[contest], ' '), fg='white', bold=True)
             for contest in self.contests
         ])
 
@@ -195,16 +202,15 @@ class FancyTable:
 
     def render(self, rows):
         output = ' '.join([
-            click.style(column.header(), fg='white', bold=True)
+            column.header()
             for column in self.columns
         ]) + '\n'
 
         for row in rows:
-            row_output = ' '.join([
+            output += ' '.join([
                 column.value(row)
                 for column in self.columns
-            ])
-            output += click.style(row_output, fg=row.color(), bold=row.bold()) + '\n'
+            ]) + '\n'
 
         return output
 
@@ -224,10 +230,10 @@ def select_contests(standings, last, contests, all_, default_count):
         def is_available(contest):
             if contest not in standings.contests:
                 click.echo(
-                        click.style('Contest ', fg='red') +
-                        click.style(contest, fg='blue', bold=True) +
-                        click.style(' not found!', fg='red'),
-                        err=True
+                    click.style('Contest ', fg='red') +
+                    click.style(contest, fg='blue', bold=True) +
+                    click.style(' not found!', fg='red'),
+                    err=True
                 )
             return contest in standings.contests
 
@@ -262,7 +268,6 @@ def get_contest_widths(contests, tasks_by_contest):
 
 def max_table_width():
     (width, _) = click.get_terminal_size()
-    # TODO account for piping output
     return width
 
 
