@@ -94,7 +94,7 @@ class OptionsSection(EnvSection):
     save_html_statements: bool = True
     save_md_statements: bool = True
     mdwidth: int = 100
-    kks_ssh_timeout: int = 5
+    kks_ssh_timeout: float = 5
     global_opt_out: bool
 
 

@@ -62,10 +62,7 @@ def get_lang(available, all_langs):
 
 
 def submit_solution(file, prob_name, get_contest_status, get_problem_status, submit_file, get_final_result):
-    try:
-        contest = get_contest_status()
-    except EjudgeError as e:
-        return SubmissionResult.fail(str(e))
+    contest = get_contest_status()
 
     prob_id = None
     for p in contest['problems']:
@@ -75,10 +72,7 @@ def submit_solution(file, prob_name, get_contest_status, get_problem_status, sub
     if prob_id is None:
         return SubmissionResult.fail('Invalid problem ID')
 
-    try:
-        problem = get_problem_status(prob_id)
-    except EjudgeError as e:
-        return SubmissionResult.fail(str(e))
+    problem = get_problem_status(prob_id)
 
     problem, problem_status = problem['problem'], problem['problem_status']
     if not problem_status.get('is_submittable'):

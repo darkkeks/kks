@@ -77,11 +77,7 @@ class EjudgeSSHClient(SSHClient):
         return self._parse_api_resp(file)
 
     def problems(self):
-        try:
-            info = self.contest_status()
-        except EjudgeFuseError as e:
-            click.secho(f'Error: {e}', fg='red')
-            return None
+        info = self.contest_status()
         return [BasicAPIProblem.parse(p) for p in info['problems']]  # add parser for common classes with API?
 
     def problem_status(self, problem):
@@ -98,8 +94,7 @@ class EjudgeSSHClient(SSHClient):
         except EjudgeFuseError as e:
             if 'no such file' in e.args[0].lower():
                 return APIStatement(None)
-            else:
-                raise
+            raise e
         return APIStatement(content.decode())
 
     def submit(self, problem, file, lang):

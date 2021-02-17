@@ -31,4 +31,5 @@ class APIError(EjudgeError):
 
 
 class EjudgeFuseError(EjudgeError):
-    pass
+    def show(self):
+        click.secho(f'Error: {self.message}', fg='red', err=True)

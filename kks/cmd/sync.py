@@ -134,8 +134,6 @@ def sync(code, code_opt, force, filters):
             # TODO if submission sync works correctly, remove warning. otherwise, implement sync over ssh
             click.secho('Submission sync doesn\'t use ssh and may fail for "kr" tasks', fg='bright_yellow', bold=True)
         problems = client.problems()
-        if problems is None:
-            return
     else:
         problems = ejudge_summary(session)
 
