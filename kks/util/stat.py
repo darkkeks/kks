@@ -93,10 +93,18 @@ def standings_from_dict(standings):
             for task in tasks
         ],
         rows=[
-            StandingsRow(row['place'], row['user'], [
-                TaskScore(task['contest'], task['score'], task['status'])
-                for task in row['tasks']
-            ], row['solved'], row['score'], row['is_self'])
+            StandingsRow(
+                row['place'],
+                row['user'],
+                [
+                    TaskScore(task['contest'], task['score'], task['status'])
+                    for task in row['tasks']
+                ],
+                row['solved'],
+                row['score'],
+                row['is_self'],
+                row['contest_id']
+            )
             for row in standings['rows']
         ],
     )

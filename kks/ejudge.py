@@ -152,13 +152,14 @@ class TaskInfo:
 
 
 class StandingsRow:
-    def __init__(self, place, user, tasks, solved, score, is_self):
+    def __init__(self, place, user, tasks, solved, score, is_self, contest_id=None):
         self.place = place
         self.user = user
         self.tasks = tasks
         self.solved = solved
         self.score = score
         self.is_self = is_self
+        self.contest_id = contest_id
 
     def color(self):
         return 'white'
@@ -269,6 +270,13 @@ class Statement:
 
 def get_contest_id(group_id):
     return CONTEST_ID_BY_GROUP.get(group_id, None)
+
+
+def get_group_id(contest_id):
+    for group, contest in CONTEST_ID_BY_GROUP.items():
+        if contest_id == contest:
+            return group
+    return None
 
 
 def get_contest_url(auth_data):
