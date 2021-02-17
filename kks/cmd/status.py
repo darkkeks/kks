@@ -15,6 +15,7 @@ def status(filters):
 
     session = EjudgeSession()
     problems = ejudge_summary(session)
+    # NOTE if kr problems may be hidden from summary, try using ssh
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
