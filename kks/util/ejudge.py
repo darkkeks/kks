@@ -1,5 +1,7 @@
 import json
 import re
+from base64 import b64decode
+
 import click
 
 from kks import __version__
@@ -81,9 +83,19 @@ class RunStatus:
 
     def __init__(self, run_status):
         self.status = run_status['run']['status']
+
         self.tests = []
         if 'testing_report' in run_status and 'tests' in run_status['testing_report']:
             self.tests = run_status['testing_report']['tests']
+
+        self.compiler_output = 'Compiler output is not available'
+        if 'compiler_output' in run_status and 'content' in run_status['compiler_output']:
+            data = run_status['compiler_output']['content'].get('data', '')
+            try:
+                self.compiler_output = b64decode(data).decode()
+            except Exception:
+                self.compiler_output = 'Cannot decode compiler output: {data}'
+
 
     def is_testing(self):
         return self.status >= 95 and self.status <= 99
@@ -103,6 +115,9 @@ class RunStatus:
         else:
             test_results = '\n'.join(map(test_descr, self.tests))
         return f'{self}\n{test_results}'
+
+    def with_compiler_output(self):
+        return f'{self}\n\nCompiler output:\n{self.compiler_output}'
 
 
 class Sids:

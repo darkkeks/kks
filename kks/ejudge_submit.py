@@ -42,6 +42,8 @@ class SubmissionResult:
             return cls.ok(str(run_status))
         if run_status.status in [RunStatus.ACCEPTED, RunStatus.PENDING]:  # PENDING == "Pending check" =?= ACCEPTED
             return cls.check(str(run_status))
+        if run_status.status == RunStatus.CE:
+            return cls.fail(run_status.with_compiler_output())
         return cls.fail(run_status.with_tests(failed_only=True))  # there can be 100+ passed tests and a few failed
 
 
