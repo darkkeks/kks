@@ -94,13 +94,13 @@ class OptionsSection(EnvSection):
     save_html_statements: bool = True
     save_md_statements: bool = True
     mdwidth: int = 100
-    kks_ssh_timeout: int = 5  # will be used later
+    kks_ssh_timeout: int = 5
     global_opt_out: bool
 
 
 class ConfigModel:
     auth: AuthSection
-    ssh: SSHSection  # will be used later
+    ssh: SSHSection
     options: OptionsSection
 
 
