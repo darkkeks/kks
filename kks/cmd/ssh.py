@@ -75,6 +75,10 @@ def ssh(disable, hostname, login, password, ej_fuse, ej_url, mnt_dir):
         return
 
     click.secho('SSH connection estabilished, trying to mount ejudge-fuse', bold=True)
+
+    if auth_data.password is None:
+        auth_data.password = click.prompt(f'{auth_data.login}\'s ejudge password', hide_input=True)
+
     try:
         client.mount_ej_fuse(ej_fuse, ej_url, auth_data.login, auth_data.password)
     except EjudgeError as e:
