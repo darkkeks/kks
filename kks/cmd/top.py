@@ -4,7 +4,7 @@ from collections import namedtuple
 from itertools import groupby
 
 import click
-from click._compat import isatty
+from click._compat import isatty, strip_ansi
 from tqdm import tqdm
 
 from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name, get_group_id
@@ -104,8 +104,10 @@ def display_standings(standings, last, contests, all_, global_):
     if global_:
         table.add_column(StaticColumn('Group', 6, lambda row: get_group_id(row.contest_id)))
 
+    terminal_width = get_terminal_width()
+
     if isatty(sys.stdout):
-        contests_width = max_table_width() - table.calc_width()
+        contests_width = terminal_width - table.calc_width()
         default_contest_count = \
             get_default_contest_count(standings.contests, standings.tasks_by_contest, contests_width)
     else:
@@ -117,9 +119,12 @@ def display_standings(standings, last, contests, all_, global_):
 
     table.add_column(TasksColumn(contests, standings.tasks_by_contest))
 
-    output = table.render(standings.rows)
+    lines = table.render(standings.rows)
+    output = '\n'.join(lines)
 
-    if global_ and not isatty(sys.stdout):
+    exceeds_width = any([len(strip_ansi(line)) > terminal_width for line in lines])
+
+    if isatty(sys.stdout) and (exceeds_width or global_):
         if 'LESS' not in os.environ:
             os.environ['LESS'] = '-S -R'
         click.echo_via_pager(output)
@@ -204,18 +209,20 @@ class FancyTable:
         return content + len(self.columns)
 
     def render(self, rows):
-        output = ' '.join([
-            column.header()
-            for column in self.columns
-        ]) + '\n'
+        lines = [
+            ' '.join([
+                column.header()
+                for column in self.columns
+            ])
+        ]
 
         for row in rows:
-            output += ' '.join([
+            lines.append(' '.join([
                 column.value(row)
                 for column in self.columns
-            ]) + '\n'
+            ]))
 
-        return output
+        return lines
 
 
 def select_contests(standings, last, contests, all_, default_count):
@@ -269,7 +276,7 @@ def get_contest_widths(contests, tasks_by_contest):
     }
 
 
-def max_table_width():
+def get_terminal_width():
     (width, _) = click.get_terminal_size()
     return width
 
