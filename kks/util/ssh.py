@@ -56,7 +56,7 @@ class EjudgeSSHClient(SSHClient):
             # bash error (cannot find/execute ejudge-fuse)
             raise EjudgeFuseError(re.sub(r'^.{,2}sh: ', '', output))
         if 'mountpoint is not empty' in output:
-            raise EjudgeFuseError('ejudge-fuse already mounted')
+            raise EjudgeFuseError('ejudge-fuse is already mounted (unmount it manually or use another mount point)')
         if 'initial login failed' in output:
             err = re.search(r'\{.*\}', output, re.S)
             if err is None:
