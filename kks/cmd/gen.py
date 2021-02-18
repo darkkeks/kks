@@ -22,8 +22,7 @@ from kks.util.script import find_script
               help='Overwrite .in files')
 @click.option('-i', '--ignore-exit-code', is_flag=True,
               help='Dont fail on non-zero exit code')
-@click.argument('gen_args', nargs=-1, type=click.UNPROCESSED)
-def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_code, gen_args):
+def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_code):
     """
     Generate tests
 
@@ -49,7 +48,7 @@ def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_
         test_pairs = find_tests_to_gen(directory, tests, test_range)
         test_pairs = sorted(test_pairs)
 
-        generate_tests(test_source, test_pairs, output_only, force, gen_args)
+        generate_tests(test_source, test_pairs, output_only, force)
 
 
 def find_tests_to_gen(directory, tests, test_range):
@@ -101,7 +100,7 @@ def find_tests_to_gen(directory, tests, test_range):
     return result
 
 
-def generate_tests(test_source, test_pairs, output_only, force, gen_args):
+def generate_tests(test_source, test_pairs, output_only, force):
     generated_tests = 0
     t = tqdm(test_pairs, leave=False)
     for input_file, output_file in t:
@@ -127,11 +126,11 @@ def generate_tests(test_source, test_pairs, output_only, force, gen_args):
 
         if not output_only:
             with input_file.open('wb') as f:
-                if test_source.generate_input(input_file.stem, gen_args, stdout=f) is None:
+                if test_source.generate_input(input_file.stem, stdout=f) is None:
                     return
 
         with input_file.open('rb') as f_in, output_file.open('wb') as f_out:
-            if test_source.generate_output(input_file.stem, gen_args, stdin=f_in, stdout=f_out) is None:
+            if test_source.generate_output(input_file.stem, stdin=f_in, stdout=f_out) is None:
                 return
 
         generated_tests += 1

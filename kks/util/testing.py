@@ -22,14 +22,12 @@ class TestSource:
         if needs_compilation(self.solution):
             self.solution_directory = tempfile.TemporaryDirectory(prefix='kks-')
 
-    def generate_input(self, test, additional_args=None, stdout=subprocess.PIPE):
-        args = [test] + (additional_args or [])
-        return run_script(self.generator, args, stdout=stdout,
+    def generate_input(self, test, stdout=subprocess.PIPE):
+        return run_script(self.generator, [test], stdout=stdout,
                           ignore_exit_code=self.options.ignore_exit_code)
 
-    def generate_output(self, test, additional_args=None, stdin=None, stdout=subprocess.PIPE, input=None):
-        args = [test] + (additional_args or [])
-        return run_script(self.solution, args, stdin=stdin, stdout=stdout, input=input,
+    def generate_output(self, test, stdin=None, stdout=subprocess.PIPE, input=None):
+        return run_script(self.solution, [test], stdin=stdin, stdout=stdout, input=input,
                           ignore_exit_code=self.options.ignore_exit_code)
 
     def __enter__(self):
