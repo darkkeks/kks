@@ -107,7 +107,7 @@ def display_standings(standings, last, contests, all_, global_):
     terminal_width = get_terminal_width()
 
     if isatty(sys.stdout):
-        contests_width = terminal_width - table.calc_width()
+        contests_width = terminal_width - table.calc_width() - 1
         default_contest_count = \
             get_default_contest_count(standings.contests, standings.tasks_by_contest, contests_width)
     else:
@@ -119,10 +119,10 @@ def display_standings(standings, last, contests, all_, global_):
 
     table.add_column(TasksColumn(contests, standings.tasks_by_contest))
 
+    exceeds_width = table.calc_width() > terminal_width
+
     lines = table.render(standings.rows)
     output = '\n'.join(lines)
-
-    exceeds_width = any([len(strip_ansi(line)) > terminal_width for line in lines])
 
     if isatty(sys.stdout) and (exceeds_width or global_):
         if 'LESS' not in os.environ:
@@ -172,27 +172,31 @@ class StaticColumn(Column):
 
 
 class TasksColumn(Column):
+    DELIMITER = ' | '
+
     def __init__(self, contests, tasks_by_contests):
         self.contests = contests
-        self.tasks_by_contest = tasks_by_contests
+        self.contest_widths = get_contest_widths(self.contests, tasks_by_contests)
 
     def header(self):
-        contest_widths = get_contest_widths(self.contests, self.tasks_by_contest)
         return ''.join([
-            click.style(' | ', fg='white', bold=False) +
-            click.style(contest.ljust(contest_widths[contest], ' '), fg='white', bold=True)
+            click.style(TasksColumn.DELIMITER, fg='white', bold=False) +
+            click.style(contest.ljust(self.contest_widths[contest], ' '), fg='white', bold=True)
             for contest in self.contests
         ])
 
     def value(self, row):
         return ''.join([
-            click.style(' | ', fg=row.color(), bold=row.bold()) + ' '.join([
+            click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) + ' '.join([
                 click.style('{:>3}'.format(task.table_score() or ''), fg=task.color(), bold=task.bold())
                 for task in tasks
             ])
             for contest, tasks in groupby(row.tasks, lambda task: task.contest)
             if contest in self.contests
         ])
+
+    def width(self):
+        return sum(self.contest_widths.values()) + len(TasksColumn.DELIMITER) * len(self.contests)
 
 
 class FancyTable:
@@ -204,9 +208,7 @@ class FancyTable:
 
     def calc_width(self):
         content = sum([column.width() for column in self.columns])
-        # небольшой костыль:
-        # на самом деле возвращает на 1 больше, чтобы удобнее использовать это значение для расчета оставшегося места
-        return content + len(self.columns)
+        return content + len(self.columns) - 1
 
     def render(self, rows):
         lines = [
