@@ -7,11 +7,16 @@ from kks.util.common import prompt_choice, find_problem_rootdir
 from kks.util.ejudge import EjudgeSession
 
 
+API_TESTING_TIMEOUT = 10
+
+
 @click.command(short_help='Submit a solutions')
 @click.argument('file', type=click.Path(exists=True), required=False)
 @click.option('-p', '--problem', type=str,
               help='manually specify the problem ID')
-def submit(file, problem):
+@click.option('-t', '--timeout', type=float, default=API_TESTING_TIMEOUT,
+              help=f'how long to wait for a testing report (default {API_TESTING_TIMEOUT}s)')
+def submit(file, problem, timeout):
     """
     Submit a solution
 
@@ -34,7 +39,7 @@ def submit(file, problem):
 
     session = EjudgeSession()
 
-    result = submit_solution(session, file, problem)
+    result = submit_solution(session, file, problem, timeout)
     click.secho(result.msg, fg=result.color())
 
 
