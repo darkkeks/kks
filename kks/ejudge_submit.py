@@ -42,6 +42,8 @@ class SubmissionResult:
             return cls.ok(str(run_status))
         if run_status.status in [RunStatus.ACCEPTED, RunStatus.PENDING]:  # PENDING == "Pending check" =?= ACCEPTED
             return cls.check(str(run_status))
+        if run_status.status in [RunStatus.CE, RunStatus.STYLE_ERR]:
+            return cls.fail(run_status.with_compiler_output())
         return cls.fail(run_status.with_tests(failed_only=True))  # there can be 100+ passed tests and a few failed
 
 
@@ -59,15 +61,15 @@ def get_lang(available, all_langs):
     return choice(langs)['id']
 
 
-@with_retries(step=2)
-def get_final_result(api, run_id):
-    res = RunStatus(api.run_status(run_id))
-    if res.is_testing():
-        return None
-    return SubmissionResult.parse_status(res)
+def submit_solution(session, file, prob_name, timeout):
 
+    @with_retries(step=2, timeout=timeout)
+    def get_final_result(api, run_id):
+        res = RunStatus(api.run_status(run_id))
+        if res.is_testing():
+            return None
+        return SubmissionResult.parse_status(res)
 
-def submit_solution(session, file, prob_name):
     api = session.api()
     try:
         contest = session.with_auth(api.contest_status)
