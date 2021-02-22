@@ -7,7 +7,8 @@ import click
 from click._compat import isatty, strip_ansi
 from tqdm import tqdm
 
-from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name, get_group_id
+from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name, get_group_id, \
+    get_contest_id
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
@@ -24,6 +25,8 @@ CONTEST_DELIMITER = ' | '
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Print the results of the selected contest')
+@click.option('-f', '--group', 'groups', type=str, multiple=True,
+              help='Print standings of selected groups')
 @click.option('-m', '--max', 'max_', is_flag=True,
               help='Print maximal possible scores (based on current deadlines)')
 @click.option('-nc', '--no-cache', is_flag=True,
@@ -32,7 +35,7 @@ CONTEST_DELIMITER = ' | '
               help='Use global standings instead of group one. May be outdated')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
-def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
+def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
     """
     Parse and display user standings
 
@@ -66,6 +69,11 @@ def top(last, contests, all_, max_, no_cache, global_, global_opt_out):
         if standings is None:
             click.secho('Standings are not available now :(', fg='yellow', err=True)
             return
+
+        if groups:
+            standings = filter_groups(standings, groups)
+            if standings is None:
+                return
 
     if max_:
         standings = estimate_max(standings, session, no_cache)
@@ -283,13 +291,32 @@ def get_terminal_width():
     return width
 
 
+def filter_groups(standings, groups):
+    group_contest_ids = []
+    for group in groups:
+        contest_id = get_contest_id(group)
+        if contest_id is None:
+            click.secho(f'Invalid group name: "{group}"', fg='red', err=True)
+            return None
+        group_contest_ids.append(contest_id)
+
+    standings.rows = [
+        row
+        for row in standings.rows
+        if row.contest_id in group_contest_ids
+    ]
+
+    for i, row in enumerate(standings.rows):
+        row.place = i + 1
+
+    return standings
+
+
 def estimate_max(standings, session, force_reload):
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
 
     def cached_problem(problem):
         return Problem(problem.href, problem.short_name, extract_contest_name(problem.short_name))
-
-    standings.rows = list(standings.rows)
 
     with Cache('problem_info', compress=True).load() as cache:
         if force_reload:

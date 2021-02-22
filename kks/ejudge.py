@@ -269,6 +269,8 @@ class Statement:
 
 
 def get_contest_id(group_id):
+    if isinstance(group_id, str):
+        group_id = int(group_id)
     return CONTEST_ID_BY_GROUP.get(group_id, None)
 
 
