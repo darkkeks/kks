@@ -25,7 +25,7 @@ CONTEST_DELIMITER = ' | '
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Print the results of the selected contest')
-@click.option('-f', '--group', 'groups', type=str, multiple=True,
+@click.option('-f', '--group', 'groups', type=int, multiple=True,
               help='Print standings of selected groups')
 @click.option('-m', '--max', 'max_', is_flag=True,
               help='Print maximal possible scores (based on current deadlines)')
