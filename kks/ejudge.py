@@ -258,6 +258,9 @@ class Statement:
             html.append(statement)
             self._html = html
 
+    def __bool__(self):
+        return self._html is not None
+
     def html(self):
         if self._html is None:
             return 'Statement is not available'
