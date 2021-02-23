@@ -258,16 +258,16 @@ class Statement:
             html.append(statement)
             self._html = html
 
-    def __bool__(self):
+    def is_available(self):
         return self._html is not None
 
     def html(self):
-        if self._html is None:
+        if not self.is_available():
             return 'Statement is not available'
         return str(self._html)
 
     def markdown(self, width=100):
-        if self._html is None:
+        if not self.is_available():
             return 'Statement is not available'
         converter = HTML2Text(bodywidth=width, baseurl=self.url)
         converter.pad_tables = True
