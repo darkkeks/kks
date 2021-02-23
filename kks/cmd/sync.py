@@ -203,14 +203,16 @@ def sync(code, code_opt, force, filters):
         md_statement_path = task_dir / 'statement.md'
 
         if config.options.save_html_statements:
-            with html_statement_path.open('w') as f:
-                f.write(statement.html())
+            if statement.is_available() or not html_statement_path.exists():  # overwrite only if statement is available
+                with html_statement_path.open('w') as f:
+                    f.write(statement.html())
         elif html_statement_path.is_file():
             html_statement_path.unlink()
 
         if config.options.save_md_statements:
-            with md_statement_path.open('w') as f:
-                f.write(statement.markdown(width=md_width))
+            if statement.is_available() or not md_statement_path.exists():
+                with md_statement_path.open('w') as f:
+                    f.write(statement.markdown(width=md_width))
         elif md_statement_path.is_file():
             md_statement_path.unlink()
 
