@@ -232,9 +232,12 @@ class Statement:
             if key.text in Statement.keep_info:
                 info_avail = True
                 info.append(copy(row))
+                info.append('\n')
 
         if info_avail:
+            statement.append('\n')
             statement.append(info)
+            statement.append('\n')
 
         statement_avail = False
         curr = problem_info.next_sibling
@@ -251,14 +254,14 @@ class Statement:
             head = soup.new_tag('head')
             head.append(soup.new_tag('meta', charset='utf-8'))
             html.append(head)
+            html.append('\n')
             html.append(statement)
             self._html = html
 
     def html(self):
         if self._html is None:
             return 'Statement is not available'
-        # NOTE "kks convert statement.html" will produce a slightly different .md file (more spaces, but rendered markdown is not affected)
-        return self._html.prettify()
+        return str(self._html)
 
     def markdown(self, width=100):
         if self._html is None:
