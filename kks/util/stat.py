@@ -27,7 +27,7 @@ def send_standings(standings):
         return False
 
 
-def get_global_standings():
+def get_global_standings(user):
     import requests
     from requests import RequestException
 
@@ -48,7 +48,9 @@ def get_global_standings():
         return None
 
     json_response = response.json()
-    return standings_from_dict(json_response['standings'])
+    standings = standings_from_dict(json_response['standings'])
+    standings.set_user(user)
+    return standings
 
 
 def auth_data_to_dict(auth_data):
