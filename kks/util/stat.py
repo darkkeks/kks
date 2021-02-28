@@ -49,7 +49,7 @@ def get_global_standings(user):
 
     json_response = response.json()
     standings = standings_from_dict(json_response['standings'])
-    standings.set_user(user)
+    standings.fix_is_self(user, auth_data.contest_id)
     return standings
 
 

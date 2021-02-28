@@ -203,9 +203,9 @@ class Standings:
             for contest, tasks in groupby(self.tasks, lambda task: task.contest)
         }
 
-    def set_user(self, user):
+    def fix_is_self(self, user, contest_id):
         for row in self.rows:
-            row.is_self = row.user == user
+            row.is_self = row.user == user and row.contest_id == contest_id
 
 
 class ProblemInfo:
