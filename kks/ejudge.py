@@ -43,15 +43,17 @@ class AuthData:
         self.password = password
 
 
-class Problem:
+class BaseProblem:
     def __init__(self, short_name, name, href, status, tests_passed, score):
         self.short_name = short_name
         self.name = name
-        self.href = href  # NOTE contains SID -> quickly becomes outdated
+        self.href = href
         self.status = status
         self.tests_passed = tests_passed
         self.score = score
 
+
+class Problem(BaseProblem):
     def color(self):
         return 'green' if self.status == Status.OK \
             else 'green' if self.status == Status.REVIEW \
@@ -63,12 +65,18 @@ class Problem:
     def bold(self):
         return self.status == Status.OK
 
+    def get_full(self, session):
+        # TODO use API? (see #68)
+        page = session.get(self.href)
+        return FullProblem(self, page)
+
 
 class Submission:
     def __init__(self, row):
         cells = row.find_all('td')
         self.id = int(cells[0].text)
         self.problem = cells[3].text
+        self.compiler = cells[4].text
         self.status = cells[5].text
         self.source = cells[8].find('a')['href'].replace('view-source', 'download-run')
         report_link = cells[9].find('a')
@@ -84,6 +92,17 @@ class Submission:
         if self.status == Status.PARTIAL:
             return 'Partial'
         return self.status
+
+    def suffix(self):
+        if self.compiler.startswith('gas'):
+            return '.S'
+        if '++' in self.compiler:
+            return '.cpp'
+        if self.compiler.startswith('make'):
+            return '.tar'
+        if self.compiler.startswith('gcc') or self.compiler.startswith('clang'):
+            return '.c'
+        return ''
 
 
 class Report:
@@ -193,32 +212,53 @@ class ProblemInfo:
         self.current_penalty = current_penalty
 
 
-class Statement:
+class FullProblem(BaseProblem):
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
 
-    def __init__(self, page):
+    def __init__(self, problem, page):
+        super().__init__(**problem.__dict__)
         from bs4 import BeautifulSoup
-        from bs4.element import NavigableString
-
-        self.input_data = None
-        self.output_data = None
-        self._html = None
-        self.url = page.url
 
         soup = BeautifulSoup(page.content, 'html.parser')
         task_area = soup.find('div', {'id': 'probNavTaskArea'})
 
-        input_title = task_area.find('h4', text='Input')
+        self.input_data, self.output_data = self.parse_sample(task_area)
+        self._html = self.parse_statement(task_area)
+        self._suffix = self.guess_suffix(task_area)
+        self.url = page.url
+
+    def suffix(self):
+        if self._suffix is not None:
+            return self._suffix
+        pref = self.name.split('/', 1)[0]
+        if pref == 'asm':
+            return '.S'
+        return '.c'
+
+
+    @staticmethod
+    def parse_sample(html):
+        input_data, output_data = None, None
+
+        input_title = html.find('h4', text='Input')
         if input_title is not None:
-            self.input_data = input_title.find_next('pre').text
+            input_data = input_title.find_next('pre').text
 
-        output_title = task_area.find('h4', text='Output')
+        output_title = html.find('h4', text='Output')
         if output_title is not None:
-            self.output_data = output_title.find_next('pre').text
+            output_data = output_title.find_next('pre').text
 
-        problem_info = task_area.find('table', {'class': 'line-table-wb'})
+        return input_data, output_data 
+
+    @staticmethod
+    def parse_statement(html):
+        from bs4 import BeautifulSoup
+        from bs4.element import NavigableString
+
+        soup = BeautifulSoup()
+        problem_info = html.find('table', {'class': 'line-table-wb'})
         if problem_info is None:
-            return
+            return None
         next_block = problem_info.find_next('h3', text='Submit a solution')
         if next_block is None:
             next_block = problem_info.find_next('h2')
@@ -229,7 +269,7 @@ class Statement:
         info_avail = False
         for row in problem_info.find_all('tr'):
             key, value = row.find_all('td')
-            if key.text in Statement.keep_info:
+            if key.text in FullProblem.keep_info:
                 info_avail = True
                 info.append(copy(row))
                 info.append('\n')
@@ -249,25 +289,57 @@ class Statement:
             statement.append(copy(curr))
             curr = curr.next_sibling
 
-        if statement_avail:
-            html = soup.new_tag('html')
-            head = soup.new_tag('head')
-            head.append(soup.new_tag('meta', charset='utf-8'))
-            html.append(head)
-            html.append('\n')
-            html.append(statement)
-            self._html = html
+        if not statement_avail:
+            return None
 
-    def is_available(self):
+        html = soup.new_tag('html')
+        head = soup.new_tag('head')
+        head.append(soup.new_tag('meta', charset='utf-8'))
+        html.append(head)
+        html.append('\n')
+        html.append(statement)
+        return html
+
+    @staticmethod
+    def guess_suffix(html):
+
+        def get_suf(lang_id):
+            # NOTE compiler ids may change
+            lang_id = int(lang_id)
+            if lang_id in [2, 28, 51, 57, 61]:
+                return '.c'
+            if lang_id in [3, 29, 52, 58, 62]:
+                return '.cpp'
+            if lang_id in [25, 54]:
+                return '.tar'
+            if lang_id in [66, 67, 101, 102]:
+                return '.S'
+            return None
+
+        form = html.find('form')
+        if form is None:
+            return None
+        lang_list = form.find('select', {'name': 'lang_id'})
+        if lang_list is None:
+            lang_input = form.find('input', {'name': 'lang_id'})
+            if lang_input is not None:
+                return get_suf(lang_input['value'])
+            return None
+        else:
+            langs = [opt['value'] for opt in lang_list.find_all('option') if opt.get('value')]
+            return get_suf(langs[0])
+
+
+    def statement_available(self):
         return self._html is not None
 
     def html(self):
-        if not self.is_available():
+        if not self.statement_available():
             return 'Statement is not available'
         return str(self._html)
 
     def markdown(self, width=100):
-        if not self.is_available():
+        if not self.statement_available():
             return 'Statement is not available'
         converter = HTML2Text(bodywidth=width, baseurl=self.url)
         converter.pad_tables = True
@@ -381,11 +453,6 @@ def to_task_score(contest, cell):
         else Status.NOT_SUBMITTED
 
     return TaskScore(contest, score, status)
-
-
-def ejudge_statement(problem_link, session):
-    page = session.get(problem_link)
-    return Statement(page)
 
 
 def ejudge_submissions(session):
