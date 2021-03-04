@@ -235,7 +235,6 @@ class FullProblem(BaseProblem):
             return '.S'
         return '.c'
 
-
     @staticmethod
     def parse_sample(html):
         input_data, output_data = None, None
@@ -328,7 +327,6 @@ class FullProblem(BaseProblem):
         else:
             langs = [opt['value'] for opt in lang_list.find_all('option') if opt.get('value')]
             return get_suf(langs[0])
-
 
     def statement_available(self):
         return self._html is not None
