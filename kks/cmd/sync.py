@@ -3,18 +3,11 @@ from os import environ
 
 import click
 
-from kks.ejudge import Status, ejudge_summary, ejudge_statement, ejudge_submissions, ejudge_report
+from kks.ejudge import Status, ejudge_summary, ejudge_submissions, ejudge_report
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_task_dir, write_contests
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Config
-
-
-def source_suf(problem):
-    pref = problem.name.split('/', 1)[0]
-    if pref == 'asm':
-        return '.S'
-    return '.c'
 
 
 def save_needed(problem, submissions, sub_dir, session, full_sync):
@@ -24,13 +17,13 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
     def format_stem(submission):
         return f'{prefix(submission)}-{submission.short_status()}'
 
-    def get_extension(problem, resp):
+    def get_extension(submission, resp):
         from cgi import parse_header
 
         mimetype, _ = parse_header(resp.headers.get('Content-Type', ''))
         mimetype = mimetype.lower()
         if mimetype == 'text/plain':
-            return source_suf(problem)
+            return submission.suffix()
         elif mimetype == 'application/x-gzip':
             return '.gz'
         else:
@@ -76,7 +69,7 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
 
         resp = session.get(sub.source)
 
-        file = file.with_suffix(get_extension(problem, resp))
+        file = file.with_suffix(get_extension(sub, resp))
 
         source = resp.content
         if sub.status in [Status.PARTIAL, Status.REJECTED]:
@@ -178,7 +171,9 @@ def sync(code, code_opt, force, filters):
 
         new_problems += 1
 
-        main = (task_dir / problem.short_name).with_suffix(source_suf(problem))
+        problem = problem.get_full(session)
+
+        main = (task_dir / problem.short_name).with_suffix(problem.suffix())
         main.touch()
 
         gen = task_dir / 'gen.py'
@@ -197,32 +192,30 @@ def sync(code, code_opt, force, filters):
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
 
-        statement = ejudge_statement(problem.href, session)  # TODO use API? (kr contests, see #55)
-
         html_statement_path = task_dir / 'statement.html'
         md_statement_path = task_dir / 'statement.md'
 
         if config.options.save_html_statements:
-            if statement.is_available() or not html_statement_path.exists():  # overwrite only if statement is available
+            if problem.statement_available() or not html_statement_path.exists():  # overwrite only if statement is available
                 with html_statement_path.open('w') as f:
-                    f.write(statement.html())
+                    f.write(problem.html())
         elif html_statement_path.is_file():
             html_statement_path.unlink()
 
         if config.options.save_md_statements:
-            if statement.is_available() or not md_statement_path.exists():
+            if problem.statement_available() or not md_statement_path.exists():
                 with md_statement_path.open('w') as f:
-                    f.write(statement.markdown(width=md_width))
+                    f.write(problem.markdown(width=md_width))
         elif md_statement_path.is_file():
             md_statement_path.unlink()
 
-        if statement.input_data is not None:
+        if problem.input_data is not None:
             with (tests_dir / '000.in').open('w') as f:
-                f.write(statement.input_data)
+                f.write(problem.input_data)
 
-        if statement.output_data is not None:
+        if problem.output_data is not None:
             with (tests_dir / '000.out').open('w') as f:
-                f.write(statement.output_data + '\n')
+                f.write(problem.output_data + '\n')
 
         if code:
             click.secho('Syncing submissions')
