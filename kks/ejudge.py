@@ -188,9 +188,10 @@ class StandingsRow:
 
 
 class Standings:
-    def __init__(self, tasks, rows):
+    def __init__(self, tasks, rows, user=None):
         self.tasks = tasks
         self.rows = rows
+        self.user = user
 
         self.contests = [
             contest
@@ -201,6 +202,10 @@ class Standings:
             contest: list(tasks)
             for contest, tasks in groupby(self.tasks, lambda task: task.contest)
         }
+
+    def fix_is_self(self, user, contest_id):
+        for row in self.rows:
+            row.is_self = row.user == user and row.contest_id == contest_id
 
 
 class ProblemInfo:
@@ -431,7 +436,7 @@ def ejudge_standings(session):
                 name == user
             )
 
-    return Standings(tasks, list(parse_rows()))
+    return Standings(tasks, list(parse_rows()), name)
 
 
 def extract_contest_name(task_name):

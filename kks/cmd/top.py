@@ -65,7 +65,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
             click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
     if global_:
-        standings = get_global_standings()
+        standings = get_global_standings(standings.user)
         if standings is None:
             click.secho('Standings are not available now :(', fg='yellow', err=True)
             return
