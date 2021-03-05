@@ -25,14 +25,14 @@ CONTEST_DELIMITER = ' | '
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Print the results of the selected contest')
-@click.option('-f', '--group', 'groups', type=int, multiple=True,
-              help='Print standings of selected groups')
 @click.option('-m', '--max', 'max_', is_flag=True,
               help='Print maximal possible scores (based on current deadlines)')
 @click.option('-nc', '--no-cache', is_flag=True,
               help='Clear cache and reload task info (used with --max)')
 @click.option('-g', '--global', 'global_', is_flag=True,
               help='Use global standings instead of group one. May be outdated')
+@click.option('-f', '--group', 'groups', type=int, multiple=True,
+              help='Print standings of selected groups')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
 def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
@@ -76,7 +76,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
                 return
 
     if max_:
-        standings = estimate_max(standings, session, no_cache)
+        standings = estimate_max(standings, session, config, no_cache)
 
     display_standings(standings, last, contests, all_, global_)
 
@@ -312,7 +312,7 @@ def filter_groups(standings, groups):
     return standings
 
 
-def estimate_max(standings, session, force_reload):
+def estimate_max(standings, session, config, force_reload):
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
 
     def cached_problem(problem):
@@ -338,7 +338,7 @@ def estimate_max(standings, session, force_reload):
             problems = [with_progress(get_problem_info, problem, cache, session) for problem in problem_list]
 
     for row in standings.rows:
-        for task_score, problem in zip(row.tasks, problems):
+        for task_score, problem, orig_problem in zip(row.tasks, problems, problem_list):
             if task_score.score is None or task_score.score == '0':
                 if task_score.status == Status.REJECTED:
                     max_score = problem.full_score
@@ -347,6 +347,10 @@ def estimate_max(standings, session, force_reload):
                     if task_score.score == '0':
                         max_score -= problem.run_penalty
                         # actually may be lower
+                if config.options.max_kr and  orig_problem.short_name.startswith('kr') and task_score.status == Status.TESTING:
+                    max_score = 200  # not always true, but we cannot get real max_score
+                    if task_score.score == '0':  # at least one partial solution (are CE counted?)
+                        max_score -= 10
                 if max_score > 0:
                     row.solved += 1
                     row.score += max_score
