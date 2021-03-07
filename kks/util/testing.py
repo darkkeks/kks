@@ -114,7 +114,7 @@ class Test:
 
     def read_input(self):
         if self.test_type == Test.TYPE_FILE:
-            with self.output_file.open('rb') as f_in:
+            with self.input_file.open('rb') as f_in:
                 return f_in.read()
         elif self.test_type == Test.TYPE_DATA:
             return self.input_data
