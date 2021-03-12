@@ -402,7 +402,6 @@ def ejudge_standings(session):
     from bs4 import BeautifulSoup
 
     page = session.get(Links.USER_STANDINGS)
-
     soup = BeautifulSoup(page.content, 'html.parser')
 
     title = soup.find(class_='main_phrase').text
@@ -421,18 +420,31 @@ def ejudge_standings(session):
 
     def parse_rows():
         for row in rows:
-            user = row.find(class_='st_team').text
-            score_cells = row.find_all(class_='st_prob')
+            cells = row.find_all('td')  # search in html only once
+            score_cells = [c for c in cells if 'st_prob' in c['class']]
+            user = None
+            place = None
+            total = None
+            score = None
+            for c in cells:
+                if 'st_team' in c['class']:
+                    user = c.text
+                if 'st_place' in c['class']:
+                    place = c.text
+                elif 'st_total' in c['class']:
+                    total = c.text
+                elif 'st_score' in c['class']:
+                    score = c.text
 
             yield StandingsRow(
-                row.find(class_='st_place').text,
+                place,
                 user,
                 [
                     to_task_score(task.contest, cell)
                     for task, cell in zip(tasks, score_cells)
                 ],
-                int(row.find(class_='st_total').text),
-                int(row.find(class_='st_score').text),
+                int(total),
+                int(score),
                 name == user
             )
 
