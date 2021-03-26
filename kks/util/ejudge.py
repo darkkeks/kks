@@ -55,6 +55,7 @@ class RunStatus:
     PENDING_REVIEW = 16
     REJECTED = 17
     SKIPPED = 18
+    SYNC_ERR = 19
 
     # There are more, but only these were seen on caos.ejudge.ru
 
@@ -77,7 +78,8 @@ class RunStatus:
         STYLE_ERR: 'Coding style violation',
         PENDING_REVIEW: 'Pending review',
         REJECTED: 'Rejected',
-        SKIPPED: 'Skipped'
+        SKIPPED: 'Skipped',
+        SYNC_ERR: 'Synchronization error'
     }
 
     @staticmethod
