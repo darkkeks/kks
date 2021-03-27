@@ -89,6 +89,7 @@ class OptionsSection(EnvSection):
     save_md_statements: bool = True
     mdwidth: int = 100
     max_kr: bool = False
+    deadline_warning_days: int = 1
     global_opt_out: bool
 
 
