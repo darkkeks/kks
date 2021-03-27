@@ -6,6 +6,7 @@ from urllib.parse import quote as urlquote
 # import requests  # we use lazy imports to improve load time for local commands
 # from bs4 import BeautifulSoup
 # from bs4.element import NavigableString
+from tqdm import tqdm
 
 from kks.util.h2t import HTML2Text
 
@@ -81,6 +82,16 @@ class Problem(SummaryProblem):
         # TODO use API? (see #68)
         page = session.get(self.href)
         return FullProblem(self, page)
+
+
+class CacheKeys:
+    @staticmethod
+    def penalty(contest):
+        return f'p_{contest}'
+
+    @staticmethod
+    def deadline(contest):
+        return f'dl_{contest}'
 
 
 class Submission:
@@ -522,6 +533,27 @@ def ejudge_report(link, session):
     return Report(comments, tests)
 
 
+def update_cached_problems(cache, names, session, summary=None):
+
+    def cached_problem(problem):
+        return BaseProblem(problem.short_name, problem.href)
+
+    problem_list = cache.get('problem_links', [])  # we can avoid loading summary
+    if len(problem_list) != len(names) or \
+            any(problem.short_name != name for problem, name in zip(problem_list, names)):
+        problem_list = summary or ejudge_summary(session)
+        problem_list = [cached_problem(p) for p in problem_list]
+        cache.set('problem_links', problem_list)
+
+    with tqdm(total=len(problem_list), leave=False) as pbar:
+        def with_progress(func, *args, **kwargs):
+            result = func(*args, **kwargs)
+            pbar.update(1)
+            return result
+
+        return [with_progress(get_problem_info, problem, cache, session) for problem in problem_list]
+
+
 def get_problem_info(problem, cache, session):
     from bs4 import BeautifulSoup
 
@@ -535,10 +567,10 @@ def get_problem_info(problem, cache, session):
     full_score = full_scores.get(problem.short_name)
     run_penalty = run_penalties.get(problem.short_name)
 
-    penalty_key = f'p_{problem.contest()}'
+    penalty_key = CacheKeys.penalty(problem.contest())
     current_penalty = cache.get(penalty_key)
 
-    deadline_key = f'dl_{problem.contest()}'
+    deadline_key = CacheKeys.deadline(problem.contest())
     deadlines = cache.get(deadline_key)
 
     need_loading = any(field is None for field in [full_score, run_penalty, current_penalty, deadlines])  # new problem or need to update penalty

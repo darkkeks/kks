@@ -5,10 +5,9 @@ from itertools import groupby
 
 import click
 from click._compat import isatty, strip_ansi
-from tqdm import tqdm
 
-from kks.ejudge import Status, BaseProblem, ejudge_standings, ejudge_summary, get_problem_info, \
-    extract_contest_name, get_group_id, get_contest_id, PROBLEM_INFO_VERSION
+from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
+     PROBLEM_INFO_VERSION
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
@@ -20,7 +19,7 @@ CONTEST_DELIMITER = ' | '
 
 @click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
-              help='Print result of last N contest')
+              help='Print result of last N contests')
 @click.option('-a', '--all', 'all_', is_flag=True,
               help='Print result of all contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
@@ -313,29 +312,16 @@ def filter_groups(standings, groups):
 
 
 def estimate_max(standings, session, config, force_reload):
-    # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
-
-    def cached_problem(problem):
-        return BaseProblem(problem.short_name, problem.href)
+    # NOTE may produce incorrect results for "kr" contests (with "max_kr" config option)
+    # full score or run penalty for "kr" may be incorrect, scores may be partial
 
     with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
         if force_reload:
             cache.clear()
 
-        problem_list = cache.get('problem_links', [])  # we can avoid loading summary
-
-        with tqdm(total=len(standings.tasks), leave=False) as pbar:
-            def with_progress(func, *args, **kwargs):
-                result = func(*args, **kwargs)
-                pbar.update(1)
-                return result
-
-            if len(problem_list) != len(standings.tasks) or \
-                    any(problem.short_name != task.name for problem, task in zip(problem_list, standings.tasks)):
-                problem_list = ejudge_summary(session)
-                problem_list = [cached_problem(p) for p in problem_list]
-                cache.set('problem_links', problem_list)
-            problems = [with_progress(get_problem_info, problem, cache, session) for problem in problem_list]
+        names = [task.name for task in standings.tasks]
+        problems = update_cached_problems(cache, names, session)
+        problem_list = cache.get('problem_links', [])
 
     for row in standings.rows:
         for task_score, problem, orig_problem in zip(row.tasks, problems, problem_list):
