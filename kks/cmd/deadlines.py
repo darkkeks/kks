@@ -26,10 +26,9 @@ def deadlines(last, contests, no_cache):
             for problem in summary:
                 cache.erase(CacheKeys.deadline(problem.contest()))
 
-        problems = update_cached_problems(cache, names, session, summary)
+        problems = update_cached_problems(cache, names, session, only_contests=True, summary=summary)
 
-    for contest, problems in groupby(zip(summary, problems), lambda problem: problem[0].contest()):
-        problem = next(problems)[1]
+    for (contest, _), problem in zip(groupby(summary, lambda p: p.contest()), problems):
         if problem.past_deadline():
             click.secho(f'{contest:} - Past Deadline', fg='red')
         elif problem.deadlines.soft is not None:
