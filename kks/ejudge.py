@@ -15,6 +15,9 @@ CONTEST_ID_BY_GROUP = {
 }
 
 
+PROBLEM_INFO_VERSION = 2
+
+
 class Links:
     WEB_CLIENT_ROOT = 'https://caos.ejudge.ru/ej/client'
     SETTINGS = f'{WEB_CLIENT_ROOT}/view-settings/S__SID__'
@@ -45,16 +48,24 @@ class AuthData:
 
 
 class BaseProblem:
-    def __init__(self, short_name, name, href, status, tests_passed, score):
+    def __init__(self, short_name, href):
         self.short_name = short_name
-        self.name = name
         self.href = href
+
+    def contest(self):
+        return extract_contest_name(self.short_name)
+
+
+class SummaryProblem(BaseProblem):
+    def __init__(self, short_name, name, href, status, tests_passed, score):
+        super().__init__(short_name, href)
+        self.name = name
         self.status = status
         self.tests_passed = tests_passed
         self.score = score
 
 
-class Problem(BaseProblem):
+class Problem(SummaryProblem):
     def color(self):
         return 'green' if self.status in [Status.OK, Status.OK_AUTO] \
             else 'green' if self.status == Status.REVIEW \
@@ -227,7 +238,7 @@ class ProblemInfo:
         return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard or self.current_penalty >= self.full_score
 
 
-class FullProblem(BaseProblem):
+class FullProblem(SummaryProblem):
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
 
     def __init__(self, problem, page):
@@ -524,10 +535,10 @@ def get_problem_info(problem, cache, session):
     full_score = full_scores.get(problem.short_name)
     run_penalty = run_penalties.get(problem.short_name)
 
-    penalty_key = f'p_{problem.contest}'
+    penalty_key = f'p_{problem.contest()}'
     current_penalty = cache.get(penalty_key)
 
-    deadline_key = f'dl_{problem.contest}'
+    deadline_key = f'dl_{problem.contest()}'
     deadlines = cache.get(deadline_key)
 
     need_loading = any(field is None for field in [full_score, run_penalty, current_penalty, deadlines])  # new problem or need to update penalty

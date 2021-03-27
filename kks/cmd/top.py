@@ -7,13 +7,13 @@ import click
 from click._compat import isatty, strip_ansi
 from tqdm import tqdm
 
-from kks.ejudge import Status, ejudge_standings, ejudge_summary, get_problem_info, extract_contest_name, get_group_id, \
-    get_contest_id
+from kks.ejudge import Status, BaseProblem, ejudge_standings, ejudge_summary, get_problem_info, \
+    extract_contest_name, get_group_id, get_contest_id, PROBLEM_INFO_VERSION
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
 
-Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # used for caching the problem list
+Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # legacy class, needed to correctly upgrade cache to v2
 
 CONTEST_DELIMITER = ' | '
 
@@ -316,9 +316,9 @@ def estimate_max(standings, session, config, force_reload):
     # NOTE may produce incorrect results for "krxx" contests (they may be reopened?)
 
     def cached_problem(problem):
-        return Problem(problem.href, problem.short_name, extract_contest_name(problem.short_name))
+        return BaseProblem(problem.short_name, problem.href)
 
-    with Cache('problem_info', compress=True).load() as cache:
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
         if force_reload:
             cache.clear()
 
