@@ -533,7 +533,7 @@ def ejudge_report(link, session):
     return Report(comments, tests)
 
 
-def update_cached_problems(cache, names, session, summary=None):
+def update_cached_problems(cache, names, session, only_contests=False, summary=None):
 
     def cached_problem(problem):
         return BaseProblem(problem.short_name, problem.href)
@@ -544,6 +544,12 @@ def update_cached_problems(cache, names, session, summary=None):
         problem_list = summary or ejudge_summary(session)
         problem_list = [cached_problem(p) for p in problem_list]
         cache.set('problem_links', problem_list)
+
+    if only_contests:
+        first_problems = []
+        for contest, problems in groupby(problem_list, lambda problem: problem.contest()):
+            first_problems.append(next(problems))
+            problem_list = first_problems
 
     with tqdm(total=len(problem_list), leave=False) as pbar:
         def with_progress(func, *args, **kwargs):
