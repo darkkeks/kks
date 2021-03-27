@@ -4,6 +4,7 @@ from kks.util.click import GroupedGroup
 from kks.util.common import config_directory
 from kks.cmd.auth import auth
 from kks.cmd.convert import convert
+from kks.cmd.deadlines import deadlines
 from kks.cmd.gen import gen
 from kks.cmd.hide import hide, unhide
 from kks.cmd.init import init
@@ -47,6 +48,7 @@ cli.add_command(auth, group=Commands.ejudge)
 cli.add_command(open_, group=Commands.ejudge)
 cli.add_command(status, group=Commands.ejudge)
 cli.add_command(top, group=Commands.ejudge)
+cli.add_command(deadlines, group=Commands.ejudge)
 cli.add_command(submit, group=Commands.ejudge)
 
 cli.add_command(lint, group=Commands.solution)
