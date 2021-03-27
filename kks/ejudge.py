@@ -209,13 +209,22 @@ class Standings:
             row.is_self = row.user == user and row.contest_id == contest_id
 
 
+class Deadlines:
+    def __init__(self, soft, hard):
+        self.soft = soft
+        self.hard = hard
+
+
 class ProblemInfo:
     """Subset of task info table used for max score estimation"""
-
-    def __init__(self, full_score, run_penalty, current_penalty):
+    def __init__(self, full_score, run_penalty, current_penalty, deadlines):
         self.full_score = full_score
         self.run_penalty = run_penalty
         self.current_penalty = current_penalty
+        self.deadlines = deadlines
+
+    def past_deadline(self):
+        return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard or self.current_penalty >= self.full_score
 
 
 class FullProblem(BaseProblem):
@@ -518,39 +527,35 @@ def get_problem_info(problem, cache, session):
     penalty_key = f'p_{problem.contest}'
     current_penalty = cache.get(penalty_key)
 
-    if full_score is None or run_penalty is None or current_penalty is None:  # new problem or need to update penalty
-        need_loading = True
+    deadline_key = f'dl_{problem.contest}'
+    deadlines = cache.get(deadline_key)
+
+    need_loading = any(field is None for field in [full_score, run_penalty, current_penalty, deadlines])  # new problem or need to update penalty
 
     if not need_loading:
-        return ProblemInfo(full_score, run_penalty, current_penalty)
+        return ProblemInfo(full_score, run_penalty, current_penalty, deadlines)
 
-    now = datetime.now()
-    def update_cache(full_score, run_penalty, current_penalty, soft_dl, hard_dl):
-        past_deadline = hard_dl is not None and now > hard_dl
-
-        if past_deadline:
-            # see issue #72
-            full_score = 0
-            current_penalty = 0
-
+    def update_cache(full_score, run_penalty, current_penalty, deadlines):
+        result = ProblemInfo(full_score, run_penalty, current_penalty, deadlines)
         full_scores[problem.short_name] = full_score
         run_penalties[problem.short_name] = run_penalty
         cache.set('full', full_scores)
         cache.set('run', run_penalties)
 
-        if current_penalty >= full_score and current_penalty != 0 or past_deadline:
+        if result.past_deadline():
             expiration = None
             # max_score = 0, will not change
-            # NOTE may need patching for kr contests
         else:
-            if soft_dl is not None:
-                expiration = soft_dl
+            if deadlines.soft is not None:
+                expiration = deadlines.soft
             else:
                 expiration = timedelta(days=4, hours=23, minutes=55)
 
         cache.set(penalty_key, current_penalty, expiration)
+        # deadlines may be shifted or there may (?) be multiple soft deadlines, so they should expire too
+        cache.set(deadline_key, deadlines, expiration)
 
-        return ProblemInfo(full_score, run_penalty, current_penalty)
+        return result
 
     page = session.get(problem.href)
     soup = BeautifulSoup(page.content, 'html.parser')
@@ -560,12 +565,12 @@ def get_problem_info(problem, cache, session):
     full_score = 0
     run_penalty = 0  # may be incorrect for kr
     current_penalty = 0
-    soft_dl = None
-    hard_dl = None
+    deadlines = Deadlines(None, None)
 
     if problem_info is None:
-        # may happen in kr contests?
-        return update_cache(full_score, run_penalty, current_penalty, None)
+        # if this ever happens, we assume the problem is past the deadline
+        deadlines.hard = datetime.fromtimestamp(0)
+        return update_cache(full_score, run_penalty, current_penalty, deadlines)
 
     # TODO "Full score" can be missing (sm01-3)
     # in this case we should use max score from the table as full
@@ -578,11 +583,11 @@ def get_problem_info(problem, cache, session):
         elif key.text == 'Current penalty:':
             current_penalty = int(value.text)
         elif key.text == 'Next soft deadline:':
-            soft_dl = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            deadlines.soft = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
         elif key.text == 'Deadline:':
-            hard_dl = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            deadlines.hard = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
 
-    return update_cache(full_score, run_penalty, current_penalty, soft_dl, hard_dl)
+    return update_cache(full_score, run_penalty, current_penalty, deadlines)
 
 
 def chunks(iterable, chunk_size):

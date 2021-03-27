@@ -339,6 +339,8 @@ def estimate_max(standings, session, config, force_reload):
 
     for row in standings.rows:
         for task_score, problem, orig_problem in zip(row.tasks, problems, problem_list):
+            if problem.past_deadline():  # see #72
+                continue
             if task_score.score is None or task_score.score == '0':
                 if task_score.status == Status.REJECTED:
                     max_score = problem.full_score
