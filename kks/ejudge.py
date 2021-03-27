@@ -27,6 +27,7 @@ class Links:
 
 class Status:
     OK = 'OK'
+    OK_AUTO = 'OK (auto)'  # only in summary
     REVIEW = 'Pending review'
     CHECK = 'Pending check'
     TESTING = 'Accepted for testing'
@@ -55,7 +56,7 @@ class BaseProblem:
 
 class Problem(BaseProblem):
     def color(self):
-        return 'green' if self.status == Status.OK \
+        return 'green' if self.status in [Status.OK, Status.OK_AUTO] \
             else 'green' if self.status == Status.REVIEW \
             else 'white' if self.status == Status.NOT_SUBMITTED \
             else 'bright_yellow' if self.status == Status.CHECK \
@@ -63,7 +64,7 @@ class Problem(BaseProblem):
             else 'red'
 
     def bold(self):
-        return self.status == Status.OK
+        return self.status in [Status.OK, Status.OK_AUTO]
 
     def get_full(self, session):
         # TODO use API? (see #68)
