@@ -2,6 +2,7 @@ import click
 
 from kks.ejudge import ejudge_summary
 from kks.util.ejudge import EjudgeSession
+from kks.util.fancytable import StaticColumn, FancyTable
 
 
 @click.command(short_help='Parse and display task status')
@@ -22,14 +23,11 @@ def status(filters):
             click.secho('Nothing found')
             return
 
+    table = FancyTable()
+    table.add_column(StaticColumn('Alias', 6, lambda problem: problem.short_name, right_just=False))
+    table.add_column(StaticColumn.padding(2))
+    table.add_column(StaticColumn('Name', 35, lambda problem: problem.name, right_just=False))
+    table.add_column(StaticColumn('Status', 20, lambda problem: problem.status, right_just=False))
+    table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
     row_format = "{:8} {:35} {:20} {:>5}"
-
-    click.secho(row_format.format("Alias", "Name", "Status", "Score"), bold=True)
-
-    for problem in problems:
-        string = row_format\
-            .format(problem.short_name, problem.name, problem.status, problem.score or '')
-
-        click.secho(string, fg=problem.color(), bold=problem.bold())
-
-    click.secho()
+    table.show(problems)
