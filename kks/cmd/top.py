@@ -5,12 +5,11 @@ import click
 from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
-     PROBLEM_INFO_VERSION
+    PROBLEM_INFO_VERSION
 from kks.util.fancytable import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
-
 
 CONTEST_DELIMITER = ' | '
 
@@ -134,11 +133,13 @@ def display_standings(standings, last, contests, all_, global_, recalculate):
 
 def recalculate_score(standings, contests):
     for row in standings.rows:
-        row.score = sum([
+        scores = [
             int(task.score)
             for task in row.tasks
-            if task.contest in contests and task.score is not None
-        ])
+            if task.contest in contests and task.score is not None and int(task.score) > 0
+        ]
+        row.score = sum(scores)
+        row.solved = len(scores)
 
     sort_standings(standings)
 
@@ -272,7 +273,7 @@ def estimate_max(standings, session, config, force_reload):
                     if task_score.score == '0':
                         max_score -= problem.run_penalty
                         # actually may be lower
-                if config.options.max_kr and  orig_problem.short_name.startswith('kr') and task_score.status == Status.TESTING:
+                if config.options.max_kr and orig_problem.short_name.startswith('kr') and task_score.status == Status.TESTING:
                     max_score = 200  # not always true, but we cannot get real max_score
                     if task_score.score == '0':  # at least one partial solution (are CE counted?)
                         max_score -= 10
