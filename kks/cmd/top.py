@@ -289,6 +289,6 @@ def estimate_max(standings, session, config, force_reload):
 
 
 def sort_standings(standings):
-    standings.rows.sort(key=lambda x: (x.score, x.solved), reverse=True)
+    standings.rows.sort(key=lambda x: (x.score, -x.solved), reverse=True)
     for i, row in enumerate(standings.rows):
         row.place = i + 1
