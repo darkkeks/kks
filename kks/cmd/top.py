@@ -139,6 +139,8 @@ def recalculate_score(standings, contests):
             if task.contest in contests and task.score is not None and int(task.score) > 0
         ]
         row.score = sum(scores)
+        # считаем количество решенных наивно
+        # на самом деле в ejudge задача контрольной считается решенной, только если набрал полный балл
         row.solved = len(scores)
 
     sort_standings(standings)
