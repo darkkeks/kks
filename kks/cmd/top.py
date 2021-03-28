@@ -30,9 +30,11 @@ CONTEST_DELIMITER = ' | '
               help='Use global standings instead of group one. May be outdated')
 @click.option('-f', '--group', 'groups', type=int, multiple=True,
               help='Print standings of selected groups')
+@click.option('-r', '--recalculate', 'recalculate', is_flag=True,
+              help='Calculate scores and sort based on filtered results')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
-def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
+def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out):
     """
     Parse and display user standings
 
@@ -75,7 +77,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
     if max_:
         standings = estimate_max(standings, session, config, no_cache)
 
-    display_standings(standings, last, contests, all_, global_)
+    display_standings(standings, last, contests, all_, global_, recalculate)
 
 
 def init_opt_out(config):
@@ -97,7 +99,7 @@ def opt_out(config):
     config.save()
 
 
-def display_standings(standings, last, contests, all_, global_):
+def display_standings(standings, last, contests, all_, global_, recalculate):
     table = FancyTable()
 
     table.add_column(StaticColumn('Place', 6, lambda row: row.place))
@@ -122,9 +124,24 @@ def display_standings(standings, last, contests, all_, global_):
     if contests is None:
         return
 
+    if recalculate:
+        recalculate_score(standings, contests)
+
     table.add_column(TasksColumn(contests, standings.tasks_by_contest))
 
     table.show(standings.rows, force_pager=global_)
+
+
+def recalculate_score(standings, contests):
+    for row in standings.rows:
+        row.score = sum([
+            int(task.score)
+            for task in row.tasks
+            if task.contest in contests and task.score is not None
+        ])
+
+    sort_standings(standings)
+
 
 class TasksColumn(Column):
     DELIMITER = ' | '
@@ -265,8 +282,12 @@ def estimate_max(standings, session, config, force_reload):
                     task_score.score = max_score
                     task_score.status = Status.REVIEW
 
+    sort_standings(standings)
+
+    return standings
+
+
+def sort_standings(standings):
     standings.rows.sort(key=lambda x: (x.score, x.solved), reverse=True)
     for i, row in enumerate(standings.rows):
         row.place = i + 1
-
-    return standings
