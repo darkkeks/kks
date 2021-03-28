@@ -3,6 +3,7 @@ import pickle
 import sys
 from configparser import ConfigParser
 from datetime import datetime, timedelta
+from io import BytesIO
 from os import environ
 from time import time
 
@@ -133,6 +134,16 @@ class Config(metaclass=Singleton):
             super().__delattr__(key)
 
 
+class CompatUnpickler(pickle.Unpickler):
+
+    class UniversalClass:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    def find_class(self, module, name):
+        return CompatUnpickler.UniversalClass
+
+
 class PickleStorage:
     _service_keys = ('__version__',)
 
@@ -159,24 +170,39 @@ class PickleStorage:
         self._init_data()
 
         if self._file.exists():
+            pickled_data_available = False
             try:
                 with self._file.open('rb') as f:
                     data = f.read()
                 if self.compress:
                     data = gzip.decompress(data)
+                pickled_data_available = True
                 self._data.update(pickle.loads(data))
             except Exception:
-                click.secho(f'Storage file {self._file} is corrupted', bg='red', err=True)
-                if click.confirm(click.style('Erase all saved data?', fg='red', bold=True)):
-                    self._init_data(False)
-                else:
-                    click.secho(f'You need to fix or delete {self._file.absolute()} manually', fg='red', err=True)
-                    sys.exit()
+                if not (pickled_data_available and self._try_load_old(data)):
+                    click.secho(f'Storage file {self._file} is corrupted', bg='red', err=True)
+                    if click.confirm(click.style('Erase all saved data?', fg='red', bold=True)):
+                        self._init_data(False)
+                    else:
+                        click.secho(f'You need to fix or delete {self._file.absolute()} manually', fg='red', err=True)
+                        sys.exit()
 
         if self._data['__version__'] != self._version:
             click.secho(f'{self._file} uses an incompatible storage version, clearing saved data', bg='red', err=True)
             self._init_data(False)
         return self
+
+    def _try_load_old(self, encoded):
+        try:
+            data = CompatUnpickler(BytesIO(encoded)).load()
+            if isinstance(data, dict) and data['__version__'] != self._version:
+                # just an old version, we may reset the storage
+                self._data = data
+                return True
+            return False  # something is broken
+
+        except Exception as e:
+            return False
 
     def keys(self):
         for k in self._data.keys():

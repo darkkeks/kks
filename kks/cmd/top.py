@@ -1,5 +1,4 @@
 import sys
-from collections import namedtuple
 from itertools import groupby
 
 import click
@@ -12,7 +11,6 @@ from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
 
-Problem = namedtuple('Problem', ['href', 'short_name', 'contest'])  # legacy class, needed to correctly upgrade cache to v2
 
 CONTEST_DELIMITER = ' | '
 
