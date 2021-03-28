@@ -128,7 +128,7 @@ def display_standings(standings, last, contests, all_, global_, recalculate):
 
     table.add_column(TasksColumn(contests, standings.tasks_by_contest))
 
-    table.show(standings.rows, force_pager=global_)
+    table.show(standings.rows, allow_high_tables=not global_)
 
 
 def recalculate_score(standings, contests):

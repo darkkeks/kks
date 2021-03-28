@@ -71,14 +71,15 @@ class FancyTable:
 
         return lines
 
-    def show(self, rows, force_pager=False):
-        terminal_width, _ = click.get_terminal_size()
+    def show(self, rows, allow_high_tables=False):
+        terminal_width, terminal_height = click.get_terminal_size()
         exceeds_width = self.calc_width() > terminal_width
+        exceeds_height = len(rows) > terminal_height
 
         lines = self.render(rows)
         output = '\n'.join(lines)
 
-        if isatty(sys.stdout) and (exceeds_width or force_pager):
+        if isatty(sys.stdout) and (exceeds_width or exceeds_height and not allow_high_tables):
             if 'LESS' not in os.environ:
                 os.environ['LESS'] = '-S -R'
             click.echo_via_pager(output)
