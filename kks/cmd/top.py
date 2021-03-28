@@ -5,12 +5,11 @@ import click
 from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
-     PROBLEM_INFO_VERSION
+    PROBLEM_INFO_VERSION
 from kks.util.fancytable import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
-
 
 CONTEST_DELIMITER = ' | '
 
@@ -30,9 +29,11 @@ CONTEST_DELIMITER = ' | '
               help='Use global standings instead of group one. May be outdated')
 @click.option('-f', '--group', 'groups', type=int, multiple=True,
               help='Print standings of selected groups')
+@click.option('-r', '--recalculate', 'recalculate', is_flag=True,
+              help='Calculate scores and sort based on filtered results')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
-def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
+def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out):
     """
     Parse and display user standings
 
@@ -75,7 +76,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, global_opt_out):
     if max_:
         standings = estimate_max(standings, session, config, no_cache)
 
-    display_standings(standings, last, contests, all_, global_)
+    display_standings(standings, last, contests, all_, global_, recalculate)
 
 
 def init_opt_out(config):
@@ -97,7 +98,7 @@ def opt_out(config):
     config.save()
 
 
-def display_standings(standings, last, contests, all_, global_):
+def display_standings(standings, last, contests, all_, global_, recalculate):
     table = FancyTable()
 
     table.add_column(StaticColumn('Place', 6, lambda row: row.place))
@@ -122,9 +123,28 @@ def display_standings(standings, last, contests, all_, global_):
     if contests is None:
         return
 
+    if recalculate:
+        recalculate_score(standings, contests)
+
     table.add_column(TasksColumn(contests, standings.tasks_by_contest))
 
     table.show(standings.rows, force_pager=global_)
+
+
+def recalculate_score(standings, contests):
+    for row in standings.rows:
+        scores = [
+            int(task.score)
+            for task in row.tasks
+            if task.contest in contests and task.score is not None and int(task.score) > 0
+        ]
+        row.score = sum(scores)
+        # считаем количество решенных наивно
+        # на самом деле в ejudge задача контрольной считается решенной, только если набрал полный балл
+        row.solved = len(scores)
+
+    sort_standings(standings)
+
 
 class TasksColumn(Column):
     DELIMITER = ' | '
@@ -255,7 +275,7 @@ def estimate_max(standings, session, config, force_reload):
                     if task_score.score == '0':
                         max_score -= problem.run_penalty
                         # actually may be lower
-                if config.options.max_kr and  orig_problem.short_name.startswith('kr') and task_score.status == Status.TESTING:
+                if config.options.max_kr and orig_problem.short_name.startswith('kr') and task_score.status == Status.TESTING:
                     max_score = 200  # not always true, but we cannot get real max_score
                     if task_score.score == '0':  # at least one partial solution (are CE counted?)
                         max_score -= 10
@@ -265,8 +285,12 @@ def estimate_max(standings, session, config, force_reload):
                     task_score.score = max_score
                     task_score.status = Status.REVIEW
 
-    standings.rows.sort(key=lambda x: (x.score, x.solved), reverse=True)
-    for i, row in enumerate(standings.rows):
-        row.place = i + 1
+    sort_standings(standings)
 
     return standings
+
+
+def sort_standings(standings):
+    standings.rows.sort(key=lambda x: (x.score, -x.solved), reverse=True)
+    for i, row in enumerate(standings.rows):
+        row.place = i + 1
