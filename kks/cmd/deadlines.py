@@ -4,7 +4,7 @@ from itertools import groupby
 import click
 
 from kks.ejudge import CacheKeys, ejudge_summary, update_cached_problems, PROBLEM_INFO_VERSION
-from kks.util.click import FancyTable, StaticColumn
+from kks.util.fancytable import FancyTable, StaticColumn
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Cache, Config
 
