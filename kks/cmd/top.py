@@ -1,13 +1,13 @@
-import os
 import sys
 from collections import namedtuple
 from itertools import groupby
 
 import click
-from click._compat import isatty, strip_ansi
+from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
      PROBLEM_INFO_VERSION
+from kks.util.click import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
@@ -126,57 +126,7 @@ def display_standings(standings, last, contests, all_, global_):
 
     table.add_column(TasksColumn(contests, standings.tasks_by_contest))
 
-    exceeds_width = table.calc_width() > terminal_width
-
-    lines = table.render(standings.rows)
-    output = '\n'.join(lines)
-
-    if isatty(sys.stdout) and (exceeds_width or global_):
-        if 'LESS' not in os.environ:
-            os.environ['LESS'] = '-S -R'
-        click.echo_via_pager(output)
-    else:
-        click.secho(output)
-
-
-class Column:
-    def header(self):
-        raise NotImplemented()
-
-    def value(self, row):
-        raise NotImplemented()
-
-    def width(self):
-        raise NotImplemented()
-
-
-class StaticColumn(Column):
-    def __init__(self, name, width, mapper, right_just=True):
-        self.name = name
-        if self.name is None:
-            self.name = ''
-        self.mapper = mapper
-        self.actual_width = max(width, len(self.name))
-        self.right_just = right_just
-
-    def _justify(self, value):
-        return value.rjust(self.actual_width, ' ') if self.right_just \
-            else value.ljust(self.actual_width, ' ')
-
-    def header(self):
-        return click.style(self._justify(self.name), fg='white', bold=True)
-
-    def value(self, row):
-        return click.style(self._justify(str(self.mapper(row))), fg=row.color(), bold=row.bold())
-
-    def width(self):
-        return self.actual_width
-
-    @classmethod
-    def padding(cls, width):
-        # width - 1, так как лишняя колонка уже добавляет один пробел
-        return cls(None, width - 1, lambda _: '')
-
+    table.show(standings.rows, force_pager=global_)
 
 class TasksColumn(Column):
     DELIMITER = ' | '
@@ -204,34 +154,6 @@ class TasksColumn(Column):
 
     def width(self):
         return sum(self.contest_widths.values()) + len(TasksColumn.DELIMITER) * len(self.contests)
-
-
-class FancyTable:
-    def __init__(self):
-        self.columns = []
-
-    def add_column(self, column):
-        self.columns.append(column)
-
-    def calc_width(self):
-        content = sum([column.width() for column in self.columns])
-        return content + len(self.columns) - 1
-
-    def render(self, rows):
-        lines = [
-            ' '.join([
-                column.header()
-                for column in self.columns
-            ])
-        ]
-
-        for row in rows:
-            lines.append(' '.join([
-                column.value(row)
-                for column in self.columns
-            ]))
-
-        return lines
 
 
 def select_contests(standings, last, contests, all_, default_count):
