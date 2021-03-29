@@ -71,11 +71,6 @@ pip3 install .
 
   Доступные опции - `login`, `contest`, `password` (опционально)
 
-  #### Ssh
-  Данные для доступа к КР через SSH + ejudge-fuse
-
-  Опции: `login`, `password`, `hostname`, `mnt_dir`
-
   #### Options
   Глобальные опции, можно переопределять через переменные окружения
 
@@ -195,7 +190,7 @@ kks init --config
 kks init --config=global
 
 # Собрать и запустить решение с таргетом "debug"
-kks run -tg debug
+kks run -T debug
 ```
 
 При запуске `kks run` или `kks test` можно получить предупреждение следующего вида:
@@ -207,21 +202,3 @@ kks run -tg debug
 Это значит, что параметры сборки по умолчанию (без использования файлов конфигурации) были обновлены.
 В таком случае стоит запустить `kks init --config=update` в директории с указанным файлом и вручную добавить необходимые изменения.
 Если этого не cделать, могут появиться проблемы при компиляции решений для (некоторых) новых задач.
-
-## Todo
-- run
-    - [ ] fix valgrind issues
-- test
-    - [ ] test solve.py
-- gen
-    - [ ] support .cpp and .c generator/solution
-- build
-    - [ ] configure compiler
-    - [ ] support asm
-- ejudge
-    - top
-        - [ ] max score
-        - [ ] optimistic scoreboard
-        - [ ] sort/filter
-- sync
-    - [ ] templates
