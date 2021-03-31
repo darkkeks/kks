@@ -186,7 +186,7 @@ def select_contests(standings, last, contests, all_, default_count):
         return standings.contests
 
     if has_contests:
-        def is_available(contest):
+        for contest in contests:
             if contest not in standings.contests:
                 click.echo(
                     click.style('Contest ', fg='red') +
@@ -194,9 +194,8 @@ def select_contests(standings, last, contests, all_, default_count):
                     click.style(' not found!', fg='red'),
                     err=True
                 )
-            return contest in standings.contests
 
-        return list(filter(is_available, contests))
+        return [contest for contest in standings.contests if contest in contests]
 
     last = last or default_count
 
