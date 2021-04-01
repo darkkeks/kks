@@ -44,6 +44,16 @@ class StaticColumn(Column):
         return cls(None, width - 1, lambda _: '')
 
 
+class DelimiterRow:
+    def __init__(self, char='—', color='white', bold=False):
+        self.char = char
+        self.color = color
+        self.bold = bold
+
+    def value(self, width):
+        return click.style(self.char * width, fg=self.color, bold=self.bold)
+
+
 class FancyTable:
     def __init__(self):
         self.columns = []
@@ -64,10 +74,13 @@ class FancyTable:
         ]
 
         for row in rows:
-            lines.append(' '.join([
-                column.value(row)
-                for column in self.columns
-            ]))
+            if isinstance(row, DelimiterRow):
+                lines.append(row.value(self.calc_width()))
+            else:
+                lines.append(' '.join([
+                    column.value(row)
+                    for column in self.columns
+                ]))
 
         return lines
 
