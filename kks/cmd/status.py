@@ -25,6 +25,9 @@ def status(todo, no_cache, filters):
         contest_info = get_contest_deadlines(session, problems, no_cache)
         contests = {contest.name: contest for contest in contest_info}
         problems = [p for p in problems if p.status in [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED] and not contests[p.contest()].past_deadline()]
+        if not problems:
+            click.secho('All problems are solved', fg='green')
+            return
 
         def format_deadline(problem):
             deadline = contests[problem.contest()].deadlines.soft
