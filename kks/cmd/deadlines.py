@@ -3,7 +3,7 @@ from itertools import groupby
 
 import click
 
-from kks.ejudge import CacheKeys, ejudge_summary, update_cached_problems, PROBLEM_INFO_VERSION
+from kks.ejudge import CacheKeys, Status, ejudge_summary, update_cached_problems, PROBLEM_INFO_VERSION
 from kks.util.fancytable import FancyTable, StaticColumn
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Cache, Config
@@ -14,7 +14,7 @@ DATE_PLACEHOLDER = '----/--/-- --:--:-- MSK'
 
 
 class ContestStatusRow:
-    def __init__(self, contest, problem):
+    def __init__(self, contest, problem, problem_mapping):
         self.contest = contest
         self.penalty = 0
         self.status = 'No deadlines'
@@ -36,6 +36,8 @@ class ContestStatusRow:
                 self.deadline += ' (!)'
             self._color = 'bright_yellow' if warn else 'yellow'
             self._bold = warn
+        if not problem.past_deadline() and all(problem.status in [Status.OK, Status.OK_AUTO, Status.REVIEW] for problem in problem_mapping[contest]):
+            self._color = 'bright_black'
 
     def color(self):
         return self._color
@@ -68,14 +70,19 @@ def deadlines(last, contests, no_cache):
 
         problems = update_cached_problems(cache, names, session, only_contests=True, summary=summary)
 
-    contest_names = [contest for contest, _ in groupby(summary, lambda problem: problem.contest())]
+    contest_names = []
+    problem_mapping = {}
+    for contest, orig_problems in groupby(summary, lambda problem: problem.contest()):
+        contest_names.append(contest)
+        problem_mapping[contest] = list(orig_problems)
+
     contest_info = list(zip(contest_names, problems))
     if contests:
         contest_info = [(c, p) for (c, p) in contest_info if c in contests]
     if last:
         contest_info = contest_info[-last:]
 
-    rows = [ContestStatusRow(contest, problem) for contest, problem in contest_info]
+    rows = [ContestStatusRow(contest, problem, problem_mapping) for contest, problem in contest_info]
 
     table = FancyTable()
     table.add_column(StaticColumn('Contest', 4, lambda row: row.contest))
