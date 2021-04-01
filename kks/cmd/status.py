@@ -2,7 +2,7 @@ import click
 
 from kks.ejudge import ejudge_summary
 from kks.util.ejudge import EjudgeSession
-from kks.util.fancytable import StaticColumn, FancyTable
+from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
 
 @click.command(short_help='Parse and display task status')
@@ -29,5 +29,9 @@ def status(filters):
     table.add_column(StaticColumn('Name', 35, lambda problem: problem.name, right_just=False))
     table.add_column(StaticColumn('Status', 20, lambda problem: problem.status, right_just=False))
     table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
-    row_format = "{:8} {:35} {:20} {:>5}"
-    table.show(problems)
+    rows = []
+    for problem in problems:
+        if rows and rows[-1].contest() != problem.contest():
+            rows.append(DelimiterRow())
+        rows.append(problem)
+    table.show(rows)
