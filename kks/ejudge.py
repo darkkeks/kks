@@ -18,6 +18,8 @@ CONTEST_ID_BY_GROUP = {
 
 
 PROBLEM_INFO_VERSION = 2
+DEADLINE_FORMAT = '%Y/%m/%d %H:%M:%S MSK'
+DEADLINE_PLACEHOLDER = '----/--/-- --:--:-- MSK (!)'
 
 
 class Links:

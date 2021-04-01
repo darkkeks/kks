@@ -1,6 +1,6 @@
 import click
 
-from kks.ejudge import Status, ejudge_summary, get_contest_deadlines
+from kks.ejudge import Status, ejudge_summary, get_contest_deadlines, DEADLINE_FORMAT, DEADLINE_PLACEHOLDER
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
@@ -26,6 +26,12 @@ def status(todo, no_cache, filters):
         contests = {contest.name: contest for contest in contest_info}
         problems = [p for p in problems if p.status in [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED] and not contests[p.contest()].past_deadline()]
 
+        def format_deadline(problem):
+            deadline = contests[problem.contest()].deadlines.soft
+            if deadline is None:
+                return 'No deadline'
+            return  deadline.strftime(DEADLINE_FORMAT)
+
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
         if not problems:
@@ -37,7 +43,12 @@ def status(todo, no_cache, filters):
     table.add_column(StaticColumn.padding(2))
     table.add_column(StaticColumn('Name', 35, lambda problem: problem.name, right_just=False))
     table.add_column(StaticColumn('Status', 20, lambda problem: problem.status, right_just=False))
-    table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
+
+    if todo:
+        table.add_column(StaticColumn('Deadline', len(DEADLINE_PLACEHOLDER), format_deadline, right_just=False))
+    else:
+        table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
+
     rows = []
     for problem in problems:
         if rows and rows[-1].contest() != problem.contest():

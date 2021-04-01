@@ -3,14 +3,10 @@ from itertools import groupby
 
 import click
 
-from kks.ejudge import Status, ejudge_summary, get_contest_deadlines
+from kks.ejudge import Status, ejudge_summary, get_contest_deadlines, DEADLINE_FORMAT, DEADLINE_PLACEHOLDER
 from kks.util.fancytable import FancyTable, StaticColumn
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Cache, Config
-
-
-DATE_FORMAT = '%Y/%m/%d %H:%M:%S MSK'
-DATE_PLACEHOLDER = '----/--/-- --:--:-- MSK'
 
 
 class ContestStatusRow:
@@ -28,7 +24,7 @@ class ContestStatusRow:
             self._color = 'red'
         elif contest.deadlines.soft is not None:
             self.status = 'Next deadline'
-            self.deadline = contest.deadlines.soft.strftime(DATE_FORMAT)
+            self.deadline = contest.deadlines.soft.strftime(DEADLINE_FORMAT)
             dt = contest.deadlines.soft - datetime.now()
             warn = dt < timedelta(days=Config().options.deadline_warning_days)
             self.penalty = contest.current_penalty
@@ -75,5 +71,5 @@ def deadlines(last, contests, no_cache):
     table.add_column(StaticColumn('Penalty', 3, lambda row: row.penalty))
     table.add_column(StaticColumn.padding(1))
     table.add_column(StaticColumn('Status', 13, lambda row: row.status, right_just=False))
-    table.add_column(StaticColumn('Next deadline', len(DATE_PLACEHOLDER), lambda row: row.deadline, right_just=False))
+    table.add_column(StaticColumn('Next deadline', len(DEADLINE_PLACEHOLDER), lambda row: row.deadline, right_just=False))
     table.show(rows)
