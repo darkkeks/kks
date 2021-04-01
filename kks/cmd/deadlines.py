@@ -60,9 +60,8 @@ def deadlines(last, contests, no_cache):
 
     session = EjudgeSession()
     summary = ejudge_summary(session)
-    contest_info = get_contest_deadlines(session, summary, no_cache)
-    # FIXME grouping is done 3 times - in get_contest_deadlines -> in update_cached_problems and herr. Try to refactor / optimize it
     problem_mapping = {contest: list(problems) for contest, problems in groupby(summary, lambda problem: problem.contest())}
+    contest_info = get_contest_deadlines(session, summary, no_cache)
 
     if contests:
         contest_info = [(c, p) for (c, p) in contest_info if c in contests]

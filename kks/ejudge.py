@@ -547,18 +547,25 @@ def get_contest_deadlines(session, summary, no_cache):
 
     names = [problem.short_name for problem in summary]
 
+    contest_names = []
+    first_problems = []
+    for contest, problems in groupby(summary, lambda problem: problem.contest()):
+        contest_names.append(contest)
+        first_problems.append(next(problems).short_name)
+
     with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
         if no_cache:
             for problem in summary:
                 cache.erase(CacheKeys.deadline(problem.contest()))
 
-        problems = update_cached_problems(cache, names, session, only_contests=True, summary=summary)
+        problems = update_cached_problems(cache, names, session, problems=first_problems, summary=summary)
 
-    contest_names = [contest for contest, _ in groupby(summary, lambda problem: problem.contest())]
     return [ContestInfo(name, problem) for name, problem in zip(contest_names, problems)]
 
 
-def update_cached_problems(cache, names, session, only_contests=False, summary=None):
+def update_cached_problems(cache, names, session, problems=None, summary=None):
+    # names - latest list of problem names
+    # problems - names of problems to be updated
 
     def cached_problem(problem):
         return BaseProblem(problem.short_name, problem.href)
@@ -570,11 +577,8 @@ def update_cached_problems(cache, names, session, only_contests=False, summary=N
         problem_list = [cached_problem(p) for p in problem_list]
         cache.set('problem_links', problem_list)
 
-    if only_contests:
-        first_problems = []
-        for contest, problems in groupby(problem_list, lambda problem: problem.contest()):
-            first_problems.append(next(problems))
-            problem_list = first_problems
+    if problems is not None:
+        problem_list = [problem for problem in problem_list if problem.short_name in problems]
 
     with tqdm(total=len(problem_list), leave=False) as pbar:
         def with_progress(func, *args, **kwargs):
