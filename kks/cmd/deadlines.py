@@ -3,7 +3,7 @@ from itertools import groupby
 
 import click
 
-from kks.ejudge import Status, get_contest_deadlines, ejudge_summary
+from kks.ejudge import Status, ejudge_summary, get_contest_deadlines
 from kks.util.fancytable import FancyTable, StaticColumn
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Cache, Config

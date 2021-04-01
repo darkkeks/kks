@@ -1,6 +1,6 @@
 import click
 
-from kks.ejudge import ejudge_summary
+from kks.ejudge import Status, ejudge_summary, get_contest_deadlines
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
@@ -8,8 +8,10 @@ from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 @click.command(short_help='Parse and display task status')
 @click.option('-t', '--todo', is_flag=True,
               help='Show only unsolved problems')
+@click.option('-nc', '--no-cache', is_flag=True,
+              help='Reload cached data (if --todo is used)')
 @click.argument('filters', nargs=-1)
-def status(todo, filters):
+def status(todo, no_cache, filters):
     """
     Parse and display task status
 
@@ -20,7 +22,9 @@ def status(todo, filters):
     problems = ejudge_summary(session)
 
     if todo:
-        pass
+        contest_info = get_contest_deadlines(session, problems, no_cache)
+        contests = {contest.name: contest for contest in contest_info}
+        problems = [p for p in problems if p.status in [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED] and not contests[p.contest()].past_deadline()]
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
