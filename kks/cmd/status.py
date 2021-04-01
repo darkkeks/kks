@@ -6,8 +6,10 @@ from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
 
 @click.command(short_help='Parse and display task status')
+@click.option('-t', '--todo', is_flag=True,
+              help='Show only unsolved problems')
 @click.argument('filters', nargs=-1)
-def status(filters):
+def status(todo, filters):
     """
     Parse and display task status
 
@@ -16,6 +18,9 @@ def status(filters):
 
     session = EjudgeSession()
     problems = ejudge_summary(session)
+
+    if todo:
+        pass
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]

@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from kks.util.h2t import HTML2Text
 
+
 CONTEST_ID_BY_GROUP = {
     int('19' + str(i)): 130 + i
     for i in range(1, 12)
@@ -248,6 +249,14 @@ class ProblemInfo:
     def past_deadline(self):
         return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard or self.current_penalty >= self.full_score
 
+
+class ContestInfo:
+    def __init__(self, name, first_problem):
+        self.name = name
+        self.first_problem = first_problem
+
+    def __getattr__(self, name):
+        return getattr(self.first_problem, name)
 
 class FullProblem(SummaryProblem):
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
@@ -531,6 +540,22 @@ def ejudge_report(link, session):
         comments = []
     tests = soup.find('table', {'class': 'table'}).find_all('tr')[1:]
     return Report(comments, tests)
+
+
+def get_contest_deadlines(session, summary, no_cache):
+    from kks.util.storage import Cache
+
+    names = [problem.short_name for problem in summary]
+
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
+        if no_cache:
+            for problem in summary:
+                cache.erase(CacheKeys.deadline(problem.contest()))
+
+        problems = update_cached_problems(cache, names, session, only_contests=True, summary=summary)
+
+    contest_names = [contest for contest, _ in groupby(summary, lambda problem: problem.contest())]
+    return [ContestInfo(name, problem) for name, problem in zip(contest_names, problems)]
 
 
 def update_cached_problems(cache, names, session, only_contests=False, summary=None):
