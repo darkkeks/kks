@@ -74,7 +74,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
                 return
 
     if max_:
-        standings = estimate_max(standings, session, config, no_cache)
+        standings = estimate_max(standings, session, no_cache)
 
     display_standings(standings, last, contests, all_, global_, recalculate)
 
@@ -250,43 +250,47 @@ def filter_groups(standings, groups):
     return standings
 
 
-def estimate_max(standings, session, config, force_reload):
-    # NOTE may produce incorrect results for "kr" contests (with "max_kr" config option)
-    # full score or run penalty for "kr" may be incorrect, scores may be partial
-
+def estimate_max(standings, session, force_reload):
     with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
         if force_reload:
             cache.clear()
 
         names = [task.name for task in standings.tasks]
         problems = update_cached_problems(cache, names, session)
-        problem_list = cache.get('problem_links', [])
 
     for row in standings.rows:
-        for task_score, problem, orig_problem in zip(row.tasks, problems, problem_list):
-            if problem.past_deadline():  # see #72
-                continue
-            if task_score.score is None or task_score.score == '0':
-                if task_score.status == Status.REJECTED:
-                    max_score = problem.full_score
-                else:
-                    max_score = problem.full_score - problem.current_penalty
-                    if task_score.score == '0':
-                        max_score -= problem.run_penalty
-                        # actually may be lower
-                if config.options.max_kr and orig_problem.short_name.startswith('kr') and task_score.status == Status.TESTING:
-                    max_score = 200  # not always true, but we cannot get real max_score
-                    if task_score.score == '0':  # at least one partial solution (are CE counted?)
-                        max_score -= 10
-                if max_score > 0:
-                    row.solved += 1
-                    row.score += max_score
-                    task_score.score = max_score
-                    task_score.status = Status.REVIEW
+        for task_score, problem_info in zip(row.tasks, problems):
+            recalc_task_score(row, task_score, problem_info)
 
     sort_standings(standings)
 
     return standings
+
+
+def recalc_task_score(row, task_score, problem_info):
+    if problem_info.past_deadline() and task_score.status in [Status.NOT_SUBMITTED, Status.PARTIAL]:  # see #72
+        return
+    # NOTE may produce incorrect results for "kr" contests (with "max_kr" config option)
+    # full score or run penalty for "kr" may be incorrect, scores may be partial
+    is_testing_kr = task_score.contest.startswith('kr') and task_score.status == Status.TESTING
+    if is_testing_kr and not Config().options.max_kr:
+        return
+
+    if task_score.score is None or task_score.score == '0':
+        if task_score.status == Status.REJECTED:
+            max_score = problem_info.full_score
+        else:
+            max_score = problem_info.full_score - problem_info.current_penalty
+        if task_score.score == '0':  # at least one partial solution
+            max_score -= problem_info.run_penalty
+            # actually may be lower
+        if is_testing_kr:
+            max_score = 200  # not always true, but we cannot get real max_score
+        if max_score > 0:
+            row.solved += 1
+            row.score += max_score
+            task_score.score = str(max_score)
+            task_score.status = Status.REVIEW
 
 
 def sort_standings(standings):
