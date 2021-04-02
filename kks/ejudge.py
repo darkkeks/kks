@@ -87,6 +87,27 @@ class Problem(SummaryProblem):
         return FullProblem(self, page)
 
 
+class ProblemWithDeadline:
+    def __init__(self, problem, contest):
+        self._problem = problem
+        self._contest = contest
+
+    def color(self):
+        color = self._problem.color()
+        if color == 'white' and self._contest.deadlines.is_close():
+            color = 'bright_yellow'
+        return color
+
+    def deadline_string(self):
+        deadline = self._contest.deadlines.soft
+        if deadline is None:
+            return 'No deadline'
+        return  deadline.strftime(DEADLINE_FORMAT)
+
+    def __getattr__(self, name):
+        return getattr(self._problem, name)
+
+
 class CacheKeys:
     @staticmethod
     def penalty(contest):
@@ -238,6 +259,13 @@ class Deadlines:
     def __init__(self, soft, hard):
         self.soft = soft
         self.hard = hard
+
+    def is_close(self):
+        from kks.util.storage import Config
+        if self.soft is None:
+            return False
+        dt = self.soft - datetime.now()
+        return dt < timedelta(days=Config().options.deadline_warning_days)
 
 
 class ProblemInfo:

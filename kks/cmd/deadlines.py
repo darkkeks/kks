@@ -25,8 +25,7 @@ class ContestStatusRow:
         elif contest.deadlines.soft is not None:
             self.status = 'Next deadline'
             self.deadline = contest.deadlines.soft.strftime(DEADLINE_FORMAT)
-            dt = contest.deadlines.soft - datetime.now()
-            warn = dt < timedelta(days=Config().options.deadline_warning_days)
+            warn = contest.deadlines.is_close()
             self.penalty = contest.current_penalty
             if warn:
                 self.deadline += ' (!)'

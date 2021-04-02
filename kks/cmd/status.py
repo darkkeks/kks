@@ -1,6 +1,6 @@
 import click
 
-from kks.ejudge import Status, ejudge_summary, get_contest_deadlines, DEADLINE_FORMAT, DEADLINE_PLACEHOLDER
+from kks.ejudge import Status, ProblemWithDeadline, ejudge_summary, get_contest_deadlines, DEADLINE_PLACEHOLDER
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
@@ -29,11 +29,7 @@ def status(todo, no_cache, filters):
             click.secho('All problems are solved', fg='green')
             return
 
-        def format_deadline(problem):
-            deadline = contests[problem.contest()].deadlines.soft
-            if deadline is None:
-                return 'No deadline'
-            return  deadline.strftime(DEADLINE_FORMAT)
+        problems = [ProblemWithDeadline(p, contests[p.contest()]) for p in problems]
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
@@ -48,7 +44,7 @@ def status(todo, no_cache, filters):
     table.add_column(StaticColumn('Status', 20, lambda problem: problem.status, right_just=False))
 
     if todo:
-        table.add_column(StaticColumn('Deadline', len(DEADLINE_PLACEHOLDER), format_deadline, right_just=False))
+        table.add_column(StaticColumn('Deadline', len(DEADLINE_PLACEHOLDER), lambda problem: problem.deadline_string(), right_just=False))
     else:
         table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
 
