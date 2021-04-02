@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from kks.util.h2t import HTML2Text
 
+
 CONTEST_ID_BY_GROUP = {
     int('19' + str(i)): 130 + i
     for i in range(1, 12)
@@ -82,6 +83,24 @@ class Problem(SummaryProblem):
         # TODO use API? (see #68)
         page = session.get(self.href)
         return FullProblem(self, page)
+
+
+class ProblemWithDeadline:
+    def __init__(self, problem, contest):
+        self._problem = problem
+        self._contest = contest
+
+    def deadline_is_close(self):
+        return self._contest.deadlines.is_close()
+
+    def deadline_color(self):
+        return self._contest.deadline_color()
+
+    def deadline_string(self):
+        return self._contest.deadlines.format_soft()
+
+    def __getattr__(self, name):
+        return getattr(self._problem, name)
 
 
 class CacheKeys:
@@ -232,9 +251,29 @@ class Standings:
 
 
 class Deadlines:
+    FORMAT = '%Y/%m/%d %H:%M:%S MSK'
+    PLACEHOLDER = '----/--/-- --:--:-- MSK (!)'
+
     def __init__(self, soft, hard):
         self.soft = soft
         self.hard = hard
+
+    def is_close(self):
+        from kks.util.storage import Config
+        if self.soft is None:
+            return False
+        dt = self.soft - datetime.now()
+        return dt < timedelta(days=Config().options.deadline_warning_days)
+
+    def format_soft(self):
+        deadline = self.soft
+        if deadline is None:
+            return 'No deadline'
+        result = deadline.strftime(Deadlines.FORMAT)
+        if self.is_close():
+            result += ' (!)'
+        return result
+
 
 
 class ProblemInfo:
@@ -248,6 +287,23 @@ class ProblemInfo:
     def past_deadline(self):
         return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard or self.current_penalty >= self.full_score
 
+
+class ContestInfo:
+    def __init__(self, name, first_problem):
+        self.name = name
+        self.first_problem = first_problem
+
+    def deadline_color(self):
+        if self.past_deadline():
+            return 'red'
+        if self.deadlines.soft is None:
+            return 'green'
+        if self.deadlines.is_close():
+            return 'bright_yellow'
+        return 'yellow'
+
+    def __getattr__(self, name):
+        return getattr(self.first_problem, name)
 
 class FullProblem(SummaryProblem):
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
@@ -533,7 +589,30 @@ def ejudge_report(link, session):
     return Report(comments, tests)
 
 
-def update_cached_problems(cache, names, session, only_contests=False, summary=None):
+def get_contest_deadlines(session, summary, no_cache):
+    from kks.util.storage import Cache
+
+    names = [problem.short_name for problem in summary]
+
+    contest_names = []
+    first_problems = []
+    for contest, problems in groupby(summary, lambda problem: problem.contest()):
+        contest_names.append(contest)
+        first_problems.append(next(problems).short_name)
+
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
+        if no_cache:
+            for problem in summary:
+                cache.erase(CacheKeys.deadline(problem.contest()))
+
+        problems = update_cached_problems(cache, names, session, problems=first_problems, summary=summary)
+
+    return [ContestInfo(name, problem) for name, problem in zip(contest_names, problems)]
+
+
+def update_cached_problems(cache, names, session, problems=None, summary=None):
+    # names - latest list of problem names
+    # problems - names of problems to be updated
 
     def cached_problem(problem):
         return BaseProblem(problem.short_name, problem.href)
@@ -545,11 +624,8 @@ def update_cached_problems(cache, names, session, only_contests=False, summary=N
         problem_list = [cached_problem(p) for p in problem_list]
         cache.set('problem_links', problem_list)
 
-    if only_contests:
-        first_problems = []
-        for contest, problems in groupby(problem_list, lambda problem: problem.contest()):
-            first_problems.append(next(problems))
-            problem_list = first_problems
+    if problems is not None:
+        problem_list = [problem for problem in problem_list if problem.short_name in problems]
 
     with tqdm(total=len(problem_list), leave=False) as pbar:
         def with_progress(func, *args, **kwargs):
