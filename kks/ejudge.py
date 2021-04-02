@@ -18,8 +18,6 @@ CONTEST_ID_BY_GROUP = {
 
 
 PROBLEM_INFO_VERSION = 2
-DEADLINE_FORMAT = '%Y/%m/%d %H:%M:%S MSK'
-DEADLINE_PLACEHOLDER = '----/--/-- --:--:-- MSK (!)'
 
 
 class Links:
@@ -99,13 +97,7 @@ class ProblemWithDeadline:
         return color
 
     def deadline_string(self):
-        deadline = self._contest.deadlines.soft
-        if deadline is None:
-            return 'No deadline'
-        result = deadline.strftime(DEADLINE_FORMAT)
-        if self._contest.deadlines.is_close():
-            result += ' (!)'
-        return result
+        return self._contest.deadlines.format_soft()
 
     def __getattr__(self, name):
         return getattr(self._problem, name)
@@ -259,6 +251,9 @@ class Standings:
 
 
 class Deadlines:
+    FORMAT = '%Y/%m/%d %H:%M:%S MSK'
+    PLACEHOLDER = '----/--/-- --:--:-- MSK (!)'
+
     def __init__(self, soft, hard):
         self.soft = soft
         self.hard = hard
@@ -269,6 +264,16 @@ class Deadlines:
             return False
         dt = self.soft - datetime.now()
         return dt < timedelta(days=Config().options.deadline_warning_days)
+
+    def format_soft(self):
+        deadline = self.soft
+        if deadline is None:
+            return 'No deadline'
+        result = deadline.strftime(Deadlines.FORMAT)
+        if self.is_close():
+            result += ' (!)'
+        return result
+
 
 
 class ProblemInfo:

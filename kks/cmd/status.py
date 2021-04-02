@@ -1,6 +1,6 @@
 import click
 
-from kks.ejudge import Status, ProblemWithDeadline, ejudge_summary, get_contest_deadlines, DEADLINE_PLACEHOLDER
+from kks.ejudge import Deadlines, ProblemWithDeadline, Status, ejudge_summary, get_contest_deadlines
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
@@ -44,7 +44,7 @@ def status(todo, no_cache, filters):
     table.add_column(StaticColumn('Status', 20, lambda problem: problem.status, right_just=False))
 
     if todo:
-        table.add_column(StaticColumn('Deadline', len(DEADLINE_PLACEHOLDER), lambda problem: problem.deadline_string(), right_just=False))
+        table.add_column(StaticColumn('Deadline', len(Deadlines.PLACEHOLDER), lambda problem: problem.deadline_string(), right_just=False))
     else:
         table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
 
