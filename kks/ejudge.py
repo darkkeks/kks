@@ -90,11 +90,15 @@ class ProblemWithDeadline:
         self._problem = problem
         self._contest = contest
 
-    def color(self):
-        color = self._problem.color()
-        if color == 'white' and self._contest.deadlines.is_close():
-            color = 'bright_yellow'
-        return color
+    def deadline_is_close(self):
+        return self._contest.deadlines.is_close()
+
+    def deadline_color(self):
+        if self._contest.deadlines.soft is None:
+            return 'green'
+        if self._contest.deadlines.is_close():
+            return 'bright_yellow'
+        return 'yellow'
 
     def deadline_string(self):
         return self._contest.deadlines.format_soft()

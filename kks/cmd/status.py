@@ -5,6 +5,14 @@ from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
 
+class DeadlineColumn(StaticColumn):
+    def __init__(self, name, right_just=True):
+        super().__init__(name, len(Deadlines.PLACEHOLDER), lambda problem: problem.deadline_string(), right_just=right_just)
+
+    def value(self, row):
+        return click.style(self._justify(str(self.mapper(row))), fg=row.deadline_color(), bold=row.deadline_is_close())
+
+
 @click.command(short_help='Parse and display task status')
 @click.option('-t', '--todo', is_flag=True,
               help='Show only unsolved problems')
@@ -44,7 +52,7 @@ def status(todo, no_cache, filters):
     table.add_column(StaticColumn('Status', 20, lambda problem: problem.status, right_just=False))
 
     if todo:
-        table.add_column(StaticColumn('Deadline', len(Deadlines.PLACEHOLDER), lambda problem: problem.deadline_string(), right_just=False))
+        table.add_column(DeadlineColumn('Deadline', right_just=False))
     else:
         table.add_column(StaticColumn('Score', 5, lambda problem: problem.score or ''))
 
