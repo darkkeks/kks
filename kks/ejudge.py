@@ -1,6 +1,7 @@
 from copy import copy
 from datetime import datetime, timedelta
 from itertools import groupby
+from typing import Optional
 from urllib.parse import quote as urlquote
 
 # import requests  # we use lazy imports to improve load time for local commands
@@ -163,7 +164,7 @@ class Report:
 
 
 class TaskScore:
-    def __init__(self, contest, score, status):
+    def __init__(self, contest: str, score: Optional[str], status: str):
         self.contest = contest
         self.score = score
         self.status = status
@@ -239,7 +240,7 @@ class Deadlines:
 
 class ProblemInfo:
     """Subset of task info table used for max score estimation"""
-    def __init__(self, full_score, run_penalty, current_penalty, deadlines):
+    def __init__(self, full_score: int, run_penalty: int, current_penalty: int, deadlines: Deadlines):
         self.full_score = full_score
         self.run_penalty = run_penalty
         self.current_penalty = current_penalty
@@ -284,7 +285,7 @@ class FullProblem(SummaryProblem):
         if output_title is not None:
             output_data = output_title.find_next('pre').text
 
-        return input_data, output_data 
+        return input_data, output_data
 
     @staticmethod
     def parse_statement(html):
