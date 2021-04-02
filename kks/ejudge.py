@@ -102,7 +102,10 @@ class ProblemWithDeadline:
         deadline = self._contest.deadlines.soft
         if deadline is None:
             return 'No deadline'
-        return  deadline.strftime(DEADLINE_FORMAT)
+        result = deadline.strftime(DEADLINE_FORMAT)
+        if self._contest.deadlines.is_close():
+            result += ' (!)'
+        return result
 
     def __getattr__(self, name):
         return getattr(self._problem, name)
