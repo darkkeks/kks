@@ -15,19 +15,17 @@ class ContestStatusRow:
         self.penalty = 0
         self.status = 'No deadlines'
         self.deadline = ''
-        self._color = 'green'
+        self._color = contest.deadline_color()
         self._bold = False
 
         if contest.past_deadline():
             self.status = 'Past deadline'
             self.penalty = '-'
-            self._color = 'red'
         elif contest.deadlines.soft is not None:
             self.status = 'Next deadline'
             self.deadline = contest.deadlines.format_soft()
             self.penalty = contest.current_penalty
             warn = contest.deadlines.is_close()
-            self._color = 'bright_yellow' if warn else 'yellow'
             self._bold = warn
         if not contest.past_deadline() and all(problem.status in [Status.OK, Status.OK_AUTO, Status.REVIEW] for problem in problem_mapping[contest.name]):
             self._color = 'bright_black'

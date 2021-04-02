@@ -94,11 +94,7 @@ class ProblemWithDeadline:
         return self._contest.deadlines.is_close()
 
     def deadline_color(self):
-        if self._contest.deadlines.soft is None:
-            return 'green'
-        if self._contest.deadlines.is_close():
-            return 'bright_yellow'
-        return 'yellow'
+        return self._contest.deadline_color()
 
     def deadline_string(self):
         return self._contest.deadlines.format_soft()
@@ -296,6 +292,15 @@ class ContestInfo:
     def __init__(self, name, first_problem):
         self.name = name
         self.first_problem = first_problem
+
+    def deadline_color(self):
+        if self.past_deadline():
+            return 'red'
+        if self.deadlines.soft is None:
+            return 'green'
+        if self.deadlines.is_close():
+            return 'bright_yellow'
+        return 'yellow'
 
     def __getattr__(self, name):
         return getattr(self.first_problem, name)
