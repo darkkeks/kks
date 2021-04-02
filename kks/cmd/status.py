@@ -7,10 +7,13 @@ from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
 
 class DeadlineColumn(StaticColumn):
     def __init__(self, name, right_just=True):
-        super().__init__(name, len(Deadlines.PLACEHOLDER), lambda problem: problem.deadline_string(), right_just=right_just)
+        super().__init__(name, len(Deadlines.PLACEHOLDER),
+                         lambda problem: problem.deadline_string(),
+                         right_just=right_just)
 
     def value(self, row):
-        return click.style(self._justify(str(self.mapper(row))), fg=row.deadline_color(), bold=row.deadline_is_close())
+        return click.style(self._justify(str(self.mapper(row))),
+                           fg=row.deadline_color(), bold=row.deadline_is_close())
 
 
 @click.command(short_help='Parse and display task status')
@@ -32,7 +35,10 @@ def status(todo, no_cache, filters):
     if todo:
         contest_info = get_contest_deadlines(session, problems, no_cache)
         contests = {contest.name: contest for contest in contest_info}
-        problems = [p for p in problems if p.status in [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED] and not contests[p.contest()].past_deadline()]
+        submittable = [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED]
+        problems = [
+            p for p in problems if p.status in submittable and not contests[p.contest()].past_deadline()
+        ]
         if not problems:
             click.secho('All problems are solved', fg='green')
             return
