@@ -90,6 +90,7 @@ class OptionsSection(EnvSection):
     mdwidth: int = 100
     max_kr: bool = False
     deadline_warning_days: int = 1
+    sort_todo_by_deadline: bool = False
     global_opt_out: bool
 
 

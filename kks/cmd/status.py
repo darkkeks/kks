@@ -1,8 +1,11 @@
+from datetime import datetime, timedelta
+
 import click
 
 from kks.ejudge import Deadlines, ProblemWithDeadline, Status, ejudge_summary, get_contest_deadlines
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import StaticColumn, DelimiterRow, FancyTable
+from kks.util.storage import Config
 
 
 class DeadlineColumn(StaticColumn):
@@ -44,6 +47,9 @@ def status(todo, no_cache, filters):
             return
 
         problems = [ProblemWithDeadline(p, contests[p.contest()]) for p in problems]
+        if Config().options.sort_todo_by_deadline:
+            far_future = datetime.now() + timedelta(days=365)
+            problems.sort(key=lambda p: p.deadlines.soft or far_future)
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
