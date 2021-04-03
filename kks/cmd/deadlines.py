@@ -42,7 +42,7 @@ class ContestStatusRow:
               help='Show deadlines for last N contests')
 @click.option('-c', '--contest', 'contests', type=str, multiple=True,
               help='Show deadlines for the selected contest')
-@click.option('-nc', '--no-cache', is_flag=True,
+@click.option('-C', '-nc', '--no-cache', is_flag=True,
               help='Reload cached data')
 def deadlines(last, contests, no_cache):
     if last and contests:

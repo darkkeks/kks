@@ -22,7 +22,7 @@ class DeadlineColumn(StaticColumn):
 @click.command(short_help='Parse and display task status')
 @click.option('-t', '--todo', is_flag=True,
               help='Show only unsolved problems')
-@click.option('-nc', '--no-cache', is_flag=True,
+@click.option('-C', '-nc', '--no-cache', is_flag=True,
               help='Reload cached data (if --todo is used)')
 @click.argument('filters', nargs=-1)
 def status(todo, no_cache, filters):
