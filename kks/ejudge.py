@@ -727,7 +727,7 @@ def get_problem_info(problem, cache, session):
         except APIError as e:
             click.secho(f'Cannot get problem info ({problem.short_name}): {e}', err=True)
             problem_status = {}
-        full_score = problem_status.get('full_score', 0)  # NOTE may be incorrect foe kr (?)
+        full_score = problem_status.get('full_score', 0)  # NOTE may be incorrect for kr (?)
         run_penalty = problem_status.get('run_penalty', 0)
         # API never tells the deadlines and current penalty
 
