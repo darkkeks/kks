@@ -101,6 +101,8 @@ class ProblemWithDeadline:
         return self._contest.deadlines.format_soft()
 
     def __getattr__(self, name):
+        if name == 'deadlines':
+            return self._contest.deadlines
         return getattr(self._problem, name)
 
 
