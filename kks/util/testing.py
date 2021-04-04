@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 from pathlib import Path
+from sys import exit
 
 import click
 
@@ -70,9 +71,14 @@ class VirtualTestSequence:
     def __iter__(self):
         for test in self.tests:
             name = test_number_to_name(test)
-            input_data = self.test_source.generate_input(name).stdout
-            output_data = self.test_source.generate_output(name, input=input_data).stdout
-            yield Test.from_data(name, input_data, output_data)
+            input_process = self.test_source.generate_input(name)
+            if input_process is None:
+                exit(1)
+            input_data = input_process.stdout
+            output_process = self.test_source.generate_output(name, input=input_data)
+            if output_process is None:
+                exit(1)
+            yield Test.from_data(name, input_data, output_process.stdout)
 
     def __len__(self):
         return len(self.tests)
