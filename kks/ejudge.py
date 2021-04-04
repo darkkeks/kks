@@ -92,17 +92,21 @@ class ProblemWithDeadline:
         self._contest = contest
 
     def deadline_is_close(self):
+        if self._contest.past_deadline():
+            return False
         return self._contest.deadlines.is_close()
 
     def deadline_color(self):
         return self._contest.deadline_color()
 
     def deadline_string(self):
+        if self._contest.past_deadline():
+            return 'Past deadline'
         return self._contest.deadlines.format_soft()
 
     def __getattr__(self, name):
-        if name == 'deadlines':
-            return self._contest.deadlines
+        if name in ['deadlines', 'past_deadline']:
+            return getattr(self._contest, name)
         return getattr(self._problem, name)
 
 

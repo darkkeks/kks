@@ -40,7 +40,8 @@ def status(todo, no_cache, filters):
         contests = {contest.name: contest for contest in contest_info}
         submittable = [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED]
         problems = [
-            p for p in problems if p.status in submittable and not contests[p.contest()].past_deadline()
+            p for p in problems if (p.status in submittable and not contests[p.contest()].past_deadline()
+                                    or p.status == Status.REJECTED)
         ]
         if not problems:
             click.secho('All problems are solved', fg='green')
@@ -49,7 +50,14 @@ def status(todo, no_cache, filters):
         problems = [ProblemWithDeadline(p, contests[p.contest()]) for p in problems]
         if Config().options.sort_todo_by_deadline:
             far_future = datetime.now() + timedelta(days=365)
-            problems.sort(key=lambda p: p.deadlines.soft or far_future)
+            even_farther_future = datetime.now() + timedelta(days=366)
+
+            def deadline_mapper(problem):
+                if problem.past_deadline():  # assuming there is no separate deadline for rejects
+                    return even_farther_future
+                return problem.deadlines.soft or far_future
+
+            problems.sort(key=deadline_mapper)
 
     if filters:
         problems = [p for p in problems if any(p.short_name.startswith(f) for f in filters)]
