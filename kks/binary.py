@@ -98,7 +98,7 @@ def compile_c_or_asm(workdir, files, target, options):
 
 
 def compile_cpp(workdir, files, options):
-    return compile_gnu(workdir, files, options, GPP_ARGS)
+    return compile_gnu(workdir, files, options, GPP_ARGS[:])
 
 
 def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file=''):
