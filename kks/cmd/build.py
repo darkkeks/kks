@@ -1,8 +1,8 @@
 import click
 
-from kks.binary import compile_solution
+from kks.binary import BuildOptions, compile_solution
 from kks.util.common import get_solution_directory
-from kks.binary import BuildOptions
+from kks.util.targets import find_target
 
 
 @click.command(short_help='Build solution')
@@ -14,6 +14,13 @@ from kks.binary import BuildOptions
               help='Use asan (true by default)')
 def build(target, verbose, asan):
     directory = get_solution_directory()
+
+    target = find_target(target)
+    if target is None:
+        return
+
+    if asan is None:
+        asan = target.default_asan
 
     options = BuildOptions(
         asan=asan,
