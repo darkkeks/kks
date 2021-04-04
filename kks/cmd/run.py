@@ -3,9 +3,10 @@ from sys import exit
 
 import click
 
-from kks.binary import compile_solution, run_solution
-from kks.util.testing import RunOptions, Test
+from kks.binary import BuildOptions, RunOptions, compile_solution, run_solution
 from kks.util.common import get_solution_directory, find_test_pairs, format_file, test_number_to_name
+from kks.util.targets import find_target
+from kks.util.testing import Test
 
 
 @click.command(short_help='Run solution')
@@ -39,12 +40,25 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
 
     directory = get_solution_directory()
 
-    options = RunOptions(
-        asan=asan and not valgrind,
+    target = find_target(target)
+    if target is None:
+        return
+
+    if valgrind:
+        asan = False
+    elif asan is None:
+        asan = target.default_asan
+
+    build_options = BuildOptions(
+        asan=asan,
+        verbose=verbose,
+    )
+    run_options = RunOptions(
+        asan=asan,
         valgrind=valgrind,
     )
 
-    binary = compile_solution(directory, target, verbose, options)
+    binary = compile_solution(directory, target, build_options)
     if binary is None:
         return
 
@@ -56,7 +70,7 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
         output = f'Running binary with arguments ' + click.style(' '.join(run_args), fg='red', bold=True)
         click.secho(output, fg='green', err=True)
 
-    exit(run_solution(binary, list(run_args), options, test_data, capture_output=False).returncode)
+    exit(run_solution(binary, list(run_args), run_options, test_data, capture_output=False).returncode)
 
 
 def find_test_to_run(directory, test, file, sample):

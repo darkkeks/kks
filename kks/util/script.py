@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from kks.binary import compile_cpp
+from kks.binary import BuildOptions, compile_cpp
 from kks.util.common import format_file
 
 
@@ -41,9 +41,9 @@ def needs_compilation(script):
     return script is not None and script.suffix in CPP_EXTENSIONS
 
 
-def compile_script(workdir, script, options):
+def compile_script(workdir, script):
     if script.suffix in CPP_EXTENSIONS:
-        return compile_cpp(workdir, [script], options)
+        return compile_cpp(workdir, [script], BuildOptions())
     else:
         raise Exception(f'Cant compile script with extension {script.suffix}')
 

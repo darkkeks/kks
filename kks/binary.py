@@ -5,8 +5,6 @@ from itertools import chain
 
 import click
 
-from kks.util.config import find_target
-
 
 GPP_ARGS = [
     'g++',
@@ -35,17 +33,35 @@ VALGRIND_ARGS = [
 ]
 
 
-def compile_solution(directory, target_name, verbose, options):
-    target = find_target(target_name)
-    if target is None:
-        click.secho(f'No target {target_name} found', fg='red', err=True)
-        return None
+class BuildOptions:
+    def __init__(self, asan=False, verbose=False):
+        self.asan = asan
+        self.verbose = verbose
 
-    if verbose:
+
+class RunOptions:
+    def __init__(self, asan=False, valgrind=False):
+        self.asan = asan
+        self.valgrind = valgrind
+
+
+class TestRunOptions(RunOptions):
+    def __init__(self,
+                 continue_on_error=False,
+                 ignore_exit_code=False,
+                 asan=False,
+                 valgrind=False,
+                 is_sample=False):
+        super().__init__(asan=asan, valgrind=valgrind)
+        self.continue_on_error = continue_on_error
+        self.ignore_exit_code = ignore_exit_code
+        self.is_sample = is_sample
+
+
+def compile_solution(directory, target, options):
+    if options.verbose:
         click.secho(f'Selected target: {target}')
 
-    if options.asan is None:
-        options.asan = target.default_asan  # will be used in run_solution
     # gcc (clang) can compile c and asm files together, so everything should be ok
     source_files = list(chain(*[directory.glob(f) for f in target.files]))
 
@@ -55,7 +71,7 @@ def compile_solution(directory, target_name, verbose, options):
 
     click.secho('Compiling... ', fg='green', err=True, nl=False)
 
-    binary = compile_c(directory, source_files, target, verbose, options)
+    binary = compile_c_or_asm(directory, source_files, target, options)
 
     if binary is None:
         click.secho('Compilation failed!', fg='red', err=True)
@@ -67,7 +83,7 @@ def compile_solution(directory, target_name, verbose, options):
     return binary
 
 
-def compile_c(workdir, files, target, verbose, options):
+def compile_c_or_asm(workdir, files, target, options):
     compiler_args = [target.compiler] + target.flags
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
         compiler_args.append('-m32')
@@ -78,7 +94,6 @@ def compile_c(workdir, files, target, verbose, options):
             compiler_args,
             linker_args=[f'-l{lib}' for lib in target.libs],
             out_file=target.out,
-            verbose=verbose
     )
 
 
@@ -86,7 +101,7 @@ def compile_cpp(workdir, files, options):
     return compile_gnu(workdir, files, options, GPP_ARGS)
 
 
-def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file='', verbose=False):
+def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file=''):
     filenames = [path.absolute() for path in files]
 
     command = compiler_args
@@ -97,7 +112,7 @@ def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file
     command += filenames
     command += linker_args
 
-    if verbose:
+    if options.verbose:
         click.secho('\nExecuting "{}"'.format(' '.join(map(str, command))))
 
     p = subprocess.run(command, cwd=workdir)

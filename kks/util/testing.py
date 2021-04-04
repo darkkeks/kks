@@ -36,7 +36,7 @@ class TestSource:
             path = Path(self.generator_directory.name)
 
             click.secho('Compiling generator... ', fg='green', err=True)
-            self.generator = compile_script(path, self.generator, self.options)
+            self.generator = compile_script(path, self.generator)
             if self.generator is None:
                 click.secho('Compilation failed!', fg='red', err=True)
                 raise click.Abort()
@@ -47,7 +47,7 @@ class TestSource:
             path = Path(self.solution_directory.name)
 
             click.secho('Compiling solution... ', fg='green', err=True)
-            self.solution = compile_script(path, self.solution, self.options)
+            self.solution = compile_script(path, self.solution)
             if self.solution is None:
                 click.secho('Compilation failed!', fg='red', err=True)
                 raise click.Abort()
@@ -129,17 +129,3 @@ class Test:
             return self.output_data
         else:
             return None
-
-
-class RunOptions:
-    def __init__(self,
-                 continue_on_error=False,
-                 ignore_exit_code=False,
-                 asan=True,
-                 valgrind=False,
-                 is_sample=False):
-        self.continue_on_error = continue_on_error
-        self.ignore_exit_code = ignore_exit_code
-        self.asan = asan
-        self.valgrind = valgrind
-        self.is_sample = is_sample
