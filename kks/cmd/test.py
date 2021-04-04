@@ -93,7 +93,7 @@ def test_(target, verbose, tests, test_range, files, sample,
     else:
         generator = find_script(directory, 'gen', default=generator)
         solution = find_script(directory, 'solve', default=solution)
-        with TestSource(generator, solution, run_options) as test_source:  # TODO remove options?
+        with TestSource(generator, solution, run_options) as test_source:
             if test_range:
                 l, r = sorted(test_range)
                 test_range = range(l, r + 1)

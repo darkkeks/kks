@@ -24,8 +24,7 @@ class TestSource:
             self.solution_directory = tempfile.TemporaryDirectory(prefix='kks-')
 
     def generate_input(self, test, stdout=subprocess.PIPE):
-        return run_script(self.generator, [test], stdout=stdout,
-                          ignore_exit_code=self.options.ignore_exit_code)
+        return run_script(self.generator, [test], stdout=stdout)
 
     def generate_output(self, test, stdin=None, stdout=subprocess.PIPE, input=None):
         return run_script(self.solution, [test], stdin=stdin, stdout=stdout, input=input,

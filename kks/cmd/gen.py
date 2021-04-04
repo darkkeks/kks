@@ -45,7 +45,7 @@ def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_
     generator = find_script(directory, 'gen', default=generator, exists=not output_only)
     solution = find_script(directory, 'solve', default=solution)
 
-    with TestSource(generator, solution, options) as test_source:  # TODO remove options?
+    with TestSource(generator, solution, options) as test_source:
         test_pairs = find_tests_to_gen(directory, tests, test_range)
         test_pairs = sorted(test_pairs)
 
