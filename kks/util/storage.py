@@ -89,9 +89,10 @@ class OptionsSection(EnvSection):
     save_md_statements: bool = True
     mdwidth: int = 100
     max_kr: bool = False
+    global_opt_out: bool
     deadline_warning_days: int = 1
     sort_todo_by_deadline: bool = True
-    global_opt_out: bool
+    cpp_with_asan: bool = True
 
 
 class ConfigModel:

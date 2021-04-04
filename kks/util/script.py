@@ -5,6 +5,7 @@ import click
 
 from kks.binary import BuildOptions, compile_cpp
 from kks.util.common import format_file
+from kks.util.storage import Config
 
 
 # Используются для поиска скриптов по имени
@@ -41,9 +42,10 @@ def needs_compilation(script):
     return script is not None and script.suffix in CPP_EXTENSIONS
 
 
-def compile_script(workdir, script):
+def compile_script(workdir, script, options=None):
     if script.suffix in CPP_EXTENSIONS:
-        return compile_cpp(workdir, [script], BuildOptions())
+        options = options or BuildOptions(asan=Config().options.cpp_with_asan)
+        return compile_cpp(workdir, [script], options)
     else:
         raise Exception(f'Cant compile script with extension {script.suffix}')
 
