@@ -51,8 +51,6 @@ def test_(target, verbose, tests, test_range, files, sample,
     """
 
     directory = get_solution_directory()
-    if directory is None:
-        return
 
     options = RunOptions(
         continue_on_error=continue_on_error,

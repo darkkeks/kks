@@ -14,8 +14,6 @@ from kks.util.testing import RunOptions
               help='Use asan (true by default)')
 def build(target, verbose, asan):
     directory = get_solution_directory()
-    if directory is None:
-        return
 
     options = RunOptions(
         asan=asan,
