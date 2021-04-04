@@ -1,5 +1,6 @@
 import click
 
+from kks.cmd.build import build
 from kks.util.click import GroupedGroup
 from kks.util.common import config_directory
 from kks.cmd.auth import auth
@@ -52,6 +53,7 @@ cli.add_command(deadlines, group=Commands.ejudge)
 cli.add_command(submit, group=Commands.ejudge)
 
 cli.add_command(lint, group=Commands.solution)
+cli.add_command(build, group=Commands.solution)
 cli.add_command(run, group=Commands.solution)
 cli.add_command(gen, group=Commands.solution)
 cli.add_command(test_, group=Commands.solution)

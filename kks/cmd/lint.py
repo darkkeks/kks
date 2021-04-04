@@ -24,8 +24,6 @@ def lint(diff, dry_run):
     """
 
     directory = get_solution_directory()
-    if directory is None:
-        return
 
     files = list(directory.glob('*.c')) + list(directory.glob('*.h')) + list(directory.glob('*.cpp'))
 

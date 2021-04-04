@@ -38,8 +38,6 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
     """
 
     directory = get_solution_directory()
-    if directory is None:
-        return
 
     options = RunOptions(
         asan=asan and not valgrind,
