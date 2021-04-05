@@ -2,13 +2,14 @@ from copy import copy
 from datetime import datetime, timedelta
 from itertools import groupby
 from typing import Optional
-from urllib.parse import quote as urlquote
+from urllib.parse import parse_qs, urlsplit, quote as urlquote
 
 # import requests  # we use lazy imports to improve load time for local commands
 # from bs4 import BeautifulSoup
 # from bs4.element import NavigableString
 from tqdm import tqdm
 
+from kks.errors import APIError
 from kks.util.h2t import HTML2Text
 
 
@@ -57,6 +58,10 @@ class BaseProblem:
 
     def contest(self):
         return extract_contest_name(self.short_name)
+
+    def extract_id(self):
+        # TODO store id and generate URL dynamically?
+        return parse_qs(urlsplit(self.href).query)['prob_id'][0]
 
 
 class SummaryProblem(BaseProblem):
@@ -644,8 +649,6 @@ def get_problem_info(problem, cache, session):
 
     # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
 
-    need_loading = False
-
     full_scores = cache.get('full', {})
     run_penalties = cache.get('run', {})
 
@@ -694,18 +697,18 @@ def get_problem_info(problem, cache, session):
     run_penalty = 0  # may be incorrect for kr
     current_penalty = 0
     deadlines = Deadlines(None, None)
+    full_score_found = False
 
     if problem_info is None:
         # if this ever happens, we assume the problem is past the deadline
         deadlines.hard = datetime.fromtimestamp(0)
         return update_cache(full_score, run_penalty, current_penalty, deadlines)
 
-    # TODO "Full score" can be missing (sm01-3)
-    # in this case we should use max score from the table as full
     for row in problem_info.find_all('tr'):
         key, value = row.find_all('td')
         if key.text == 'Full score:':
             full_score = int(value.text)
+            full_score_found = True
         elif key.text == 'Run penalty:':
             run_penalty = int(value.text)
         elif key.text == 'Current penalty:':
@@ -714,6 +717,17 @@ def get_problem_info(problem, cache, session):
             deadlines.soft = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
         elif key.text == 'Deadline:':
             deadlines.hard = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+
+    # TODO check API status for running / testing kr contests
+    if not full_score_found:
+        try:
+            problem_status = session.api().problem_status(problem.extract_id()).get('problem', {})
+        except APIError as e:
+            click.secho(f'Cannot get problem info ({problem.short_name}): {e}', err=True)
+            problem_status = {}
+        full_score = problem_status.get('full_score', 0)  # NOTE may be incorrect for kr (?)
+        run_penalty = problem_status.get('run_penalty', 0)
+        # API never tells the deadlines and current penalty
 
     return update_cache(full_score, run_penalty, current_penalty, deadlines)
 
