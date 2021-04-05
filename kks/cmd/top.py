@@ -13,6 +13,8 @@ from kks.util.storage import Cache, Config
 
 CONTEST_DELIMITER = ' | '
 
+MIN_SCORE = 20
+MAX_KR_SCORE = 200
 
 @click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
@@ -285,12 +287,13 @@ def recalc_task_score(row, task_score, problem_info):
             max_score -= problem_info.run_penalty
             # actually may be lower
         if is_testing_kr:
-            max_score = 200  # not always true, but we cannot get real max_score
-        if max_score > 0:
-            row.solved += 1
-            row.score += max_score
-            task_score.score = str(max_score)
-            task_score.status = Status.REVIEW
+            max_score = MAX_KR_SCORE  # not always true, if max_score from API is reliable, we should use it
+        max_score = max(max_score, MIN_SCORE)  # min_score_2, see #112
+        # NOTE as of 05.04.2021, min_score_2 is the same for all problems. This may (or may not) change in the future
+        row.solved += 1
+        row.score += max_score
+        task_score.score = str(max_score)
+        task_score.status = Status.REVIEW
 
 
 def sort_standings(standings):
