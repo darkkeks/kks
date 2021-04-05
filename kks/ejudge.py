@@ -649,8 +649,6 @@ def get_problem_info(problem, cache, session):
 
     # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
 
-    need_loading = False
-
     full_scores = cache.get('full', {})
     run_penalties = cache.get('run', {})
 
