@@ -15,8 +15,11 @@ class DeadlineColumn(StaticColumn):
                          right_just=right_just)
 
     def value(self, row):
+        color = row.deadline_color()
+        if row.past_deadline():  # and row.status == Status.REJECTED
+            color = 'bright_black'
         return click.style(self._justify(str(self.mapper(row))),
-                           fg=row.deadline_color(), bold=row.deadline_is_close())
+                           fg=color, bold=row.deadline_is_close())
 
 
 @click.command(short_help='Parse and display task status')
