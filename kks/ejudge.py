@@ -91,21 +91,16 @@ class ProblemWithDeadline:
         self._problem = problem
         self._contest = contest
 
-    def deadline_is_close(self):
-        if self._contest.past_deadline():
-            return False
-        return self._contest.deadlines.is_close()
-
     def deadline_color(self):
         return self._contest.deadline_color()
 
     def deadline_string(self):
         if self._contest.past_deadline():
             return 'Past deadline'
-        return self._contest.deadlines.format_soft()
+        return self._contest.deadlines.to_str(self._contest.active_deadline())
 
     def __getattr__(self, name):
-        if name in ['deadlines', 'past_deadline']:
+        if name in ['deadlines', 'past_deadline', 'deadline_is_close', 'active_deadline']:
             return getattr(self._contest, name)
         return getattr(self._problem, name)
 
@@ -265,19 +260,20 @@ class Deadlines:
         self.soft = soft
         self.hard = hard
 
-    def is_close(self):
+    @staticmethod
+    def is_close(deadline):
         from kks.util.storage import Config
-        if self.soft is None:
+        if deadline is None:
             return False
-        dt = self.soft - datetime.now()
+        dt = deadline - datetime.now()
         return dt < timedelta(days=Config().options.deadline_warning_days)
 
-    def format_soft(self):
-        deadline = self.soft
+    @staticmethod
+    def to_str(deadline):
         if deadline is None:
             return 'No deadline'
         result = deadline.strftime(Deadlines.FORMAT)
-        if self.is_close():
+        if Deadlines.is_close(deadline):
             result += ' (!)'
         return result
 
@@ -291,8 +287,18 @@ class ProblemInfo:
         self.current_penalty = current_penalty
         self.deadlines = deadlines
 
+    def active_deadline(self):
+        if self.current_penalty >= self.full_score:
+            return self.deadlines.hard
+        return self.deadlines.soft or self.deadlines.hard
+
+    def deadline_is_close(self):
+        if self.past_deadline():
+            return False
+        return self.deadlines.is_close(self.active_deadline())
+
     def past_deadline(self):
-        return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard or self.current_penalty >= self.full_score
+        return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard
 
 
 class ContestInfo:
@@ -303,9 +309,9 @@ class ContestInfo:
     def deadline_color(self):
         if self.past_deadline():
             return 'red'
-        if self.deadlines.soft is None:
+        if self.active_deadline() is None:
             return 'green'
-        if self.deadlines.is_close():
+        if self.deadline_is_close():
             return 'bright_yellow'
         return 'yellow'
 
@@ -676,7 +682,6 @@ def get_problem_info(problem, cache, session):
 
         if result.past_deadline():
             expiration = None
-            # max_score = 0, will not change
         else:
             if deadlines.soft is not None:
                 expiration = deadlines.soft

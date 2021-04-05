@@ -21,11 +21,11 @@ class ContestStatusRow:
         if contest.past_deadline():
             self.status = 'Past deadline'
             self.penalty = '-'
-        elif contest.deadlines.soft is not None:
+        elif contest.active_deadline() is not None:
             self.status = 'Next deadline'
-            self.deadline = contest.deadlines.format_soft()
+            self.deadline = contest.deadlines.to_str(contest.active_deadline())
             self.penalty = contest.current_penalty
-            warn = contest.deadlines.is_close()
+            warn = contest.deadline_is_close()
             self._bold = warn
         if not contest.past_deadline() and all(problem.status in [Status.OK, Status.OK_AUTO, Status.REVIEW] for problem in problem_mapping[contest.name]):
             self._color = 'bright_black'

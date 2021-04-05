@@ -55,7 +55,7 @@ def status(todo, no_cache, filters):
             def deadline_mapper(problem):
                 if problem.past_deadline():  # assuming there is no separate deadline for rejects
                     return even_farther_future
-                return problem.deadlines.soft or far_future
+                return problem.active_deadline() or far_future
 
             problems.sort(key=deadline_mapper)
 
