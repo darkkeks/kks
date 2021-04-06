@@ -122,7 +122,12 @@ class TestNormal(BaseRecalcTest):
             self.assert_updated(task_score, problem_info, 90)
         else:
             self.assert_updated(task_score, problem_info, 100)
-        self.recalc_task_score(task_score, problem_info)
+
+    @pytest.mark.parametrize('task_score_gen', [score_partial, score_not_submitted])
+    def test_min_score(self, task_score_gen):
+        task_score = task_score_gen()
+        problem_info = normal_problem(full_score=100, run_penalty=10, current_penalty=300)
+        self.assert_updated(task_score, problem_info, 20)
 
 
 class TestKr(BaseRecalcTest):

@@ -12,7 +12,7 @@ from kks.util.storage import Cache, Config
 class ContestStatusRow:
     def __init__(self, contest, problem_mapping):
         self.contest = contest.name
-        self.penalty = 0
+        self.penalty = contest.current_penalty
         self.status = 'No deadlines'
         self.deadline = ''
         self._color = contest.deadline_color()
@@ -21,11 +21,10 @@ class ContestStatusRow:
         if contest.past_deadline():
             self.status = 'Past deadline'
             self.penalty = '-'
-        elif contest.deadlines.soft is not None:
+        elif contest.active_deadline() is not None:
             self.status = 'Next deadline'
-            self.deadline = contest.deadlines.format_soft()
-            self.penalty = contest.current_penalty
-            warn = contest.deadlines.is_close()
+            self.deadline = contest.deadlines.to_str(contest.active_deadline())
+            warn = contest.deadline_is_close()
             self._bold = warn
         if not contest.past_deadline() and all(problem.status in [Status.OK, Status.OK_AUTO, Status.REVIEW] for problem in problem_mapping[contest.name]):
             self._color = 'bright_black'
