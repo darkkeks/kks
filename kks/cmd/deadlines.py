@@ -54,7 +54,7 @@ def deadlines(last, contests, no_cache):
     contest_info = get_contest_deadlines(session, summary, no_cache)
 
     if contests:
-        contest_info = [(c, p) for (c, p) in contest_info if c in contests]
+        contest_info = [contest for contest in contest_info if contest.name in contests]
     if last:
         contest_info = contest_info[-last:]
 
