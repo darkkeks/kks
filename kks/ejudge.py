@@ -1,5 +1,5 @@
 from copy import copy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import groupby
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit, quote as urlquote
@@ -19,7 +19,8 @@ CONTEST_ID_BY_GROUP = {
 }
 
 
-PROBLEM_INFO_VERSION = 2
+PROBLEM_INFO_VERSION = 3
+SERVER_TZ = timezone(timedelta(hours=3))  # MSK
 
 
 class Links:
@@ -270,7 +271,7 @@ class Deadlines:
         from kks.util.storage import Config
         if deadline is None:
             return False
-        dt = deadline - datetime.now()
+        dt = deadline - datetime.now(tz=timezone.utc)
         return dt < timedelta(days=Config().options.deadline_warning_days)
 
     @staticmethod
@@ -282,6 +283,11 @@ class Deadlines:
             result += ' (!)'
         return result
 
+    @staticmethod
+    def parse(text):
+        """Parse MSK datetime string (obtained from a problem page) and convert it to UTC"""
+        dt = datetime.strptime(text, '%Y/%m/%d %H:%M:%S')
+        return dt.replace(tzinfo=SERVER_TZ)
 
 
 class ProblemInfo:
@@ -303,7 +309,7 @@ class ProblemInfo:
         return self.deadlines.is_close(self.active_deadline())
 
     def past_deadline(self):
-        return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard
+        return self.deadlines.hard is not None and datetime.now(tz=timezone.utc) > self.deadlines.hard
 
 
 class ContestInfo:
@@ -723,9 +729,9 @@ def get_problem_info(problem, cache, session):
         elif key.text == 'Current penalty:':
             current_penalty = int(value.text)
         elif key.text == 'Next soft deadline:':
-            deadlines.soft = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            deadlines.soft = Deadlines.parse(value.text)
         elif key.text == 'Deadline:':
-            deadlines.hard = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            deadlines.hard = Deadlines.parse(value.text)
 
     if not full_score_found:
         try:

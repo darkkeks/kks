@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import click
 
@@ -52,8 +52,8 @@ def status(todo, no_cache, filters):
 
         problems = [ProblemWithDeadline(p, contests[p.contest()]) for p in problems]
         if Config().options.sort_todo_by_deadline:
-            far_future = datetime.now() + timedelta(days=365)
-            even_farther_future = datetime.now() + timedelta(days=366)
+            far_future = datetime.now(tz=timezone.utc) + timedelta(days=365)
+            even_farther_future = datetime.now(tz=timezone.utc) + timedelta(days=366)
 
             def deadline_mapper(problem):
                 if problem.past_deadline():  # assuming there is no separate deadline for rejects
