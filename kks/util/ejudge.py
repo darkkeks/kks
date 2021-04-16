@@ -45,6 +45,7 @@ class RunStatus:
     PE = 4
     WA = 5
     ML = 12
+    WT = 15
 
     CHECK_FAILED = 6
     PARTIAL = 7
@@ -70,6 +71,7 @@ class RunStatus:
         PE: 'Presentation error',
         WA: 'Wrong answer',
         ML: 'Memory limit exceeded',
+        WT: 'Wall time-limit exceeded',
         CHECK_FAILED: 'Check failed',
         PARTIAL: 'Partial solution',
         ACCEPTED: 'Accepted for testing',
