@@ -1,5 +1,5 @@
 from copy import copy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import groupby
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit, quote as urlquote
@@ -19,7 +19,8 @@ CONTEST_ID_BY_GROUP = {
 }
 
 
-PROBLEM_INFO_VERSION = 2
+PROBLEM_INFO_VERSION = 3
+SERVER_TZ = timezone(timedelta(hours=3))  # MSK
 
 
 class Links:
@@ -270,7 +271,7 @@ class Deadlines:
         from kks.util.storage import Config
         if deadline is None:
             return False
-        dt = deadline - datetime.now()
+        dt = deadline - datetime.now(tz=timezone.utc)
         return dt < timedelta(days=Config().options.deadline_warning_days)
 
     @staticmethod
@@ -282,6 +283,11 @@ class Deadlines:
             result += ' (!)'
         return result
 
+    @staticmethod
+    def parse(text):
+        """Parse MSK datetime string (obtained from a problem page) and convert it to UTC"""
+        dt = datetime.strptime(text, '%Y/%m/%d %H:%M:%S')
+        return dt.replace(tzinfo=SERVER_TZ)
 
 
 class ProblemInfo:
@@ -303,7 +309,7 @@ class ProblemInfo:
         return self.deadlines.is_close(self.active_deadline())
 
     def past_deadline(self):
-        return self.deadlines.hard is not None and datetime.now() > self.deadlines.hard
+        return self.deadlines.hard is not None and datetime.now(tz=timezone.utc) > self.deadlines.hard
 
 
 class ContestInfo:
@@ -683,7 +689,7 @@ def get_problem_info(problem, cache, session):
         cache.set('full', full_scores)
         cache.set('run', run_penalties)
 
-        if result.past_deadline():
+        if result.past_deadline() or problem.contest().startswith('kr'):  # kr tasks don't have soft deadlines, so nothing should expire
             expiration = None
         else:
             if deadlines.soft is not None:
@@ -723,18 +729,17 @@ def get_problem_info(problem, cache, session):
         elif key.text == 'Current penalty:':
             current_penalty = int(value.text)
         elif key.text == 'Next soft deadline:':
-            deadlines.soft = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            deadlines.soft = Deadlines.parse(value.text)
         elif key.text == 'Deadline:':
-            deadlines.hard = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
+            deadlines.hard = Deadlines.parse(value.text)
 
-    # TODO check API status for running / testing kr contests
     if not full_score_found:
         try:
             problem_status = session.api().problem_status(problem.extract_id()).get('problem', {})
         except APIError as e:
             click.secho(f'Cannot get problem info ({problem.short_name}): {e}', err=True)
             problem_status = {}
-        full_score = problem_status.get('full_score', 0)  # NOTE may be incorrect for kr (?)
+        full_score = problem_status.get('full_score', 0)  # NOTE is equal to 1 for running / testing kr contests
         run_penalty = problem_status.get('run_penalty', 0)
         # API never tells the deadlines and current penalty
 
