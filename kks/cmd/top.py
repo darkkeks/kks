@@ -274,7 +274,10 @@ def recalc_task_score(row, task_score, problem_info):
         return
     # NOTE may produce incorrect results for "kr" contests (with "max_kr" config option)
     # full score or run penalty for "kr" may be incorrect, scores may be partial
-    is_testing_kr = task_score.contest.startswith('kr') and task_score.status == Status.TESTING
+    is_kr = task_score.contest.startswith('kr')
+    if is_kr and not problem_info.past_deadline():  # no point in a column of '200's
+        return
+    is_testing_kr = is_kr and task_score.status == Status.TESTING
     if is_testing_kr and not Config().options.max_kr:
         return
 

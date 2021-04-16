@@ -42,8 +42,8 @@ def score_rejected(has_partial=False):
     return TaskScore(contest_name(False), '0' if has_partial else None, Status.REJECTED)
 
 
-def score_not_submitted():
-    return TaskScore(contest_name(False), None, Status.NOT_SUBMITTED)
+def score_not_submitted(is_kr=False):
+    return TaskScore(contest_name(is_kr), None, Status.NOT_SUBMITTED)
 
 
 # ---------- PROBLEM INFO GENERATORS ----------
@@ -148,3 +148,10 @@ class TestKr(BaseRecalcTest):
         TestKr.MockConfig.options.max_kr = False
         task_score = score_testing(is_kr=True)
         self.assert_unchanged(task_score, problem_past_deadline())
+
+    @pytest.mark.parametrize('max_kr', [True, False])
+    @pytest.mark.parametrize('task_score_gen', [score_testing, score_not_submitted])
+    def test_running_kr(self, max_kr, task_score_gen):
+        TestKr.MockConfig.options.max_kr = max_kr
+        task_score = task_score_gen(is_kr=True)
+        self.assert_unchanged(task_score, normal_problem())
