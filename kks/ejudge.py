@@ -683,7 +683,7 @@ def get_problem_info(problem, cache, session):
         cache.set('full', full_scores)
         cache.set('run', run_penalties)
 
-        if result.past_deadline():
+        if result.past_deadline() or problem.contest().startswith('kr'):  # kr tasks don't have soft deadlines, so nothing should expire
             expiration = None
         else:
             if deadlines.soft is not None:
@@ -727,14 +727,13 @@ def get_problem_info(problem, cache, session):
         elif key.text == 'Deadline:':
             deadlines.hard = datetime.strptime(value.text, '%Y/%m/%d %H:%M:%S')
 
-    # TODO check API status for running / testing kr contests
     if not full_score_found:
         try:
             problem_status = session.api().problem_status(problem.extract_id()).get('problem', {})
         except APIError as e:
             click.secho(f'Cannot get problem info ({problem.short_name}): {e}', err=True)
             problem_status = {}
-        full_score = problem_status.get('full_score', 0)  # NOTE may be incorrect for kr (?)
+        full_score = problem_status.get('full_score', 0)  # NOTE is equal to 1 for running / testing kr contests
         run_penalty = problem_status.get('run_penalty', 0)
         # API never tells the deadlines and current penalty
 
