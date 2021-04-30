@@ -199,7 +199,8 @@ def select_contests(standings, last, contests, all_, default_count):
 
         return [contest for contest in standings.contests if contest in contests]
 
-    last = last or default_count
+    if last is None:
+        last = default_count
 
     return standings.contests[-last:] if last > 0 else []
 
