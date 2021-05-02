@@ -3,11 +3,12 @@ from pathlib import Path
 import click
 from tqdm import tqdm
 
-from kks.binary import compile_solution, run_solution
-from kks.util.script import find_script
-from kks.util.testing import TestSource, VirtualTestSequence, RunOptions, Test
+from kks.binary import BuildOptions, TestRunOptions, compile_solution, run_solution
 from kks.util.common import get_solution_directory, format_file, find_test_output, test_number_to_name, \
     find_test_pairs, print_diff
+from kks.util.script import find_script
+from kks.util.targets import find_target
+from kks.util.testing import TestSource, VirtualTestSequence, Test
 
 
 @click.command(name='test', short_help='Test solutions')
@@ -52,15 +53,28 @@ def test_(target, verbose, tests, test_range, files, sample,
 
     directory = get_solution_directory()
 
-    options = RunOptions(
+    target = find_target(target)
+    if target is None:
+        return
+
+    if valgrind:
+        asan = False
+    elif asan is None:
+        asan = target.default_asan
+
+    build_options = BuildOptions(
+        asan=asan,
+        verbose=verbose,
+    )
+    run_options = TestRunOptions(
         continue_on_error=continue_on_error,
         ignore_exit_code=ignore_exit_code,
-        asan=asan and not valgrind,
+        asan=asan,
         valgrind=valgrind,
         is_sample=sample,
     )
 
-    binary = compile_solution(directory, target, verbose, options)
+    binary = compile_solution(directory, target, build_options)
     if binary is None:
         return
 
@@ -75,11 +89,11 @@ def test_(target, verbose, tests, test_range, files, sample,
             click.secho('No tests to run!', fg='red')
             return
 
-        run_tests(binary, tests, options)
+        run_tests(binary, tests, run_options)
     else:
         generator = find_script(directory, 'gen', default=generator)
         solution = find_script(directory, 'solve', default=solution)
-        with TestSource(generator, solution, options) as test_source:
+        with TestSource(generator, solution, run_options) as test_source:
             if test_range:
                 l, r = sorted(test_range)
                 test_range = range(l, r + 1)
@@ -91,7 +105,7 @@ def test_(target, verbose, tests, test_range, files, sample,
 
             tests = VirtualTestSequence(test_source, all_tests)
 
-            run_tests(binary, tests, options)
+            run_tests(binary, tests, run_options)
 
 
 def find_tests_to_run(directory, files, tests, test_range, sample):

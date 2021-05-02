@@ -1,7 +1,8 @@
 import click
 from tqdm import tqdm
 
-from kks.util.testing import TestSource, RunOptions
+from kks.binary import TestRunOptions
+from kks.util.testing import TestSource
 from kks.util.common import get_solution_directory, test_number_to_name, find_test_pairs, get_matching_suffix, \
     format_file
 from kks.util.script import find_script
@@ -37,7 +38,7 @@ def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_
 
     directory = get_solution_directory()
 
-    options = RunOptions(
+    options = TestRunOptions(
         ignore_exit_code=ignore_exit_code
     )
 

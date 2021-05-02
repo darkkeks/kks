@@ -4,7 +4,7 @@ import click
 
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_hidden_dir, format_file
-from kks.util.config import target_file, global_comment
+from kks.util.targets import target_file, global_comment
 
 
 @click.command(cls=OptFlagCommand)

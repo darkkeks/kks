@@ -138,7 +138,7 @@ def find_target(name):
 
     package_target = get_target(package_cfg, name)
     if package_target is None:
-        # not found
+        click.secho(f'No target {target_name} found', fg='red', err=True)
         return None
 
     package_target.replace_macros_add_missing(problem, package_default)
