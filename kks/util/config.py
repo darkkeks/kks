@@ -39,11 +39,11 @@ class Target:
 
         def modify_list(lst, default):
             if lst is None:
-                return default
+                lst = default
             if len(lst) == 0:
                 return lst
             if lst[0] == 'DEFAULT':
-                return [modify(e) for e in default + lst[1:]]
+                lst = default + lst[1:]
             return [modify(e) for e in lst]
 
         self.compiler = self.compiler or default_target.compiler
