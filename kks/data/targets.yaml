@@ -1,4 +1,4 @@
-__version__: 4 # You shouldn't modify the version
+__version__: 5 # You shouldn't modify the version
 
 
 default:
@@ -11,7 +11,7 @@ default:
       - '-Wextra'
       - '-ftrapv'  # catch signed overflow on addition, subtraction, multiplication operations
 
-    files: ['*.c', '*.S', '*.s']
+    files: ['*.c', '*.S', '*.s', 'TASKNAME.cpp']
 
     libs: [m]  # math lib
     asm64bit: false

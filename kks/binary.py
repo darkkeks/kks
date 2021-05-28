@@ -53,9 +53,19 @@ def compile_solution(directory, target_name, verbose, options):
         click.secho('No source files found', fg='yellow', err=True)
         return None
 
+    has_c = any(f.name.endswith('.c') for f in source_files)
+    has_cpp = any(f.name.endswith('.cpp') for f in source_files)
+    if has_c and has_cpp:
+        click.secho('Cannot compile C and C++ together', fg='red', err=True)
+        return None
+
     click.secho('Compiling... ', fg='green', err=True, nl=False)
 
-    binary = compile_c(directory, source_files, target, verbose, options)
+    if has_cpp:
+        # NOTE target only affects the file list. Add a seprate default target for cpp?
+        binary = compile_cpp(directory, source_files, options, verbose=verbose)
+    else:
+        binary = compile_c(directory, source_files, target, verbose, options)
 
     if binary is None:
         click.secho('Compilation failed!', fg='red', err=True)
@@ -82,8 +92,8 @@ def compile_c(workdir, files, target, verbose, options):
     )
 
 
-def compile_cpp(workdir, files, options):
-    return compile_gnu(workdir, files, options, GPP_ARGS)
+def compile_cpp(workdir, files, options, verbose=False):
+    return compile_gnu(workdir, files, options, list(GPP_ARGS), verbose=verbose)
 
 
 def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file='', verbose=False):
