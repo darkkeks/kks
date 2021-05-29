@@ -35,6 +35,7 @@ class Target:
     def __init__(self, name, settings):
         self.name = name
         self.need_default = False
+        self.parent = None
 
         for opt_name in self.Options.names():
             value = settings.get(opt_name)
@@ -50,24 +51,36 @@ class Target:
         ]
         return f'Target("{self.name}", {", ".join(options)}")'
 
-    def replace_macros_add_missing(self, problem, default_target):
+    def set_parent(self, parent: Optional['Target']):
+        """Insert a target into the inheritance chain as the parent of this target."""
+        if parent is not None:
+            parent.parent = self.parent
+        self.parent = parent
+
+    def resolve_options(self, problem):
+        """Replace macros and pull missing options from parents."""
+        if self.parent is not None:
+            self.parent.resolve_options(problem)
+
         def modify(x):
             return x.replace('TASKNAME', problem)
 
-        def modify_list(lst, default):
+        def modify_list(lst):
             if len(lst) == 0:
                 return lst
             if lst[0] == 'DEFAULT':
+                assert self.parent is not None
+                default = getattr(self.parent, opt_name)
                 lst = default + lst[1:]
             return [modify(e) for e in lst]
 
         for opt_name in self.Options.names():
             opt = getattr(self, opt_name)
-            default_opt = getattr(default_target, opt_name)
             if opt is None:
-                opt = default_opt
+                assert self.parent is not None
+                opt = getattr(self.parent, opt_name)
             if isinstance(opt, list):
-                opt = modify_list(opt, default_opt)
+                opt = modify_list(opt)
             elif isinstance(opt, str):
                 opt = modify(opt)
             setattr(self, opt_name, opt)
@@ -129,35 +142,45 @@ def find_target(name):
     else:
         local_cfg = None
 
+    # Inheritance chain:
+    # local_default -> [[root_default] -> package_default] -> None
+    # local_non_default -> [[local_default or root_default] -> package_default] -> None
     local_target = get_target(local_cfg, name)
     if local_target is not None:
-        default = package_default
         if local_target.need_default:
-            default = get_target(local_cfg, 'default') or get_target(root_cfg, 'default') or package_default
-            if default.need_default:  # custom default target may have some missing fields
-                default.replace_macros_add_missing(problem, package_default)
-        local_target.replace_macros_add_missing(problem, default)
+            local_target.set_parent(package_default)
+            if name == 'default':
+                custom_default = get_target(root_cfg, 'default')
+            else:
+                custom_default = get_target(local_cfg, 'default') or get_target(root_cfg, 'default')
+            if custom_default is not None:
+                local_target.set_parent(custom_default)
+        local_target.resolve_options(problem)
         return local_target
 
+    # Inheritance chain:
+    # root_default -> [package_default] -> None
+    # root_non_default -> [[root_default] -> package_default] -> None
     root_target = get_target(root_cfg, name)
     if root_target is not None:
-        default = package_default
         if root_target.need_default:
-            # it makes no sense to look for default in CWD if the target is in workspace root
-            default = get_target(root_cfg, 'default') or package_default
-            # TODO optimize? if root_target is "default", then default == root_target and the next condition is always true
-            if default.need_default:
-                default.replace_macros_add_missing(problem, package_default)
-        root_target.replace_macros_add_missing(problem, default)
+            root_target.set_parent(package_default)
+            if name != 'default':
+                root_default = get_target(root_cfg, 'default')
+                if root_default is not None:
+                    root_target.set_parent(root_default)
+        root_target.resolve_options(problem)
         return root_target
 
     if name == 'default':
-        return package_default
+        package_target = package_default
+    else:
+        package_target = get_target(package_cfg, name)
+        if package_target is None:
+            # not found
+            return None
+        if package_target.need_default:
+            package_target.set_parent(package_default)
 
-    package_target = get_target(package_cfg, name)
-    if package_target is None:
-        # not found
-        return None
-
-    package_target.replace_macros_add_missing(problem, package_default)
+    package_target.resolve_options(problem)
     return package_target
