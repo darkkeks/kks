@@ -59,7 +59,8 @@ class Target:
 
     def resolve_options(self, problem):
         """Replace macros and pull missing options from parents."""
-        if self.parent is not None:
+        if self.need_default:
+            assert self.parent is not None
             self.parent.resolve_options(problem)
 
         def modify(x):
@@ -141,6 +142,11 @@ def find_target(name):
             check_version(local_file, local_cfg, package_cfg['__version__'])
     else:
         local_cfg = None
+
+    # Any target except package_default may have missing fields (e.g. an otdated custom target file).
+    # In this case we need to inherit from package_default.
+    # As a side effect, custom default targets are able to use the DEFAULT macro.
+    # The result of using DEFAULT in a default target is undefined.
 
     # Inheritance chain:
     # local_default -> [[root_default] -> package_default] -> None
