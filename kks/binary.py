@@ -8,12 +8,12 @@ import click
 from kks.util.config import find_target
 
 
-GPP_ARGS = [
+GPP_ARGS = [  # used only for test generator / solution
     'g++',
     '-std=gnu++17',
     '-g',
     '-O2',
-#    '-Werror',
+    '-Werror',
     '-Wall',
     '-Wextra',
     '-ftrapv',
@@ -56,17 +56,14 @@ def compile_solution(directory, target_name, verbose, options):
 
     has_c = any(f.name.endswith('.c') for f in source_files)
     has_cpp = any(f.name.endswith('.cpp') for f in source_files)
+    # NOTE asm + cpp compilation was not tested
     if has_c and has_cpp:
         click.secho('Cannot compile C and C++ together', fg='red', err=True)
         return None
 
     click.secho('Compiling... ', fg='green', err=True, nl=False)
 
-    if has_cpp:
-        # NOTE target only affects the file list. Add a seprate default target for cpp?
-        binary = compile_cpp(directory, source_files, options, verbose=verbose)
-    else:
-        binary = compile_c(directory, source_files, target, verbose, options)
+    binary = _compile_solution(directory, source_files, target, verbose, options, has_cpp)
 
     if binary is None:
         click.secho('Compilation failed!', fg='red', err=True)
@@ -78,10 +75,14 @@ def compile_solution(directory, target_name, verbose, options):
     return binary
 
 
-def compile_c(workdir, files, target, verbose, options):
-    compiler_args = [target.compiler] + target.flags
+def _compile_solution(workdir, files, target, verbose, options, cpp):
+    compiler = target.cpp_compiler if cpp else target.compiler
+    std = target.cpp_std if cpp else target.std
+    compiler_args = [compiler, '-std='+std] + target.flags
+
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
         compiler_args.append('-m32')
+
     return compile_gnu(
             workdir,
             files,

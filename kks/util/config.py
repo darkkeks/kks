@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import List, Optional
 
 import click
 
@@ -14,45 +15,62 @@ global_comment = '# This is the default config file, it is used in any subdirect
                  '\n'
 
 class Target:
+    class Options:
+        """A class containing type hints for all parsed options."""
+        compiler: Optional[str]
+        cpp_compiler: Optional[str]
+        std: Optional[str]
+        cpp_std: Optional[str]
+        flags: Optional[List[str]]
+        files: Optional[List[str]]
+        libs: Optional[List[str]]
+        asm64bit: Optional[bool]
+        default_asan: Optional[bool]
+        out: Optional[str]
+
+        @classmethod
+        def names(cls):
+            return cls.__annotations__.keys()
+
     def __init__(self, name, settings):
         self.name = name
-        self.files = settings.get('files')
-        self.compiler = settings.get('compiler')
-        self.flags = settings.get('flags')
-        self.libs = settings.get('libs')
-        self.asm64bit = settings.get('asm64bit')
-        self.default_asan = settings.get('default_asan')
-        self.out = settings.get('out')
+        self.need_default = False
 
-        # option is not set or the list contains "DEFAULT" as first item
-        # if the list is empty, we shouldn't replace it (e.g. if this target excludes all libs)
-        self.need_default = any(arr is None or (arr and arr[0] == 'DEFAULT') for arr in [self.files, self.flags, self.libs])\
-                            or self.compiler is None or self.out is None or self.asm64bit is None or self.default_asan is None
-        # custom default target may still have some fields not set, so we will have to get them from a higher-level config (workspace root or package-provided)
+        for opt_name in self.Options.names():
+            value = settings.get(opt_name)
+            setattr(self, opt_name, value)
+            # option is not set or the list contains "DEFAULT" as first item
+            # if the list is empty, we shouldn't replace it (e.g. if this target excludes all libs)
+            if value is None or (isinstance(value, list) and value and value[0] == 'DEFAULT'):
+                self.need_default = True
 
     def __str__(self):
-        return f'Target("{self.name}", compiler="{self.compiler}", flags={self.flags}, files={self.files}, libs={self.libs}, asm64bit={self.asm64bit}, default_asan={self.default_asan}, out="{self.out}")'
+        options = [
+            f'{opt_name}={getattr(self, opt_name)}' for opt_name in self.Options.names()
+        ]
+        return f'Target("{self.name}", {", ".join(options)}")'
 
     def replace_macros_add_missing(self, problem, default_target):
         def modify(x):
             return x.replace('TASKNAME', problem)
 
         def modify_list(lst, default):
-            if lst is None:
-                lst = default
             if len(lst) == 0:
                 return lst
             if lst[0] == 'DEFAULT':
                 lst = default + lst[1:]
             return [modify(e) for e in lst]
 
-        self.compiler = self.compiler or default_target.compiler
-        self.files = modify_list(self.files, default_target.files)
-        self.flags = modify_list(self.flags, default_target.flags)
-        self.libs = modify_list(self.libs, default_target.libs)
-        self.out = modify(self.out) if self.out is not None else default_target.out  # "or" doesn't work
-        self.asm64bit = self.asm64bit if self.asm64bit is not None else default_target.asm64bit
-        self.default_asan = self.default_asan if self.default_asan is not None else default_target.default_asan
+        for opt_name in self.Options.names():
+            opt = getattr(self, opt_name)
+            default_opt = getattr(default_target, opt_name)
+            if opt is None:
+                opt = default_opt
+            if isinstance(opt, list):
+                opt = modify_list(opt, default_opt)
+            elif isinstance(opt, str):
+                opt = modify(opt)
+            setattr(self, opt_name, opt)
 
 
 def check_version(cfg_file, cfg, new_version, is_global=False):
