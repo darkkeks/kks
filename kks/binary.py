@@ -13,10 +13,11 @@ GPP_ARGS = [
     '-std=gnu++17',
     '-g',
     '-O2',
-    '-Werror',
+#    '-Werror',
     '-Wall',
     '-Wextra',
     '-ftrapv',
+    '-pthread',
 ]
 
 ASAN_ARGS = [
