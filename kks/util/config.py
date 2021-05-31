@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import List, Optional
 
 import click
 
@@ -14,45 +15,76 @@ global_comment = '# This is the default config file, it is used in any subdirect
                  '\n'
 
 class Target:
+    class Options:
+        """A class containing type hints for all parsed options."""
+        compiler: Optional[str]
+        cpp_compiler: Optional[str]
+        std: Optional[str]
+        cpp_std: Optional[str]
+        flags: Optional[List[str]]
+        files: Optional[List[str]]
+        libs: Optional[List[str]]
+        asm64bit: Optional[bool]
+        default_asan: Optional[bool]
+        out: Optional[str]
+
+        @classmethod
+        def names(cls):
+            return cls.__annotations__.keys()
+
     def __init__(self, name, settings):
         self.name = name
-        self.files = settings.get('files')
-        self.compiler = settings.get('compiler')
-        self.flags = settings.get('flags')
-        self.libs = settings.get('libs')
-        self.asm64bit = settings.get('asm64bit')
-        self.default_asan = settings.get('default_asan')
-        self.out = settings.get('out')
+        self.need_default = False
+        self.parent = None
 
-        # option is not set or the list contains "DEFAULT" as first item
-        # if the list is empty, we shouldn't replace it (e.g. if this target excludes all libs)
-        self.need_default = any(arr is None or (arr and arr[0] == 'DEFAULT') for arr in [self.files, self.flags, self.libs])\
-                            or self.compiler is None or self.out is None or self.asm64bit is None or self.default_asan is None
-        # custom default target may still have some fields not set, so we will have to get them from a higher-level config (workspace root or package-provided)
+        for opt_name in self.Options.names():
+            value = settings.get(opt_name)
+            setattr(self, opt_name, value)
+            # option is not set or the list contains "DEFAULT" as first item
+            # if the list is empty, we shouldn't replace it (e.g. if this target excludes all libs)
+            if value is None or (isinstance(value, list) and value and value[0] == 'DEFAULT'):
+                self.need_default = True
 
     def __str__(self):
-        return f'Target("{self.name}", compiler="{self.compiler}", flags={self.flags}, files={self.files}, libs={self.libs}, asm64bit={self.asm64bit}, default_asan={self.default_asan}, out="{self.out}")'
+        options = [
+            f'{opt_name}={getattr(self, opt_name)}' for opt_name in self.Options.names()
+        ]
+        return f'Target("{self.name}", {", ".join(options)}")'
 
-    def replace_macros_add_missing(self, problem, default_target):
+    def set_parent(self, parent: Optional['Target']):
+        """Insert a target into the inheritance chain as the parent of this target."""
+        if parent is not None:
+            parent.parent = self.parent
+        self.parent = parent
+
+    def resolve_options(self, problem):
+        """Replace macros and pull missing options from parents."""
+        if self.need_default:
+            assert self.parent is not None
+            self.parent.resolve_options(problem)
+
         def modify(x):
             return x.replace('TASKNAME', problem)
 
-        def modify_list(lst, default):
-            if lst is None:
-                lst = default
+        def modify_list(lst):
             if len(lst) == 0:
                 return lst
             if lst[0] == 'DEFAULT':
+                assert self.parent is not None
+                default = getattr(self.parent, opt_name)
                 lst = default + lst[1:]
             return [modify(e) for e in lst]
 
-        self.compiler = self.compiler or default_target.compiler
-        self.files = modify_list(self.files, default_target.files)
-        self.flags = modify_list(self.flags, default_target.flags)
-        self.libs = modify_list(self.libs, default_target.libs)
-        self.out = modify(self.out) if self.out is not None else default_target.out  # "or" doesn't work
-        self.asm64bit = self.asm64bit if self.asm64bit is not None else default_target.asm64bit
-        self.default_asan = self.default_asan if self.default_asan is not None else default_target.default_asan
+        for opt_name in self.Options.names():
+            opt = getattr(self, opt_name)
+            if opt is None:
+                assert self.parent is not None
+                opt = getattr(self.parent, opt_name)
+            if isinstance(opt, list):
+                opt = modify_list(opt)
+            elif isinstance(opt, str):
+                opt = modify(opt)
+            setattr(self, opt_name, opt)
 
 
 def check_version(cfg_file, cfg, new_version, is_global=False):
@@ -111,35 +143,50 @@ def find_target(name):
     else:
         local_cfg = None
 
+    # Any target except package_default may have missing fields (e.g. an otdated custom target file).
+    # In this case we need to inherit from package_default.
+    # As a side effect, custom default targets are able to use the DEFAULT macro.
+    # The result of using DEFAULT in a default target is undefined.
+
+    # Inheritance chain:
+    # local_default -> [[root_default] -> package_default] -> None
+    # local_non_default -> [[local_default or root_default] -> package_default] -> None
     local_target = get_target(local_cfg, name)
     if local_target is not None:
-        default = package_default
         if local_target.need_default:
-            default = get_target(local_cfg, 'default') or get_target(root_cfg, 'default') or package_default
-            if default.need_default:  # custom default target may have some missing fields
-                default.replace_macros_add_missing(problem, package_default)
-        local_target.replace_macros_add_missing(problem, default)
+            local_target.set_parent(package_default)
+            if name == 'default':
+                custom_default = get_target(root_cfg, 'default')
+            else:
+                custom_default = get_target(local_cfg, 'default') or get_target(root_cfg, 'default')
+            if custom_default is not None:
+                local_target.set_parent(custom_default)
+        local_target.resolve_options(problem)
         return local_target
 
+    # Inheritance chain:
+    # root_default -> [package_default] -> None
+    # root_non_default -> [[root_default] -> package_default] -> None
     root_target = get_target(root_cfg, name)
     if root_target is not None:
-        default = package_default
         if root_target.need_default:
-            # it makes no sense to look for default in CWD if the target is in workspace root
-            default = get_target(root_cfg, 'default') or package_default
-            # TODO optimize? if root_target is "default", then default == root_target and the next condition is always true
-            if default.need_default:
-                default.replace_macros_add_missing(problem, package_default)
-        root_target.replace_macros_add_missing(problem, default)
+            root_target.set_parent(package_default)
+            if name != 'default':
+                root_default = get_target(root_cfg, 'default')
+                if root_default is not None:
+                    root_target.set_parent(root_default)
+        root_target.resolve_options(problem)
         return root_target
 
     if name == 'default':
-        return package_default
+        package_target = package_default
+    else:
+        package_target = get_target(package_cfg, name)
+        if package_target is None:
+            # not found
+            return None
+        if package_target.need_default:
+            package_target.set_parent(package_default)
 
-    package_target = get_target(package_cfg, name)
-    if package_target is None:
-        # not found
-        return None
-
-    package_target.replace_macros_add_missing(problem, package_default)
+    package_target.resolve_options(problem)
     return package_target
