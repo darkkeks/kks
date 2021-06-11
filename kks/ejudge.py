@@ -87,9 +87,7 @@ class Problem(SummaryProblem):
         return self.status in [Status.OK, Status.OK_AUTO]
 
     def get_full(self, session):
-        # TODO use API? (see #68)
-        page = session.get(self.href)
-        return FullProblem(self, page)
+        return FullProblem.load(self, session)
 
 
 class ProblemWithDeadline:
@@ -332,17 +330,40 @@ class ContestInfo:
 class FullProblem(SummaryProblem):
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
 
-    def __init__(self, problem, page):
-        super().__init__(**problem.__dict__)
+    @classmethod
+    def load(cls, problem, session):
         from bs4 import BeautifulSoup
 
+        page = session.get(problem.href)
         soup = BeautifulSoup(page.content, 'html.parser')
         task_area = soup.find('div', {'id': 'probNavTaskArea'})
 
-        self.input_data, self.output_data = self.parse_sample(task_area)
-        self._html = self.parse_statement(task_area)
-        self._suffix = self.guess_suffix(task_area)
-        self.url = page.url
+        if task_area is not None:
+            statement_html = cls.parse_statement(task_area)
+            suffix = cls.guess_suffix(task_area)
+        else:
+            # closed contest, use API as fallback method
+            api = session.api()
+            prob_id = problem.extract_id()
+            statement_html = BeautifulSoup(api.problem_statement(prob_id), 'html.parser')
+            if 'Statement is not available' in statement_html.text:
+                statement_html = None
+            compilers = api.problem_status(prob_id).get('problem', {}).get('compilers', [])
+            suffix = cls._lang_suf(compilers[0]) if compilers else None
+
+        input_data, output_data = None, None
+        if statement_html is not None:
+            input_data, output_data = cls.parse_sample(statement_html)
+
+        return cls(problem, page.url, input_data, output_data, statement_html, suffix)
+
+    def __init__(self, problem, url, input_data, output_data, statement_html, suffix):
+        super().__init__(**problem.__dict__)
+        self.url = url
+        self.input_data = input_data
+        self.output_data = output_data
+        self._html = statement_html
+        self._suffix = suffix
 
     def suffix(self):
         if self._suffix is not None:
@@ -417,21 +438,21 @@ class FullProblem(SummaryProblem):
         return html
 
     @staticmethod
+    def _lang_suf(lang_id):
+        # NOTE compiler ids may change
+        lang_id = int(lang_id)
+        if lang_id in [2, 28, 51, 57, 61]:
+            return '.c'
+        if lang_id in [3, 29, 52, 58, 62]:
+            return '.cpp'
+        if lang_id in [25, 54]:
+            return '.tar'
+        if lang_id in [66, 67, 101, 102]:
+            return '.S'
+        return None
+
+    @staticmethod
     def guess_suffix(html):
-
-        def get_suf(lang_id):
-            # NOTE compiler ids may change
-            lang_id = int(lang_id)
-            if lang_id in [2, 28, 51, 57, 61]:
-                return '.c'
-            if lang_id in [3, 29, 52, 58, 62]:
-                return '.cpp'
-            if lang_id in [25, 54]:
-                return '.tar'
-            if lang_id in [66, 67, 101, 102]:
-                return '.S'
-            return None
-
         form = html.find('form')
         if form is None:
             return None
@@ -439,11 +460,11 @@ class FullProblem(SummaryProblem):
         if lang_list is None:
             lang_input = form.find('input', {'name': 'lang_id'})
             if lang_input is not None:
-                return get_suf(lang_input['value'])
+                return FullProblem._lang_suf(lang_input['value'])
             return None
         else:
             langs = [opt['value'] for opt in lang_list.find_all('option') if opt.get('value')]
-            return get_suf(langs[0])
+            return FullProblem._lang_suf(langs[0])
 
     def statement_available(self):
         return self._html is not None
