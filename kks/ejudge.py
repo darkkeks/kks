@@ -705,8 +705,11 @@ def get_problem_info(problem, cache, session):
 
     page = session.get(problem.href)
     soup = BeautifulSoup(page.content, 'html.parser')
-    task_area = soup.find('div', {'id': 'probNavTaskArea'})
-    problem_info = task_area.find('table', {'class': 'line-table-wb'})
+    task_area = soup.find('div', {'id': 'probNavTaskArea'})  # will be None for a closed contest
+    problem_info = None
+    if task_area is not None:
+        # if problem_info is None, we assume the problem is past the deadline
+        problem_info = task_area.find('table', {'class': 'line-table-wb'})
 
     full_score = 0
     run_penalty = 0  # may be incorrect for kr
@@ -715,23 +718,21 @@ def get_problem_info(problem, cache, session):
     full_score_found = False
 
     if problem_info is None:
-        # if this ever happens, we assume the problem is past the deadline
-        deadlines.hard = datetime.fromtimestamp(0)
-        return update_cache(full_score, run_penalty, current_penalty, deadlines)
-
-    for row in problem_info.find_all('tr'):
-        key, value = row.find_all('td')
-        if key.text == 'Full score:':
-            full_score = int(value.text)
-            full_score_found = True
-        elif key.text == 'Run penalty:':
-            run_penalty = int(value.text)
-        elif key.text == 'Current penalty:':
-            current_penalty = int(value.text)
-        elif key.text == 'Next soft deadline:':
-            deadlines.soft = Deadlines.parse(value.text)
-        elif key.text == 'Deadline:':
-            deadlines.hard = Deadlines.parse(value.text)
+        deadlines.hard = datetime.fromtimestamp(0, tz=timezone.utc)
+    else:
+        for row in problem_info.find_all('tr'):
+            key, value = row.find_all('td')
+            if key.text == 'Full score:':
+                full_score = int(value.text)
+                full_score_found = True
+            elif key.text == 'Run penalty:':
+                run_penalty = int(value.text)
+            elif key.text == 'Current penalty:':
+                current_penalty = int(value.text)
+            elif key.text == 'Next soft deadline:':
+                deadlines.soft = Deadlines.parse(value.text)
+            elif key.text == 'Deadline:':
+                deadlines.hard = Deadlines.parse(value.text)
 
     if not full_score_found:
         try:
