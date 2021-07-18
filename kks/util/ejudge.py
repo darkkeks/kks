@@ -8,7 +8,7 @@ import click
 from kks import __version__
 from kks.ejudge import AuthData, get_contest_url
 from kks.util.common import config_directory
-from kks.errors import EjudgeError, AuthError, APIError
+from kks.errors import EjudgeError, AuthError, APIError, EJUDGE_NOT_AVAILABLE
 from kks.util.storage import Config, PickleStorage
 
 
@@ -32,7 +32,7 @@ def save_auth_data(auth_data, store_password=True):
 
 def check_resp(resp):
     if resp.status_code >= 500:
-        raise EjudgeError('Ejudge is not available')
+        raise EjudgeError(EJUDGE_NOT_AVAILABLE)
 
 
 class RunStatus:

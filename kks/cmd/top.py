@@ -6,6 +6,7 @@ from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
     PROBLEM_INFO_VERSION
+from kks.errors import EjudgeError, EJUDGE_NOT_AVAILABLE
 from kks.util.fancytable import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
@@ -57,25 +58,36 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
     elif config.options.global_opt_out is None:
         init_opt_out(config)
 
+    fallback_mode = False
+    user = None
     session = EjudgeSession()
-    standings = ejudge_standings(session)
+    try:
+        standings = ejudge_standings(session)
+        user = standings.user
+    except EjudgeError as e:
+        if e.message == EJUDGE_NOT_AVAILABLE:
+            fallback_mode = True
+        else:
+            raise
 
-    if not config.options.global_opt_out:
+    if not config.options.global_opt_out and not fallback_mode:
         if not send_standings(standings):
             click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
-    if global_:
-        standings = get_global_standings(standings.user)
+    if global_ or fallback_mode:
+        standings = get_global_standings(user)
         if standings is None:
             click.secho('Standings are not available now :(', fg='yellow', err=True)
             return
 
+        if not global_:  # fallback for group standings
+            groups = [get_group_id(config.auth.contest)]
         if groups:
             standings = filter_groups(standings, groups)
             if standings is None:
                 return
 
-    if max_:
+    if max_ and not fallback_mode:
         standings = estimate_max(standings, session, no_cache)
 
     display_standings(standings, last, contests, all_, global_, recalculate)

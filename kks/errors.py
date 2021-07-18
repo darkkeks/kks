@@ -1,6 +1,10 @@
 import click
 from click.exceptions import ClickException
 
+
+EJUDGE_NOT_AVAILABLE = ('Ejudge is not available')
+
+
 class EjudgeError(ClickException):
     def __init__(self, message='unknown error'):
         super().__init__(message)
