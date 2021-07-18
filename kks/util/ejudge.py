@@ -8,7 +8,7 @@ import click
 from kks import __version__
 from kks.ejudge import AuthData, get_contest_url
 from kks.util.common import config_directory
-from kks.errors import AuthError, APIError
+from kks.errors import EjudgeError, AuthError, APIError
 from kks.util.storage import Config, PickleStorage
 
 
@@ -350,7 +350,9 @@ class EjudgeSession:
 
     def _request(self, method, url, *args, **kwargs):
         response = method(self.modify_url(url), *args, **kwargs)
-        if 'Invalid session' in response.text:
+        if response.status_code >= 500:
+            raise EjudgeError('Ejudge is not available')
+        if 'Invalid session' in response.text:  # is response code 200 or 403?
             self.auth()
             response = method(self.modify_url(url), *args, **kwargs)
         return response
