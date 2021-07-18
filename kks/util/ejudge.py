@@ -30,6 +30,11 @@ def save_auth_data(auth_data, store_password=True):
     config.save()
 
 
+def check_resp(resp):
+    if resp.status_code >= 500:
+        raise EjudgeError('Ejudge is not available')
+
+
 class RunStatus:
     """A (very) limited wrapper class for responses from "run-status-json" method"""
 
@@ -153,6 +158,7 @@ class API:
     def _request(self, url, need_json, **kwargs):
         resp = self._http.post(url, **kwargs)  # all methods accept POST requests
         resp.encoding = 'utf-8'  # ejudge doesn't set encoding header
+        check_resp(resp)
         try:
             # all methods return errors in json
             data = json.loads(resp.content)
@@ -350,8 +356,7 @@ class EjudgeSession:
 
     def _request(self, method, url, *args, **kwargs):
         response = method(self.modify_url(url), *args, **kwargs)
-        if response.status_code >= 500:
-            raise EjudgeError('Ejudge is not available')
+        check_resp(response)
         if 'Invalid session' in response.text:  # is response code 200 or 403?
             self.auth()
             response = method(self.modify_url(url), *args, **kwargs)
