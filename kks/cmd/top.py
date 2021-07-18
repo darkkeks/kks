@@ -87,8 +87,11 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
             if standings is None:
                 return
 
-    if max_ and not fallback_mode:
-        standings = estimate_max(standings, session, no_cache)
+    if max_:
+        if not fallback_mode:
+            standings = estimate_max(standings, session, no_cache)
+        else:
+            click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
 
     display_standings(standings, last, contests, all_, global_, recalculate)
 
