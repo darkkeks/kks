@@ -255,6 +255,10 @@ class Standings:
         for row in self.rows:
             row.is_self = row.user == user and row.contest_id == contest_id
 
+    def reset_is_self(self):
+        for row in self.rows:
+            row.is_self = False
+
 
 class Deadlines:
     FORMAT = '%Y/%m/%d %H:%M:%S MSK'

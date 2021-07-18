@@ -27,7 +27,7 @@ def send_standings(standings):
         return False
 
 
-def get_global_standings(user):
+def get_global_standings(user=None):
     import requests
     from requests import RequestException
 
@@ -49,7 +49,10 @@ def get_global_standings(user):
 
     json_response = response.json()
     standings = standings_from_dict(json_response['standings'])
-    standings.fix_is_self(user, auth_data.contest_id)
+    if user:
+        standings.fix_is_self(user, auth_data.contest_id)
+    else:
+        standings.reset_is_self()
     return standings
 
 

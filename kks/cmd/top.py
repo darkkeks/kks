@@ -57,6 +57,21 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
     elif config.options.global_opt_out is None:
         init_opt_out(config)
 
+    # <rip ejudge :(>
+    standings = get_global_standings()
+    if standings is None:
+        click.secho('Standings are not available now :(', fg='yellow', err=True)
+        return
+
+    if groups:
+        standings = filter_groups(standings, groups)
+        if standings is None:
+            return
+
+    display_standings(standings, last, contests, all_, True, recalculate)
+    return
+    # </rip ejudge :(>
+
     session = EjudgeSession()
     standings = ejudge_standings(session)
 
