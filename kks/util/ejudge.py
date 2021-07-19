@@ -31,7 +31,8 @@ def save_auth_data(auth_data, store_password=True):
 
 
 def check_resp(resp):
-    if resp.status_code >= 500:
+    # will not raise on auth errors (ejudge does not change the status code)
+    if not resp.ok:
         raise EjudgeError(EJUDGE_NOT_AVAILABLE)
 
 
@@ -357,7 +358,7 @@ class EjudgeSession:
     def _request(self, method, url, *args, **kwargs):
         response = method(self.modify_url(url), *args, **kwargs)
         check_resp(response)
-        if 'Invalid session' in response.text:  # is response code 200 or 403?
+        if 'Invalid session' in response.text:
             self.auth()
             response = method(self.modify_url(url), *args, **kwargs)
         return response
