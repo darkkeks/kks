@@ -8,7 +8,7 @@ import click
 from kks import __version__
 from kks.ejudge import AuthData, get_contest_url
 from kks.util.common import config_directory
-from kks.errors import EjudgeError, AuthError, APIError, EJUDGE_NOT_AVAILABLE
+from kks.errors import EjudgeUnavailableError, AuthError, APIError
 from kks.util.storage import Config, PickleStorage
 
 
@@ -30,10 +30,10 @@ def save_auth_data(auth_data, store_password=True):
     config.save()
 
 
-def check_resp(resp):
+def check_response(resp):
     # will not raise on auth errors (ejudge does not change the status code)
     if not resp.ok:
-        raise EjudgeError(EJUDGE_NOT_AVAILABLE)
+        raise EjudgeUnavailableError
 
 
 class RunStatus:
@@ -159,7 +159,7 @@ class API:
     def _request(self, url, need_json, **kwargs):
         resp = self._http.post(url, **kwargs)  # all methods accept POST requests
         resp.encoding = 'utf-8'  # ejudge doesn't set encoding header
-        check_resp(resp)
+        check_response(resp)
         try:
             # all methods return errors in json
             data = json.loads(resp.content)
@@ -357,7 +357,7 @@ class EjudgeSession:
 
     def _request(self, method, url, *args, **kwargs):
         response = method(self.modify_url(url), *args, **kwargs)
-        check_resp(response)
+        check_response(response)
         if 'Invalid session' in response.text:
             self.auth()
             response = method(self.modify_url(url), *args, **kwargs)

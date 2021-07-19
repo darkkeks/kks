@@ -6,7 +6,7 @@ from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
     PROBLEM_INFO_VERSION
-from kks.errors import EjudgeError, EJUDGE_NOT_AVAILABLE
+from kks.errors import EjudgeUnavailableError
 from kks.util.fancytable import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
@@ -64,11 +64,8 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
     try:
         standings = ejudge_standings(session)
         user = standings.user
-    except EjudgeError as e:
-        if e.message == EJUDGE_NOT_AVAILABLE:
-            fallback_mode = True
-        else:
-            raise
+    except EjudgeUnavailableError:
+        fallback_mode = True
 
     if not config.options.global_opt_out and not fallback_mode:
         if not send_standings(standings):
