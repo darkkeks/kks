@@ -66,6 +66,9 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         user = standings.user
     except EjudgeUnavailableError:
         fallback_mode = True
+        if max_:
+            click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
+            return
 
     if not config.options.global_opt_out and not fallback_mode:
         if not send_standings(standings):
@@ -85,10 +88,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
                 return
 
     if max_:
-        if not fallback_mode:
-            standings = estimate_max(standings, session, no_cache)
-        else:
-            click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
+        standings = estimate_max(standings, session, no_cache)
 
     display_standings(standings, last, contests, all_, global_, recalculate)
 
