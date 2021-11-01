@@ -14,9 +14,10 @@ from kks.util.h2t import HTML2Text
 
 
 CONTEST_ID_BY_GROUP = {
-    int('19' + str(i)): 130 + i
-    for i in range(1, 12)
+    f'20{group}': int(f'20{group}')
+    for group in range(1, 11)
 }
+CONTEST_ID_BY_GROUP['free'] = 2021
 
 
 PROBLEM_INFO_VERSION = 3
@@ -24,13 +25,16 @@ SERVER_TZ = timezone(timedelta(hours=3))  # MSK
 
 
 class Links:
-    WEB_CLIENT_ROOT = 'https://caos.ejudge.ru/ej/client'
-    SETTINGS = f'{WEB_CLIENT_ROOT}/view-settings/S__SID__'
-    SUMMARY = f'{WEB_CLIENT_ROOT}/view-problem-summary/S__SID__'
-    SUBMISSIONS = f'{WEB_CLIENT_ROOT}/view-submissions/S__SID__'
-    USER_STANDINGS = f'{WEB_CLIENT_ROOT}/standings/S__SID__'
-    SUBMIT_CLAR = f'{WEB_CLIENT_ROOT}/view-clar-submit/S__SID__'
-    CLARS = f'{WEB_CLIENT_ROOT}/view-clars/S__SID__'
+    HOST = 'caos.myltsev.ru'
+    CGI_BIN = f'https://{HOST}/cgi-bin'
+    WEB_CLIENT_ROOT = f'{CGI_BIN}/new-client'
+    _template = f'{WEB_CLIENT_ROOT}?SID=__SID__&action='
+    SETTINGS = f'{_template}143'
+    SUMMARY = f'{_template}137'
+    SUBMISSIONS = f'{_template}140'
+    USER_STANDINGS = f'{_template}94'
+    SUBMIT_CLAR = f'{_template}141'
+    CLARS = f'{_template}142'
 
 
 class Status:
@@ -494,7 +498,7 @@ def get_group_id(contest_id):
 
 
 def get_contest_url(auth_data):
-    return f'https://caos.ejudge.ru/ej/client?contest_id={auth_data.contest_id}'
+    return f'{Links.WEB_CLIENT_ROOT}?contest_id={auth_data.contest_id}'
 
 
 def get_contest_url_with_creds(auth_data):

@@ -30,7 +30,7 @@ MAX_KR_SCORE = 200
               help='Clear cache and reload task info (used with --max)')
 @click.option('-g', '--global', 'global_', is_flag=True,
               help='Use global standings instead of group one. May be outdated')
-@click.option('-f', '--group', 'groups', type=int, multiple=True,
+@click.option('-f', '--group', 'groups', multiple=True,
               help='Print standings of selected groups')
 @click.option('-r', '--recalculate', 'recalculate', is_flag=True,
               help='Calculate scores and sort based on filtered results')
@@ -117,12 +117,12 @@ def display_standings(standings, last, contests, all_, global_, recalculate):
 
     table.add_column(StaticColumn('Place', 6, lambda row: row.place))
     table.add_column(StaticColumn.padding(1))
-    table.add_column(StaticColumn('User', 24, lambda row: row.user, right_just=False))
+    table.add_column(StaticColumn('User', 34, lambda row: row.user, right_just=False))
     table.add_column(StaticColumn('Solved', 6, lambda row: row.solved))
     table.add_column(StaticColumn('Score', 6, lambda row: row.score))
 
     if global_:
-        table.add_column(StaticColumn('Group', 6, lambda row: get_group_id(row.contest_id)))
+        table.add_column(StaticColumn('Group', 5, lambda row: get_group_id(row.contest_id)))
 
     terminal_width = get_terminal_width()
 
