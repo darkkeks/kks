@@ -6,7 +6,7 @@ from base64 import b64decode
 import click
 
 from kks import __version__
-from kks.ejudge import AuthData, get_contest_url
+from kks.ejudge import AuthData, Links, get_contest_url
 from kks.util.common import config_directory
 from kks.errors import EjudgeUnavailableError, AuthError, APIError
 from kks.util.storage import Config, PickleStorage
@@ -150,7 +150,7 @@ class API:
     def __init__(self, sids=None):
         import requests
 
-        self._prefix = 'https://caos.ejudge.ru/cgi-bin/'
+        self._prefix = Links.CGI_BIN
         self._http = requests.Session()
         self._http.headers = {'User-Agent': f'kokos/{__version__}'}
 
@@ -270,7 +270,7 @@ class API:
 
 
 class EjudgeSession:
-    sid_regex = re.compile('/S([0-9a-f]{16}|__SID__)')
+    sid_regex = re.compile(r'SID=([0-9a-f]{16}|__SID__)')
 
     def __init__(self, auth=True):
         import requests
@@ -280,7 +280,7 @@ class EjudgeSession:
         self.sids = self._load_sids() or Sids(None, None)
 
         if self.sids.sid and self.sids.ejsid:
-            self.http.cookies.set('EJSID', self.sids.ejsid, domain='caos.ejudge.ru')
+            self.http.cookies.set('EJSID', self.sids.ejsid, domain=Links.HOST)
         elif auth:
             self.auth()
 
@@ -353,7 +353,7 @@ class EjudgeSession:
             return storage.get('sids')
 
     def modify_url(self, url):
-        return re.sub(EjudgeSession.sid_regex, f'/S{self.sids.sid}', url, count=1)
+        return re.sub(EjudgeSession.sid_regex, f'SID={self.sids.sid}', url, count=1)
 
     def _request(self, method, url, *args, **kwargs):
         response = method(self.modify_url(url), *args, **kwargs)
