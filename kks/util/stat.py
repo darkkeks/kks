@@ -31,7 +31,9 @@ def get_global_standings(user):
     import requests
     from requests import RequestException
 
-    parameters = {}
+    parameters = {
+        'year': 2020,
+    }
 
     auth_data = load_auth_data()
     if auth_data:
