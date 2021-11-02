@@ -6,7 +6,7 @@ from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
     PROBLEM_INFO_VERSION
-from kks.errors import EjudgeUnavailableError
+from kks.errors import AuthError, EjudgeUnavailableError
 from kks.util.fancytable import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
@@ -62,11 +62,11 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
 
     fallback_mode = False
     user = None
-    session = EjudgeSession()
     try:
+        session = EjudgeSession()
         standings = ejudge_standings(session)
         user = standings.user
-    except EjudgeUnavailableError:
+    except (EjudgeUnavailableError, AuthError):
         fallback_mode = True
         if max_:
             click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
