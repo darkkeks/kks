@@ -36,7 +36,7 @@ def get_global_standings(user, year):
     }
 
     auth_data = load_auth_data()
-    if auth_data:
+    if auth_data is not None:
         parameters.update(auth_data_to_dict(auth_data))
 
     try:
@@ -51,7 +51,8 @@ def get_global_standings(user, year):
 
     json_response = response.json()
     standings = standings_from_dict(json_response['standings'])
-    standings.fix_is_self(user, auth_data.contest_id)
+    if auth_data is not None:
+        standings.fix_is_self(user, auth_data.contest_id)
     return standings
 
 
