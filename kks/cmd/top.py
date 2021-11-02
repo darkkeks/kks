@@ -8,7 +8,7 @@ from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, u
     PROBLEM_INFO_VERSION
 from kks.errors import AuthError, EjudgeUnavailableError
 from kks.util.fancytable import Column, StaticColumn, FancyTable
-from kks.util.ejudge import EjudgeSession
+from kks.util.ejudge import EjudgeSession, load_auth_data
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
 
@@ -66,8 +66,12 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         session = EjudgeSession()
         standings = ejudge_standings(session)
         user = standings.user
-    except (EjudgeUnavailableError, AuthError):
+    except (EjudgeUnavailableError, AuthError) as err:
         fallback_mode = True
+        if isinstance(err, AuthError) and load_auth_data() is not None:
+            err.show()
+            suggest_auth_reset(config)
+        click.secho(f'Cannot get standings from ejudge, using kks API as fallback...', fg='yellow', err=True)
         if max_:
             click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
             return
@@ -97,6 +101,18 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         standings = estimate_max(standings, session, no_cache)
 
     display_standings(standings, last, contests, all_, global_, recalculate)
+
+
+def suggest_auth_reset(config):
+    if config.options.keep_bad_credentials:
+        return
+    if click.confirm(click.style('Login failed. Reset saved credentials?', bold=True, fg='red'), default=False):
+        del config.auth
+        config.save()
+    else:
+        config.options.keep_bad_credentials = True
+        config.save()
+        click.secho('You can use "kks auth" or manually edit ~/.kks/config.ini to update credentials', err=True)
 
 
 def init_opt_out(config):

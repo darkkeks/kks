@@ -92,6 +92,7 @@ class OptionsSection(EnvSection):
     deadline_warning_days: int = 1
     sort_todo_by_deadline: bool = True
     global_opt_out: bool
+    keep_bad_credentials: bool
 
 
 class ConfigModel:
