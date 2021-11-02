@@ -27,12 +27,12 @@ def send_standings(standings):
         return False
 
 
-def get_global_standings(user):
+def get_global_standings(user, year):
     import requests
     from requests import RequestException
 
     parameters = {
-        'year': 2020,
+        'year': year,
     }
 
     auth_data = load_auth_data()

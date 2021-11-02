@@ -36,7 +36,9 @@ MAX_KR_SCORE = 200
               help='Calculate scores and sort based on filtered results')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
-def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out):
+@click.option('-y', '--year', type=int, default=2021,
+              help='Show standings for the selected year')
+def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out, year):
     """
     Parse and display user standings
 
@@ -75,7 +77,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
             click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
     if global_ or fallback_mode:
-        standings = get_global_standings(user)
+        standings = get_global_standings(user, year)
         if standings is None:
             click.secho('Standings are not available now :(', fg='yellow', err=True)
             return
