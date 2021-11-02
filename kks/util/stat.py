@@ -12,7 +12,7 @@ def send_standings(standings):
     from requests import RequestException
 
     auth_data = load_auth_data()
-    if not auth_data:
+    if auth_data is None:
         return False
 
     data = {}
