@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from itertools import groupby
 from typing import Optional
-from urllib.parse import parse_qs, urlsplit, quote as urlquote
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 # import requests  # we use lazy imports to improve load time for local commands
 # from bs4 import BeautifulSoup
@@ -39,6 +39,7 @@ class Links:
     HOST = 'caos.myltsev.ru'
     CGI_BIN = f'https://{HOST}/cgi-bin'
     WEB_CLIENT_ROOT = f'{CGI_BIN}/new-client'
+    JUDGE_ROOT = f'{CGI_BIN}/new-judge'
 
 
 class Page(Enum):
@@ -578,17 +579,31 @@ def get_group_id(contest_id: int) -> str:
     return GROUP_ID_BY_CONTEST.get(contest_id, None)
 
 
-def get_contest_url(auth_data):
+def contest_root_url(is_judge):
+    if is_judge:
+        return Links.JUDGE_ROOT
+    return Links.WEB_CLIENT_ROOT
+
+
+def _contest_url_params(auth_data):
+    params = {'contest_id': auth_data.contest_id}
     if auth_data.judge:
-        return f'{Links.CGI_BIN}/new-judge?contest_id={auth_data.contest_id}&role=5'
-    return f'{Links.WEB_CLIENT_ROOT}?contest_id={auth_data.contest_id}'
+        params.update({'role': 5})
+    return params
+
+
+def get_contest_url(auth_data):
+    root = contest_root_url(auth_data.judge)
+    params = _contest_url_params(auth_data)
+    return f'{root}?{urlencode(params)}'
 
 
 def get_contest_url_with_creds(auth_data):
-    url = get_contest_url(auth_data)
+    root = contest_root_url(auth_data.judge)
+    params = _contest_url_params(auth_data)
     if auth_data.login is not None and auth_data.password is not None:
-        url += f'&login={urlquote(auth_data.login)}&password={urlquote(auth_data.password)}'
-    return url
+        params.update({'login': auth_data.login, 'password': auth_data.password})
+    return f'{root}?{urlencode(params)}'
 
 
 # NOTE all "ejudge_xxx" methods may raise kks.errors.AuthError

@@ -8,9 +8,9 @@ from urllib.parse import parse_qs, urlsplit
 import click
 
 from kks import __version__
-from kks.ejudge import AuthData, Links, Page, get_contest_url
+from kks.ejudge import AuthData, Links, Page, get_contest_url, contest_root_url
 from kks.util.common import config_directory
-from kks.errors import EjudgeUnavailableError, AuthError, APIError
+from kks.errors import EjudgeError, EjudgeUnavailableError, AuthError, APIError
 from kks.util.storage import Config, PickleStorage
 
 
@@ -274,7 +274,7 @@ class EjudgeSession:
         self.http = requests.session()
 
         self._storage = PickleStorage('storage')
-        self.sids = self._load_sids() or Sids(None, None)
+        self._load_auth_data()
 
         if self.sids.sid and self.sids.ejsid:
             self.http.cookies.set('EJSID', self.sids.ejsid, domain=Links.HOST)
@@ -310,7 +310,8 @@ class EjudgeSession:
             raise AuthError('Permission denied (invalid username, password or contest id)')
 
         self._update_sids(page.url)
-        self._store_sids()
+        self.judge = auth_data.judge
+        self._store_auth_data()
 
     def api(self):
         """
@@ -341,13 +342,22 @@ class EjudgeSession:
         self.sids.sid = parse_qs(urlsplit(url).query)['SID'][0]
         self.sids.ejsid = self.http.cookies['EJSID']
 
-    def _store_sids(self):
+    def _store_auth_data(self):
         with self._storage.load() as storage:
             storage.set('sids', self.sids)
+            storage.set('judge', self.judge)
 
-    def _load_sids(self):
+    def _load_auth_data(self):
         with self._storage.load() as storage:
-            return storage.get('sids')
+            self.sids = storage.get('sids') or Sids(None, None)
+            self.judge = storage.get('judge', False)
+
+    def _check_page_access(self, page_id: Page):
+        if self.judge:
+            if page_id not in [Page.MAIN_PAGE, Page.USER_STANDINGS]:  # standings format for judges is different, "kks top" will just crash
+                raise EjudgeError('Page is not available for judges')
+        else:
+            pass
 
     def _request(self, method, url, *args, **kwargs):
         # NOTE params should only be passed as a keyword argument
@@ -375,7 +385,9 @@ class EjudgeSession:
         return self._request(self.http.post, url, *args, **kwargs)
 
     def get_page(self, page_id: Page, *args, **kwargs):
-        return self.get(Links.WEB_CLIENT_ROOT, *args, page_id=page_id, **kwargs)
+        self._check_page_access(page_id)
+        return self.get(contest_root_url(self.judge), *args, page_id=page_id, **kwargs)
 
     def post_page(self, page_id: Page, *args, **kwargs):
-        return self.post(Links.WEB_CLIENT_ROOT, *args, page_id=page_id, **kwargs)
+        self._check_page_access(page_id)
+        return self.post(contest_root_url(self.judge), *args, page_id=page_id, **kwargs)
