@@ -16,7 +16,8 @@ from kks.util.ejudge import EjudgeSession, save_auth_data
               help='''Toggle storing plaintext password in config for auto-login.
               If disabled, only session cookies will be stored.
               Enabled by default.''')
-def auth(login, password, group_id, contest_id, store_password):
+@click.option('--judge', is_flag=True, help='Login as a judge')
+def auth(login, password, group_id, contest_id, store_password, judge):
     """Authorize and save authentication data to configuration directory
 
     \b
@@ -39,7 +40,7 @@ def auth(login, password, group_id, contest_id, store_password):
             return
 
     session = EjudgeSession(auth=False)
-    auth_data = AuthData(login, contest_id, password)
+    auth_data = AuthData(login, contest_id, judge, password)
 
     session.auth(auth_data)
     save_auth_data(auth_data, store_password)

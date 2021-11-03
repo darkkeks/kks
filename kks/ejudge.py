@@ -69,6 +69,7 @@ class Status:
 class AuthData:
     login: str
     contest_id: int
+    judge: bool
     password: Optional[str] = None
 
 
@@ -578,6 +579,8 @@ def get_group_id(contest_id: int) -> str:
 
 
 def get_contest_url(auth_data):
+    if auth_data.judge:
+        return f'{Links.CGI_BIN}/new-judge?contest_id={auth_data.contest_id}&role=5'
     return f'{Links.WEB_CLIENT_ROOT}?contest_id={auth_data.contest_id}'
 
 

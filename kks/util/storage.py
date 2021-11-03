@@ -89,6 +89,7 @@ class AuthSection(Section):
     login: str
     password: str
     contest_id: int
+    judge: bool
 
     def __init__(self, *args):
         super().__init__(*args)
