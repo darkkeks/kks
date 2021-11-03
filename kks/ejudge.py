@@ -1,4 +1,6 @@
+import re
 from copy import copy
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from itertools import groupby
@@ -41,6 +43,8 @@ class Links:
 
 class Page(Enum):
     MAIN_PAGE = 2
+    VIEW_SOURCE = 36
+    DOWNLOAD_SOURCE = 91
     USER_STANDINGS = 94
     SUMMARY = 137
     SUBMISSIONS = 140
@@ -135,16 +139,85 @@ class CacheKeys:
         return f'dl_{contest}'
 
 
+def _skip_field(parser=None):
+    meta = {'skip': True}
+    if parser is not None:
+        meta['parser'] = parser
+    return field(init=False, repr=False, compare=False, metadata=meta)
+
+
+class _CellParsers:
+    @staticmethod
+    def _parse_optional(cell) -> Optional[str]:
+        text = cell.text.strip()
+        if text and text != 'N/A':
+            return text
+        return None
+
+    @staticmethod
+    def submission_id(cell):
+        return int(cell.text.rstrip('#'))
+
+    @staticmethod
+    def submission_time(cell):
+        # NOTE timezone is not set
+        return datetime.strptime(cell.text, '%Y/%m/%d %H:%M:%S')
+
+    @staticmethod
+    def submission_tests(cell):
+        value = _CellParsers._parse_optional(cell)
+        return int(value) if value is not None else None
+
+    @staticmethod
+    def submission_score(cell):
+        value = _CellParsers._parse_optional(cell)
+        if value is None:
+            return None
+        return int(re.sub(r'=.*', '', value))  # score may include penalty
+
+    @staticmethod
+    def submission_source(cell):
+        source_link = cell.find('a')['href']
+        return source_link.replace(f'action={Page.VIEW_SOURCE.value}', f'action={Page.DOWNLOAD_SOURCE.value}')
+
+    @staticmethod
+    def submission_report(cell):
+        report_link = cell.find('a')
+        return report_link['href'] if report_link is not None else None
+
+
+
+@dataclass(frozen=True)
 class Submission:
-    def __init__(self, row):
+    id: int = field(metadata={'parser': _CellParsers.submission_id})
+    # `_skip_field`s are unused, also parsing of these fields may be unstable
+    time: datetime = _skip_field(parser=_CellParsers.submission_time)
+    size: int = _skip_field()
+    problem: str
+    compiler: str
+    status: str
+    tests_passed: Optional[int] = _skip_field(parser=_CellParsers.submission_tests)
+    score: Optional[int] = _skip_field(parser=_CellParsers.submission_score)
+    source: str = field(metadata={'parser': _CellParsers.submission_source})
+    report: Optional[str] = field(metadata={'parser': _CellParsers.submission_report})
+
+    @classmethod
+    def parse(cls, row):
+
+        def parse_field(field, cell):
+            # this function is  never called on `_skip_field`s
+            parser = field.metadata.get('parser')
+            if not parser:
+                # NOTE will not work with Optional types
+                return field.type(cell.text)
+            return parser(cell)
+
         cells = row.find_all('td')
-        self.id = int(cells[0].text.rstrip('#'))
-        self.problem = cells[3].text
-        self.compiler = cells[4].text
-        self.status = cells[5].text
-        self.source = cells[8].find('a')['href'].replace(f'action=36', f'action=91')
-        report_link = cells[9].find('a')
-        self.report = report_link['href'] if report_link is not None else None
+        data = {
+            field.name: parse_field(field, cell)
+            for field, cell in zip(fields(cls), cells) if field.init
+        }
+        return cls(**data)
 
     def short_status(self):
         if self.status == Status.REVIEW:
@@ -626,7 +699,7 @@ def ejudge_submissions(session):
     sub_table = soup.find('table', {'class': 'table'})
     if sub_table is None:
         return []
-    submissions = [Submission(row) for row in sub_table.find_all('tr')[1:]]
+    submissions = [Submission.parse(row) for row in sub_table.find_all('tr')[1:]]
     submissions.sort(key=lambda x: x.problem)
     return {
         problem: list(subs) for problem, subs in groupby(submissions, lambda x: x.problem)
