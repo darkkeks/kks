@@ -68,13 +68,14 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         user = standings.user
     except (EjudgeUnavailableError, AuthError) as err:
         fallback_mode = True
+        click.secho(f'Cannot get standings from ejudge. Reason: {err.message}', fg='yellow', err=True)
         if isinstance(err, AuthError) and load_auth_data() is not None:
-            err.show()
             suggest_auth_reset(config)
-        click.secho(f'Cannot get standings from ejudge, using kks API as fallback...', fg='yellow', err=True)
         if max_:
-            click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
+            click.secho('Cannot estimate max scores (ejudge is not available)', fg='red', err=True)
             return
+        else:
+            click.secho(f'Using kks API as fallback...', fg='yellow', err=True)
 
     if not config.options.global_opt_out and not fallback_mode:
         if not send_standings(standings):
@@ -129,7 +130,7 @@ def init_opt_out(config):
 
 def opt_out(config):
     click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
-                '~/.kks/config.ini', color='red', err=True)
+                '~/.kks/config.ini', fg='red', err=True)
     config.options.global_opt_out = True
     config.save()
 

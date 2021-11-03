@@ -42,11 +42,11 @@ def get_global_standings(user, year):
     try:
         response = requests.get(f"{KKS_STAT_API}/get", params=parameters, timeout=KKS_STAT_TIMEOUT)
     except RequestException as e:
-        click.secho(f'Failed to receive global standings: {e}', color='red', err=True)
+        click.secho(f'Failed to receive global standings: {e}', fg='red', err=True)
         return None
 
     if not response.ok:
-        click.secho(f'Server response was not successful: {response.text}', color='red', err=True)
+        click.secho(f'Server response was not successful: {response.text}', fg='red', err=True)
         return None
 
     json_response = response.json()

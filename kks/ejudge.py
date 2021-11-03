@@ -1,7 +1,7 @@
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from itertools import groupby
-from typing import Optional, Tuple
+from typing import Optional
 from urllib.parse import parse_qs, urlsplit, quote as urlquote
 
 # import requests  # we use lazy imports to improve load time for local commands
