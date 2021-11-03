@@ -1,5 +1,6 @@
 from copy import copy
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from itertools import groupby
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit, quote as urlquote
@@ -36,13 +37,16 @@ class Links:
     HOST = 'caos.myltsev.ru'
     CGI_BIN = f'https://{HOST}/cgi-bin'
     WEB_CLIENT_ROOT = f'{CGI_BIN}/new-client'
-    _template = f'{WEB_CLIENT_ROOT}?SID=__SID__&action='
-    SETTINGS = f'{_template}143'
-    SUMMARY = f'{_template}137'
-    SUBMISSIONS = f'{_template}140'
-    USER_STANDINGS = f'{_template}94'
-    SUBMIT_CLAR = f'{_template}141'
-    CLARS = f'{_template}142'
+
+
+class Page(Enum):
+    MAIN_PAGE = 2
+    USER_STANDINGS = 94
+    SUMMARY = 137
+    SUBMISSIONS = 140
+    SUBMIT_CLAR = 141
+    CLARS = 142
+    SETTINGS = 143
 
 
 class Status:
@@ -518,7 +522,7 @@ def get_contest_url_with_creds(auth_data):
 def ejudge_summary(session):
     from bs4 import BeautifulSoup
 
-    page = session.get(Links.SUMMARY)
+    page = session.get_page(Page.SUMMARY)
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -543,7 +547,7 @@ def ejudge_summary(session):
 def ejudge_standings(session):
     from bs4 import BeautifulSoup
 
-    page = session.get(Links.USER_STANDINGS)
+    page = session.get_page(Page.USER_STANDINGS)
     soup = BeautifulSoup(page.content, 'html.parser')
 
     title = soup.find(class_='main_phrase').text
@@ -615,7 +619,7 @@ def to_task_score(contest, cell):
 def ejudge_submissions(session):
     from bs4 import BeautifulSoup
 
-    page = session.get(Links.SUBMISSIONS, params={'all_runs': 1})
+    page = session.get_page(Page.SUBMISSIONS, params={'all_runs': 1})
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
