@@ -62,6 +62,13 @@ class Section:
             return
         self._config.remove_option(self._name, Section.to_option(key))
 
+    def asdict(self):
+        return {key: self.__getattribute__(key) for key in super().__getattribute__('__annotations__')}
+
+    def update(self, data: dict):
+        for key, value in data.items():
+            setattr(self, key, value)
+
 
 class EnvSection(Section):
     @staticmethod
@@ -81,7 +88,16 @@ class EnvSection(Section):
 class AuthSection(Section):
     login: str
     password: str
-    contest: int
+    contest_id: int
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        if not self._config.has_section(self._name):
+            return
+        contest = self._config.get(self._name, 'contest', fallback=None)
+        if contest is not None:
+            self._config.remove_option(self._name, 'contest')
+            self._config.set(self._name, Section.to_option('contest_id'), contest)
 
 
 class OptionsSection(EnvSection):

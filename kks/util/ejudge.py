@@ -1,6 +1,7 @@
 import json
 import pickle
 from base64 import b64decode
+from dataclasses import asdict
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
@@ -15,18 +16,15 @@ from kks.util.storage import Config, PickleStorage
 
 def load_auth_data():
     auth = Config().auth
-    if auth.login and auth.contest:
-        return AuthData(auth.login, auth.contest, auth.password)
+    if auth.login and auth.contest_id:
+        return AuthData(**auth.asdict())
     return None
 
 
 def save_auth_data(auth_data, store_password=True):
     config = Config()
-    config.auth.login = auth_data.login
-    config.auth.contest = auth_data.contest_id
-    if store_password and auth_data.password is not None:
-        config.auth.password = auth_data.password
-    else:
+    config.auth.update(asdict(auth_data))
+    if not store_password or auth_data.password is None:
         del config.auth.password
     config.save()
 

@@ -65,11 +65,11 @@ class Status:
     NOT_SUBMITTED = 'Not submitted'
 
 
+@dataclass
 class AuthData:
-    def __init__(self, login, contest_id, password=None):
-        self.login = login
-        self.contest_id = contest_id
-        self.password = password
+    login: str
+    contest_id: int
+    password: Optional[str] = None
 
 
 class BaseProblem:
