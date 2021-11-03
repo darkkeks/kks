@@ -12,8 +12,9 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 # from bs4.element import NavigableString
 from tqdm import tqdm
 
-from kks.errors import APIError, ParseError
+from kks.errors import APIError, EjudgeError, ParseError
 from kks.util.h2t import HTML2Text
+from kks.util.storage import PickleStorage
 
 
 CONTEST_ID_BY_GROUP = {}
@@ -153,13 +154,13 @@ def _skip_field():
 @dataclass(frozen=True)
 class Submission:
     id: int = field(metadata={'mapper': '_parse_id'})
-    time: None = _skip_field()  # these fields are unused, parsing may be unstable
-    user: None = _skip_field()
+    time: datetime = field(metadata={'mapper': '_parse_time'})  # parsing of new fields may be unstable
+    user: str
     problem: str
     compiler: str
     status: str
-    tests_passed: None = _skip_field()
-    score: None = _skip_field()
+    tests_passed: Optional[int] = field(metadata={'mapper': '_parse_tests'})
+    score: Optional[int] = field(metadata={'mapper': '_parse_score'})
     source: str = field(metadata={'mapper': '_parse_source_link'})
     report: Optional[str] = field(metadata={'mapper': '_parse_report_link'})
 
@@ -755,6 +756,49 @@ def ejudge_timezone(session):
     if offset_hours is None:
         raise ParseError('Cannot parse server time')
     return timezone(timedelta(hours=offset_hours))
+
+
+def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=None):
+    """Parses submissions table.
+
+    Args:
+        session: Ejudge session.
+        filter_: Optional submission filter.
+        first_run: First (highest) run id.
+        last_run: Last (lowest) run id.
+    """
+    if not session.judge:
+        raise EjudgeError('Method is only available for judges')
+
+    from bs4 import BeautifulSoup
+
+    filter_status = (bool(filter_), first_run is not None, last_run is not None)
+    storage = PickleStorage('storage')
+    with storage.load():
+        old_filter_status = storage.get('last_filter_status', (False, False, False))
+
+    page = None
+    # A reset is required even if one field is reset (WTF)
+    if any((new_status < old_status for (old_status, new_status) in zip(old_filter_status, filter_status))):
+        page = session.get_page(
+            Page.MAIN_PAGE,
+            params={'action_65': 'Reset filter'}
+        )
+    with storage.load():
+        storage.set('last_filter_status', filter_status)
+
+    # page is None <=> no filters, a reset was performed last time
+    if any(filter_status) or page is None:
+        page = session.get_page(
+            Page.MAIN_PAGE,
+            params={'filter_expr': filter_, 'filter_first_run': first_run, 'filter_last_run': last_run}
+        )
+    soup = BeautifulSoup(page.content, 'html.parser')
+    tables = soup.find_all('table', {'class': 'b1'})
+    if len(tables) < 2:
+        return None
+    sub_table = tables[0]
+    return [Submission.parse(row) for row in sub_table.find_all('tr')[1:]]
 
 
 def get_contest_deadlines(session, summary, no_cache):
