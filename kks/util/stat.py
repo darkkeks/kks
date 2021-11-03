@@ -12,7 +12,7 @@ def send_standings(standings):
     from requests import RequestException
 
     auth_data = load_auth_data()
-    if not auth_data:
+    if auth_data is None:
         return False
 
     data = {}
@@ -27,31 +27,32 @@ def send_standings(standings):
         return False
 
 
-def get_global_standings(user):
+def get_global_standings(user, year):
     import requests
     from requests import RequestException
 
     parameters = {
-        'year': 2020,
+        'year': year,
     }
 
     auth_data = load_auth_data()
-    if auth_data:
+    if auth_data is not None:
         parameters.update(auth_data_to_dict(auth_data))
 
     try:
         response = requests.get(f"{KKS_STAT_API}/get", params=parameters, timeout=KKS_STAT_TIMEOUT)
     except RequestException as e:
-        click.secho(f'Failed to receive global standings: {e}', color='red', err=True)
+        click.secho(f'Failed to receive global standings: {e}', fg='red', err=True)
         return None
 
     if not response.ok:
-        click.secho(f'Server response was not successful: {response.text}', color='red', err=True)
+        click.secho(f'Server response was not successful: {response.text}', fg='red', err=True)
         return None
 
     json_response = response.json()
     standings = standings_from_dict(json_response['standings'])
-    standings.fix_is_self(user, auth_data.contest_id)
+    if auth_data is not None:
+        standings.fix_is_self(user, auth_data.contest_id)
     return standings
 
 

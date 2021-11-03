@@ -6,9 +6,9 @@ from click._compat import isatty
 
 from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
     PROBLEM_INFO_VERSION
-from kks.errors import EjudgeUnavailableError
+from kks.errors import AuthError, EjudgeUnavailableError
 from kks.util.fancytable import Column, StaticColumn, FancyTable
-from kks.util.ejudge import EjudgeSession
+from kks.util.ejudge import EjudgeSession, load_auth_data
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
 
@@ -36,7 +36,9 @@ MAX_KR_SCORE = 200
               help='Calculate scores and sort based on filtered results')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
-def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out):
+@click.option('-y', '--year', type=int, default=2021,
+              help='Show standings for the selected year')
+def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out, year):
     """
     Parse and display user standings
 
@@ -60,28 +62,37 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
 
     fallback_mode = False
     user = None
-    session = EjudgeSession()
     try:
+        session = EjudgeSession()
         standings = ejudge_standings(session)
         user = standings.user
-    except EjudgeUnavailableError:
+    except (EjudgeUnavailableError, AuthError) as err:
         fallback_mode = True
+        click.secho(f'Cannot get standings from ejudge. Reason: {err.message}', fg='yellow', err=True)
+        if isinstance(err, AuthError) and load_auth_data() is not None:
+            suggest_auth_reset(config)
         if max_:
-            click.secho('Cannot estimate max scores (ejudge is not available)', fg='yellow', err=True)
+            click.secho('Cannot estimate max scores (ejudge is not available)', fg='red', err=True)
             return
+        else:
+            click.secho(f'Using kks API as fallback...', fg='yellow', err=True)
 
     if not config.options.global_opt_out and not fallback_mode:
         if not send_standings(standings):
             click.secho('Failed to send standings to kks api', fg='yellow', err=True)
 
     if global_ or fallback_mode:
-        standings = get_global_standings(user)
+        standings = get_global_standings(user, year)
         if standings is None:
             click.secho('Standings are not available now :(', fg='yellow', err=True)
             return
 
         if not global_:  # fallback for group standings
-            groups = [get_group_id(config.auth.contest)]
+            if config.auth.contest is not None:
+                groups = [get_group_id(config.auth.contest)]
+            else:
+                click.secho('You are not logged in, only global standings are available', fg='yellow')
+                return
         if groups:
             standings = filter_groups(standings, groups)
             if standings is None:
@@ -91,6 +102,18 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         standings = estimate_max(standings, session, no_cache)
 
     display_standings(standings, last, contests, all_, global_, recalculate)
+
+
+def suggest_auth_reset(config):
+    if config.options.keep_bad_credentials:
+        return
+    if click.confirm(click.style('Login failed. Reset saved credentials?', bold=True, fg='red'), default=False):
+        del config.auth
+        config.save()
+    else:
+        config.options.keep_bad_credentials = True
+        config.save()
+        click.secho('You can use "kks auth" or manually edit ~/.kks/config.ini to update credentials', err=True)
 
 
 def init_opt_out(config):
@@ -107,7 +130,7 @@ def init_opt_out(config):
 
 def opt_out(config):
     click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
-                '~/.kks/config.ini', color='red', err=True)
+                '~/.kks/config.ini', fg='red', err=True)
     config.options.global_opt_out = True
     config.save()
 

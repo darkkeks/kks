@@ -13,11 +13,18 @@ from kks.errors import APIError
 from kks.util.h2t import HTML2Text
 
 
-CONTEST_ID_BY_GROUP = {
-    f'20{group}': int(f'20{group}')
-    for group in range(1, 11)
-}
+CONTEST_ID_BY_GROUP = {}
+CONTEST_ID_BY_GROUP.update({
+    f'19{group}': 130 + group for group in range(1, 12)
+})
+CONTEST_ID_BY_GROUP.update({
+    f'20{group}': int(f'20{group}') for group in range(1, 11)
+})
 CONTEST_ID_BY_GROUP['free'] = 2021
+
+GROUP_ID_BY_CONTEST = {
+    contest_id: group_id for group_id, contest_id in CONTEST_ID_BY_GROUP.items()
+}
 
 
 PROBLEM_INFO_VERSION = 3
@@ -486,15 +493,12 @@ class FullProblem(SummaryProblem):
         return converter.handle(str(self._html))
 
 
-def get_contest_id(group_id):
+def get_contest_id(group_id: str) -> int:
     return CONTEST_ID_BY_GROUP.get(group_id, None)
 
 
-def get_group_id(contest_id):
-    for group, contest in CONTEST_ID_BY_GROUP.items():
-        if contest_id == contest:
-            return group
-    return None
+def get_group_id(contest_id: int) -> str:
+    return GROUP_ID_BY_CONTEST.get(contest_id, None)
 
 
 def get_contest_url(auth_data):
