@@ -1,12 +1,13 @@
 import json
 import pickle
-import re
 from base64 import b64decode
+from typing import Optional
+from urllib.parse import parse_qs, urlsplit
 
 import click
 
 from kks import __version__
-from kks.ejudge import AuthData, Links, get_contest_url
+from kks.ejudge import AuthData, Links, Page, get_contest_url
 from kks.util.common import config_directory
 from kks.errors import EjudgeUnavailableError, AuthError, APIError
 from kks.util.storage import Config, PickleStorage
@@ -23,10 +24,10 @@ def save_auth_data(auth_data, store_password=True):
     config = Config()
     config.auth.login = auth_data.login
     config.auth.contest = auth_data.contest_id
-
     if store_password and auth_data.password is not None:
         config.auth.password = auth_data.password
-
+    else:
+        del config.auth.password
     config.save()
 
 
@@ -270,8 +271,6 @@ class API:
 
 
 class EjudgeSession:
-    sid_regex = re.compile(r'SID=([0-9a-f]{16}|__SID__)')
-
     def __init__(self, auth=True):
         import requests
         self.http = requests.session()
@@ -341,7 +340,7 @@ class EjudgeSession:
             raise e
 
     def _update_sids(self, url):
-        self.sids.sid = EjudgeSession.sid_regex.search(url).group(1)
+        self.sids.sid = parse_qs(urlsplit(url).query)['SID'][0]
         self.sids.ejsid = self.http.cookies['EJSID']
 
     def _store_sids(self):
@@ -352,19 +351,33 @@ class EjudgeSession:
         with self._storage.load() as storage:
             return storage.get('sids')
 
-    def modify_url(self, url):
-        return re.sub(EjudgeSession.sid_regex, f'SID={self.sids.sid}', url, count=1)
-
     def _request(self, method, url, *args, **kwargs):
-        response = method(self.modify_url(url), *args, **kwargs)
+        # NOTE params should only be passed as a keyword argument
+        params = kwargs.get('params', {}).copy()
+        params['SID'] = self.sids.sid
+        page_id: Optional[Page] = kwargs.pop('page_id', None)
+        if page_id is not None:
+            params['action'] = page_id.value
+        kwargs['params'] = params
+
+        response = method(url, *args, **kwargs)
         check_response(response)
         if 'Invalid session' in response.text:
             self.auth()
-            response = method(self.modify_url(url), *args, **kwargs)
+            response = method(url, *args, **kwargs)
         return response
 
     def get(self, url, *args, **kwargs):
+        if args:
+            kwargs['params'] = args[0]
+            args = args[1:]
         return self._request(self.http.get, url, *args, **kwargs)
 
     def post(self, url, *args, **kwargs):
         return self._request(self.http.post, url, *args, **kwargs)
+
+    def get_page(self, page_id: Page, *args, **kwargs):
+        return self.get(Links.WEB_CLIENT_ROOT, *args, page_id=page_id, **kwargs)
+
+    def post_page(self, page_id: Page, *args, **kwargs):
+        return self.post(Links.WEB_CLIENT_ROOT, *args, page_id=page_id, **kwargs)

@@ -1,16 +1,13 @@
 import difflib
 import pickle
-from abc import ABCMeta
 from functools import wraps
 from pathlib import Path
 from time import time, sleep
 
 import click
 
-from kks.ejudge import AuthData
 
-
-class Singleton(ABCMeta):
+class Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:

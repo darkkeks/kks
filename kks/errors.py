@@ -7,6 +7,10 @@ class EjudgeError(ClickException):
         super().__init__(message)
 
 
+class ParseError(EjudgeError):
+    pass
+
+
 class EjudgeUnavailableError(EjudgeError):
     def __init__(self, message='Ejudge is not available'):
         super().__init__(message)

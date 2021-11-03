@@ -1,5 +1,8 @@
+import re
 from copy import copy
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from itertools import groupby
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit, quote as urlquote
@@ -9,7 +12,7 @@ from urllib.parse import parse_qs, urlsplit, quote as urlquote
 # from bs4.element import NavigableString
 from tqdm import tqdm
 
-from kks.errors import APIError
+from kks.errors import APIError, ParseError
 from kks.util.h2t import HTML2Text
 
 
@@ -28,7 +31,7 @@ GROUP_ID_BY_CONTEST = {
 
 
 PROBLEM_INFO_VERSION = 3
-SERVER_TZ = timezone(timedelta(hours=0))  # UTC
+TIME_FORMAT = '%Y/%m/%d %H:%M:%S'
 MSK_TZ = timezone(timedelta(hours=3))
 
 
@@ -36,13 +39,18 @@ class Links:
     HOST = 'caos.myltsev.ru'
     CGI_BIN = f'https://{HOST}/cgi-bin'
     WEB_CLIENT_ROOT = f'{CGI_BIN}/new-client'
-    _template = f'{WEB_CLIENT_ROOT}?SID=__SID__&action='
-    SETTINGS = f'{_template}143'
-    SUMMARY = f'{_template}137'
-    SUBMISSIONS = f'{_template}140'
-    USER_STANDINGS = f'{_template}94'
-    SUBMIT_CLAR = f'{_template}141'
-    CLARS = f'{_template}142'
+
+
+class Page(Enum):
+    MAIN_PAGE = 2
+    VIEW_SOURCE = 36
+    DOWNLOAD_SOURCE = 91
+    USER_STANDINGS = 94
+    SUMMARY = 137
+    SUBMISSIONS = 140
+    SUBMIT_CLAR = 141
+    CLARS = 142
+    SETTINGS = 143
 
 
 class Status:
@@ -122,6 +130,11 @@ class ProblemWithDeadline:
 
 
 class CacheKeys:
+    problem_links = 'problem_links'
+    full_scores = 'full'
+    run_penalties = 'run'
+    server_tz = 'server_tz'
+
     @staticmethod
     def penalty(contest):
         return f'p_{contest}'
@@ -131,16 +144,78 @@ class CacheKeys:
         return f'dl_{contest}'
 
 
+def _skip_field():
+    return field(init=False, repr=False, compare=False, metadata={'skip': True})
+
+
+@dataclass(frozen=True)
 class Submission:
-    def __init__(self, row):
+    id: int = field(metadata={'mapper': '_parse_id'})
+    time: None = _skip_field()  # these fields are unused, parsing may be unstable
+    user: None = _skip_field()
+    problem: str
+    compiler: str
+    status: str
+    tests_passed: None = _skip_field()
+    score: None = _skip_field()
+    source: str = field(metadata={'mapper': '_parse_source_link'})
+    report: Optional[str] = field(metadata={'mapper': '_parse_report_link'})
+
+    @classmethod
+    def parse(cls, row):
+
+        def parse_field(field, cell):
+            meta = field.metadata
+            if not meta:
+                # NOTE will not work with Optional types
+                return field.type(cell.text)
+            if meta.get('skip'):
+                return None
+            return getattr(cls, meta['mapper'])(cell)
+
         cells = row.find_all('td')
-        self.id = int(cells[0].text.rstrip('#'))
-        self.problem = cells[3].text
-        self.compiler = cells[4].text
-        self.status = cells[5].text
-        self.source = cells[8].find('a')['href'].replace(f'action=36', f'action=91')
-        report_link = cells[9].find('a')
-        self.report = report_link['href'] if report_link is not None else None
+        data = {
+            field.name: parse_field(field, cell)
+            for field, cell in zip(fields(cls), cells) if field.init
+        }
+        return cls(**data)
+
+    @staticmethod
+    def _parse_id(cell):
+        return int(cell.text.rstrip('#'))
+
+    @staticmethod
+    def _parse_time(cell):
+        return datetime.strptime(cell.text, TIME_FORMAT)
+
+    @staticmethod
+    def _parse_optional_field(cell) -> Optional[str]:
+        text = cell.text.strip()
+        if text and text != 'N/A':
+            return text
+        return None
+
+    @staticmethod
+    def _parse_tests(cell):
+        value = Submission._parse_optional_field(cell)
+        return int(value) if value is not None else None
+
+    @staticmethod
+    def _parse_score(cell):
+        value = Submission._parse_optional_field(cell)
+        if value is None:
+            return None
+        return int(re.sub(r'=.*', '', value))  # score may include penalty
+
+    @staticmethod
+    def _parse_source_link(cell):
+        source_link = cell.find('a')['href']
+        return source_link.replace(f'action={Page.VIEW_SOURCE.value}', f'action={Page.DOWNLOAD_SOURCE.value}')
+
+    @staticmethod
+    def _parse_report_link(cell):
+        report_link = cell.find('a')
+        return report_link['href'] if report_link is not None else None
 
     def short_status(self):
         if self.status == Status.REVIEW:
@@ -294,10 +369,10 @@ class Deadlines:
         return result
 
     @staticmethod
-    def parse(text):
-        """Parse MSK datetime string (obtained from a problem page) and convert it to UTC"""
-        dt = datetime.strptime(text, '%Y/%m/%d %H:%M:%S')
-        return dt.replace(tzinfo=SERVER_TZ).astimezone(MSK_TZ)
+    def parse(text, server_tz):
+        """Parse datetime string (obtained from a problem page) and convert it to UTC"""
+        dt = datetime.strptime(text, TIME_FORMAT)
+        return dt.replace(tzinfo=server_tz).astimezone(MSK_TZ)
 
 
 class ProblemInfo:
@@ -518,7 +593,7 @@ def get_contest_url_with_creds(auth_data):
 def ejudge_summary(session):
     from bs4 import BeautifulSoup
 
-    page = session.get(Links.SUMMARY)
+    page = session.get_page(Page.SUMMARY)
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -543,7 +618,7 @@ def ejudge_summary(session):
 def ejudge_standings(session):
     from bs4 import BeautifulSoup
 
-    page = session.get(Links.USER_STANDINGS)
+    page = session.get_page(Page.USER_STANDINGS)
     soup = BeautifulSoup(page.content, 'html.parser')
 
     title = soup.find(class_='main_phrase').text
@@ -615,14 +690,14 @@ def to_task_score(contest, cell):
 def ejudge_submissions(session):
     from bs4 import BeautifulSoup
 
-    page = session.get(Links.SUBMISSIONS, params={'all_runs': 1})
+    page = session.get_page(Page.SUBMISSIONS, params={'all_runs': 1})
 
     soup = BeautifulSoup(page.content, 'html.parser')
 
     sub_table = soup.find('table', {'class': 'table'})
     if sub_table is None:
         return []
-    submissions = [Submission(row) for row in sub_table.find_all('tr')[1:]]
+    submissions = [Submission.parse(row) for row in sub_table.find_all('tr')[1:]]
     submissions.sort(key=lambda x: x.problem)
     return {
         problem: list(subs) for problem, subs in groupby(submissions, lambda x: x.problem)
@@ -643,6 +718,27 @@ def ejudge_report(link, session):
     return Report(comments, tests)
 
 
+def ejudge_timezone(session):
+    from bs4 import BeautifulSoup
+
+    page = session.get_page(Page.MAIN_PAGE)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    table = soup.find('table', {'class': 'info-table-line'})
+    if table is None:
+        raise ParseError('Cannot parse server time')
+    offset_hours = None
+    for row in table.find_all('tr'):
+        key, value = row.find_all('td')
+        if 'Server time' in row.text:
+            server_time = datetime.strptime(row.find_all('td')[1].text, TIME_FORMAT)
+            utc_time = datetime.utcnow()
+            offset_hours = round((server_time - utc_time).total_seconds() / 3600)
+            break
+    if offset_hours is None:
+        raise ParseError('Cannot parse server time')
+    return timezone(timedelta(hours=offset_hours))
+
+
 def get_contest_deadlines(session, summary, no_cache):
     from kks.util.storage import Cache
 
@@ -658,6 +754,7 @@ def get_contest_deadlines(session, summary, no_cache):
         if no_cache:
             for problem in summary:
                 cache.erase(CacheKeys.deadline(problem.contest()))
+            cache.erase(CacheKeys.server_tz)
 
         problems = update_cached_problems(cache, names, session, problems=first_problems, summary=summary)
 
@@ -671,12 +768,12 @@ def update_cached_problems(cache, names, session, problems=None, summary=None):
     def cached_problem(problem):
         return BaseProblem(problem.short_name, problem.href)
 
-    problem_list = cache.get('problem_links', [])  # we can avoid loading summary
+    problem_list = cache.get(CacheKeys.problem_links, [])  # we can avoid loading summary
     if len(problem_list) != len(names) or \
             any(problem.short_name != name for problem, name in zip(problem_list, names)):
         problem_list = summary or ejudge_summary(session)
         problem_list = [cached_problem(p) for p in problem_list]
-        cache.set('problem_links', problem_list)
+        cache.set(CacheKeys.problem_links, problem_list)
 
     if problems is not None:
         problem_list = [problem for problem in problem_list if problem.short_name in problems]
@@ -695,8 +792,15 @@ def get_problem_info(problem, cache, session):
 
     # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
 
-    full_scores = cache.get('full', {})
-    run_penalties = cache.get('run', {})
+    def server_tz():  # lazy load
+        tz = cache.get(CacheKeys.server_tz, None)
+        if tz is None:
+            tz = ejudge_timezone(session)
+            cache.set(CacheKeys.server_tz, tz, expiration=timedelta(days=7))
+        return tz
+
+    full_scores = cache.get(CacheKeys.full_scores, {})
+    run_penalties = cache.get(CacheKeys.run_penalties, {})
 
     full_score = full_scores.get(problem.short_name)
     run_penalty = run_penalties.get(problem.short_name)
@@ -716,8 +820,8 @@ def get_problem_info(problem, cache, session):
         result = ProblemInfo(full_score, run_penalty, current_penalty, deadlines)
         full_scores[problem.short_name] = full_score
         run_penalties[problem.short_name] = run_penalty
-        cache.set('full', full_scores)
-        cache.set('run', run_penalties)
+        cache.set(CacheKeys.full_scores, full_scores)
+        cache.set(CacheKeys.run_penalties, run_penalties)
 
         if result.past_deadline() or problem.contest().startswith('kr'):  # kr tasks don't have soft deadlines, so nothing should expire
             expiration = None
@@ -760,9 +864,9 @@ def get_problem_info(problem, cache, session):
             elif key.text == 'Current penalty:':
                 current_penalty = int(value.text)
             elif key.text == 'Next soft deadline:':
-                deadlines.soft = Deadlines.parse(value.text)
+                deadlines.soft = Deadlines.parse(value.text, server_tz())
             elif key.text == 'Deadline:':
-                deadlines.hard = Deadlines.parse(value.text)
+                deadlines.hard = Deadlines.parse(value.text, server_tz())
 
     if not full_score_found:
         try:
