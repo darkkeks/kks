@@ -183,9 +183,9 @@ class API:
 
         data = kwargs.setdefault('data', {})
         data.update({'action': action, 'json': 1})
-        if sids is None:
-            sids = self._sids
         if use_sids:
+            if sids is None:
+                sids = self._sids
             data.update(sids.as_dict())
 
         return self._request(url, need_json, **kwargs)
@@ -203,7 +203,7 @@ class API:
             'login': login,
             'password': password,
         }
-        return self._api_method('register', 'login-json', {}, data=data)
+        return self._api_method('register', 'login-json', data=data, use_sids=False)
 
     def enter_contest(self, sids, contest_id):
         data = {
