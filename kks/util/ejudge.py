@@ -150,7 +150,7 @@ class API:
     def __init__(self, sids=None):
         import requests
 
-        self._prefix = Links.CGI_BIN
+        self._prefix = Links.CGI_BIN+'/'
         self._http = requests.Session()
         self._http.headers = {'User-Agent': f'kokos/{__version__}'}
 
