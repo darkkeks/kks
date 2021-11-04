@@ -242,6 +242,18 @@ class Submission:
             return '.c'
         return ''
 
+    def color(self):
+        if self.status in [Status.OK, Status.REVIEW]:
+            return 'green'
+        if self.status == Status.REJECTED:
+            return 'yellow'
+        if self.status == Status.IGNORED:
+            return 'white'
+        return 'red'
+
+    def bold(self):
+        return self.status == Status.OK
+
 
 class Report:
     def __init__(self, comments, tests):
