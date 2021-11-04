@@ -62,7 +62,7 @@ def main():
     if pending:
         lines.append('Pending:')
         lines += [
-            f'[{sub.time}] {sub.user} - {sub.problem} - {sub.score}'
+            f'[{sub.time.strftime("%d.%m %H:%M:%S")}] {sub.id} - {sub.user} - {sub.problem} ({sub.score})'
             for sub in pending
         ]
     if counts:
