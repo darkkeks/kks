@@ -28,7 +28,8 @@ GROUP_ID_BY_CONTEST = {
 
 
 PROBLEM_INFO_VERSION = 3
-SERVER_TZ = timezone(timedelta(hours=3))  # MSK
+SERVER_TZ = timezone(timedelta(hours=0))  # UTC
+MSK_TZ = timezone(timedelta(hours=3))
 
 
 class Links:
@@ -133,11 +134,11 @@ class CacheKeys:
 class Submission:
     def __init__(self, row):
         cells = row.find_all('td')
-        self.id = int(cells[0].text)
+        self.id = int(cells[0].text.rstrip('#'))
         self.problem = cells[3].text
         self.compiler = cells[4].text
         self.status = cells[5].text
-        self.source = cells[8].find('a')['href'].replace('view-source', 'download-run')
+        self.source = cells[8].find('a')['href'].replace(f'action=36', f'action=91')
         report_link = cells[9].find('a')
         self.report = report_link['href'] if report_link is not None else None
 
@@ -296,7 +297,7 @@ class Deadlines:
     def parse(text):
         """Parse MSK datetime string (obtained from a problem page) and convert it to UTC"""
         dt = datetime.strptime(text, '%Y/%m/%d %H:%M:%S')
-        return dt.replace(tzinfo=SERVER_TZ)
+        return dt.replace(tzinfo=SERVER_TZ).astimezone(MSK_TZ)
 
 
 class ProblemInfo:

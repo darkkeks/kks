@@ -116,6 +116,12 @@ class HTML2Text(html2text.HTML2Text):
     def custom_handler(
         self, _, tag: str, attrs: Dict[str, Optional[str]], start: bool
     ) -> bool:
+        if tag == "sup":
+            if start:
+                self.o("^(")
+            else:
+                self.o(")")
+            return True
         if tag == "div":
             if start:
                 if self.hidden:
