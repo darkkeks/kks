@@ -3,6 +3,7 @@ import pickle
 from functools import wraps
 from pathlib import Path
 from time import time, sleep
+from os import environ
 
 import click
 
@@ -16,7 +17,10 @@ class Singleton(type):
 
 
 def config_directory():
-    directory = Path(click.get_app_dir('kks', force_posix=True))
+    directory = Path(
+        environ.get('KKS_CUSTOM_DIR') or
+        click.get_app_dir('kks', force_posix=True)
+    )
     directory.mkdir(exist_ok=True)
     return directory
 
