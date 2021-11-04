@@ -20,7 +20,9 @@ default:
     libs: ['m']  # math lib
 
     asm64bit: false
-    default_asan: true
+    default_asan: true  # If true, add asan flags. `--asan/--no-asan` overrides this value
+    # NOTE `--no-asan` flag only overrides `default_asan`.
+    # If you add any asan flags in a custom target, they will not be disabled by `--no-asan`
     out: ''  # same as "a.out"
 
 

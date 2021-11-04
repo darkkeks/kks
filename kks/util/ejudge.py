@@ -24,10 +24,10 @@ def save_auth_data(auth_data, store_password=True):
     config = Config()
     config.auth.login = auth_data.login
     config.auth.contest = auth_data.contest_id
-
     if store_password and auth_data.password is not None:
         config.auth.password = auth_data.password
-
+    else:
+        del config.auth.password
     config.save()
 
 

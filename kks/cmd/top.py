@@ -1,3 +1,4 @@
+import shutil
 import sys
 from itertools import groupby
 
@@ -263,7 +264,7 @@ def get_contest_widths(contests, tasks_by_contest):
 
 
 def get_terminal_width():
-    (width, _) = click.get_terminal_size()
+    (width, _) = shutil.get_terminal_size()
     return width
 
 

@@ -23,8 +23,10 @@ setup(
         'tqdm',
         'beautifulsoup4',
         'html2text==2020.1.16',
-        'pyyaml'
+        'pyyaml',
+        "dataclasses;python_version<'3.7'",
     ],
+    python_requires=">=3.6",
     entry_points='''
         [console_scripts]
         kks=kks.cli:cli
