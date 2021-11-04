@@ -10,9 +10,10 @@ from urllib.parse import parse_qs, urlsplit, quote as urlquote
 # import requests  # we use lazy imports to improve load time for local commands
 # from bs4 import BeautifulSoup
 # from bs4.element import NavigableString
+import click
 from tqdm import tqdm
 
-from kks.errors import APIError
+from kks.errors import APIError, ParseError
 from kks.util.h2t import HTML2Text
 
 
@@ -31,7 +32,7 @@ GROUP_ID_BY_CONTEST = {
 
 
 PROBLEM_INFO_VERSION = 3
-SERVER_TZ = timezone(timedelta(hours=0))  # UTC
+TIME_FORMAT = '%Y/%m/%d %H:%M:%S'
 MSK_TZ = timezone(timedelta(hours=3))
 
 
@@ -130,6 +131,11 @@ class ProblemWithDeadline:
 
 
 class CacheKeys:
+    problem_links = 'problem_links'
+    full_scores = 'full'
+    run_penalties = 'run'
+    server_tz = 'server_tz'
+
     @staticmethod
     def penalty(contest):
         return f'p_{contest}'
@@ -161,7 +167,7 @@ class _CellParsers:
     @staticmethod
     def submission_time(cell):
         # NOTE timezone is not set
-        return datetime.strptime(cell.text, '%Y/%m/%d %H:%M:%S')
+        return datetime.strptime(cell.text, TIME_FORMAT)
 
     @staticmethod
     def submission_tests(cell):
@@ -371,10 +377,10 @@ class Deadlines:
         return result
 
     @staticmethod
-    def parse(text):
-        """Parse MSK datetime string (obtained from a problem page) and convert it to UTC"""
-        dt = datetime.strptime(text, '%Y/%m/%d %H:%M:%S')
-        return dt.replace(tzinfo=SERVER_TZ).astimezone(MSK_TZ)
+    def parse(text, server_tz):
+        """Parse datetime string (obtained from a problem page) and convert it to UTC"""
+        dt = datetime.strptime(text, TIME_FORMAT)
+        return dt.replace(tzinfo=server_tz).astimezone(MSK_TZ)
 
 
 class ProblemInfo:
@@ -720,6 +726,30 @@ def ejudge_report(link, session):
     return Report(comments, tests)
 
 
+def ejudge_timezone(session):
+    from bs4 import BeautifulSoup
+
+    page = session.get_page(Page.MAIN_PAGE)
+    soup = BeautifulSoup(page.content, 'html.parser')
+    table = soup.find('table', {'class': 'info-table-line'})
+    if table is None:
+        raise ParseError('Cannot parse server time')
+    offset_hours = None
+    for row in table.find_all('tr'):
+        cells = row.find_all('td')
+        if len(cells) < 2:
+            continue
+        key, value, *_ = cells
+        if 'Server time' in key.text:
+            server_time = datetime.strptime(value.text, TIME_FORMAT)
+            utc_time = datetime.utcnow()
+            offset_hours = round((server_time - utc_time).total_seconds() / 3600)
+            break
+    if offset_hours is None:
+        raise ParseError('Cannot parse server time')
+    return timezone(timedelta(hours=offset_hours))
+
+
 def get_contest_deadlines(session, summary, no_cache):
     from kks.util.storage import Cache
 
@@ -735,6 +765,7 @@ def get_contest_deadlines(session, summary, no_cache):
         if no_cache:
             for problem in summary:
                 cache.erase(CacheKeys.deadline(problem.contest()))
+            cache.erase(CacheKeys.server_tz)
 
         problems = update_cached_problems(cache, names, session, problems=first_problems, summary=summary)
 
@@ -748,12 +779,12 @@ def update_cached_problems(cache, names, session, problems=None, summary=None):
     def cached_problem(problem):
         return BaseProblem(problem.short_name, problem.href)
 
-    problem_list = cache.get('problem_links', [])  # we can avoid loading summary
+    problem_list = cache.get(CacheKeys.problem_links, [])  # we can avoid loading summary
     if len(problem_list) != len(names) or \
             any(problem.short_name != name for problem, name in zip(problem_list, names)):
         problem_list = summary or ejudge_summary(session)
         problem_list = [cached_problem(p) for p in problem_list]
-        cache.set('problem_links', problem_list)
+        cache.set(CacheKeys.problem_links, problem_list)
 
     if problems is not None:
         problem_list = [problem for problem in problem_list if problem.short_name in problems]
@@ -772,8 +803,8 @@ def get_problem_info(problem, cache, session):
 
     # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
 
-    full_scores = cache.get('full', {})
-    run_penalties = cache.get('run', {})
+    full_scores = cache.get(CacheKeys.full_scores, {})
+    run_penalties = cache.get(CacheKeys.run_penalties, {})
 
     full_score = full_scores.get(problem.short_name)
     run_penalty = run_penalties.get(problem.short_name)
@@ -793,8 +824,8 @@ def get_problem_info(problem, cache, session):
         result = ProblemInfo(full_score, run_penalty, current_penalty, deadlines)
         full_scores[problem.short_name] = full_score
         run_penalties[problem.short_name] = run_penalty
-        cache.set('full', full_scores)
-        cache.set('run', run_penalties)
+        cache.set(CacheKeys.full_scores, full_scores)
+        cache.set(CacheKeys.run_penalties, run_penalties)
 
         if result.past_deadline() or problem.contest().startswith('kr'):  # kr tasks don't have soft deadlines, so nothing should expire
             expiration = None
@@ -837,9 +868,9 @@ def get_problem_info(problem, cache, session):
             elif key.text == 'Current penalty:':
                 current_penalty = int(value.text)
             elif key.text == 'Next soft deadline:':
-                deadlines.soft = Deadlines.parse(value.text)
+                deadlines.soft = Deadlines.parse(value.text, get_server_tz(cache, session))
             elif key.text == 'Deadline:':
-                deadlines.hard = Deadlines.parse(value.text)
+                deadlines.hard = Deadlines.parse(value.text, get_server_tz(cache, session))
 
     if not full_score_found:
         try:
@@ -852,6 +883,14 @@ def get_problem_info(problem, cache, session):
         # API never tells the deadlines and current penalty
 
     return update_cache(full_score, run_penalty, current_penalty, deadlines)
+
+
+def get_server_tz(cache, session):
+    tz = cache.get(CacheKeys.server_tz, None)
+    if tz is None:
+        tz = ejudge_timezone(session)
+        cache.set(CacheKeys.server_tz, tz, expiration=timedelta(days=7))
+    return tz
 
 
 def chunks(iterable, chunk_size):

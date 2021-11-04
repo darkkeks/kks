@@ -70,7 +70,7 @@ class EnvSection(Section):
 
     def __getattribute__(self, key):
         if not super().__getattribute__('_is_option')(key):
-            return super().__getattribute__(key)  # how to avoid second check?
+            return super(Section, self).__getattribute__(key)
 
         envvar = environ.get(EnvSection.to_envvar(key))
         if envvar is not None:
