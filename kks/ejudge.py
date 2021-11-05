@@ -165,7 +165,7 @@ class Submission:
     report: Optional[str] = field(metadata={'mapper': '_parse_report_link'})
 
     @classmethod
-    def parse(cls, row):
+    def parse(cls, row, server_tz=timezone.utc):
 
         def parse_field(field, cell):
             meta = field.metadata
@@ -181,6 +181,7 @@ class Submission:
             field.name: parse_field(field, cell)
             for field, cell in zip(fields(cls), cells) if field.init
         }
+        data['time'] = data['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
         return cls(**data)
 
     @staticmethod
@@ -720,6 +721,7 @@ def to_task_score(contest, cell):
 
 def ejudge_submissions(session):
     from bs4 import BeautifulSoup
+    from kks.util.storage import Cache
 
     page = session.get_page(Page.SUBMISSIONS, params={'all_runs': 1})
 
@@ -728,7 +730,9 @@ def ejudge_submissions(session):
     sub_table = soup.find('table', {'class': 'table'})
     if sub_table is None:
         return []
-    submissions = [Submission.parse(row) for row in sub_table.find_all('tr')[1:]]
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
+        server_tz = get_server_tz(cache, session)
+    submissions = [Submission.parse(row, server_tz) for row in sub_table.find_all('tr')[1:]]
     submissions.sort(key=lambda x: x.problem)
     return {
         problem: list(subs) for problem, subs in groupby(submissions, lambda x: x.problem)
@@ -754,13 +758,19 @@ def ejudge_timezone(session):
 
     page = session.get_page(Page.MAIN_PAGE)
     soup = BeautifulSoup(page.content, 'html.parser')
-    table = soup.find('table', {'class': 'info-table-line'})
+    if session.judge:
+        table = soup.find('table')
+    else:
+        table = soup.find('table', {'class': 'info-table-line'})
     if table is None:
         raise ParseError('Cannot parse server time')
     offset_hours = None
     for row in table.find_all('tr'):
-        key, value = row.find_all('td')
-        if 'Server time' in row.text:
+        cells = row.find_all('td')
+        if len(cells) < 2:
+            continue
+        key, value, *_ = cells
+        if 'Server time' in key.text:
             server_time = datetime.strptime(row.find_all('td')[1].text, TIME_FORMAT)
             utc_time = datetime.utcnow()
             offset_hours = round((server_time - utc_time).total_seconds() / 3600)
@@ -783,6 +793,7 @@ def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=Non
         raise EjudgeError('Method is only available for judges')
 
     from bs4 import BeautifulSoup
+    from kks.util.storage import Cache
 
     filter_status = (bool(filter_), first_run is not None, last_run is not None)
     storage = PickleStorage('storage')
@@ -809,8 +820,10 @@ def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=Non
     tables = soup.find_all('table', {'class': 'b1'})
     if len(tables) < 2:
         return None
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
+        server_tz = get_server_tz(cache, session)
     sub_table = tables[0]
-    return [Submission.parse(row) for row in sub_table.find_all('tr')[1:]]
+    return [Submission.parse(row, server_tz) for row in sub_table.find_all('tr')[1:]]
 
 
 def get_contest_deadlines(session, summary, no_cache):
@@ -865,13 +878,6 @@ def get_problem_info(problem, cache, session):
     from bs4 import BeautifulSoup
 
     # NOTE penalties are assumed to be the same for all tasks in a contest, it may be wrong
-
-    def server_tz():  # lazy load
-        tz = cache.get(CacheKeys.server_tz, None)
-        if tz is None:
-            tz = ejudge_timezone(session)
-            cache.set(CacheKeys.server_tz, tz, expiration=timedelta(days=7))
-        return tz
 
     full_scores = cache.get(CacheKeys.full_scores, {})
     run_penalties = cache.get(CacheKeys.run_penalties, {})
@@ -938,9 +944,9 @@ def get_problem_info(problem, cache, session):
             elif key.text == 'Current penalty:':
                 current_penalty = int(value.text)
             elif key.text == 'Next soft deadline:':
-                deadlines.soft = Deadlines.parse(value.text, server_tz())
+                deadlines.soft = Deadlines.parse(value.text, get_server_tz(cache, session))
             elif key.text == 'Deadline:':
-                deadlines.hard = Deadlines.parse(value.text, server_tz())
+                deadlines.hard = Deadlines.parse(value.text, server_tz(cache, session))
 
     if not full_score_found:
         try:
@@ -953,6 +959,14 @@ def get_problem_info(problem, cache, session):
         # API never tells the deadlines and current penalty
 
     return update_cache(full_score, run_penalty, current_penalty, deadlines)
+
+
+def get_server_tz(cache, session):
+    tz = cache.get(CacheKeys.server_tz, None)
+    if tz is None:
+        tz = ejudge_timezone(session)
+        cache.set(CacheKeys.server_tz, tz, expiration=timedelta(days=7))
+    return tz
 
 
 def chunks(iterable, chunk_size):
