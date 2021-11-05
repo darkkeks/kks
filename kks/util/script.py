@@ -1,10 +1,10 @@
-import subprocess
 from pathlib import Path
 
 import click
 
 from kks.binary import compile_cpp
 from kks.util.common import format_file
+from kks.util.compat import subprocess
 
 
 # Используются для поиска скриптов по имени

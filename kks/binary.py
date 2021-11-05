@@ -1,10 +1,10 @@
 import os
-import subprocess
 import sys
 from itertools import chain
 
 import click
 
+from kks.util.compat import subprocess
 from kks.util.config import find_target
 
 

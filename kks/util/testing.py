@@ -1,10 +1,10 @@
-import subprocess
 import tempfile
 from pathlib import Path
 
 import click
 
 from kks.util.common import test_number_to_name
+from kks.util.compat import subprocess
 from kks.util.script import run_script, needs_compilation, compile_script
 
 

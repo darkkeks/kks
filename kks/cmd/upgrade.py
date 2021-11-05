@@ -1,7 +1,8 @@
-import subprocess
 import sys
 
 import click
+
+from kks.util.compat import subprocess
 
 
 @click.command()

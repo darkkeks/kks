@@ -1,11 +1,11 @@
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 
 import click
 
 from kks.util.common import get_solution_directory, get_clang_style_string, print_diff
+from kks.util.compat import subprocess
 
 
 @click.command(short_help='Lint solution')
