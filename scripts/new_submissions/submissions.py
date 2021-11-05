@@ -17,9 +17,10 @@ def new_submissions():
     if ID_FILE.exists():
         last_id = int(ID_FILE.read_text())
     session = EjudgeSession()
-    # if last_run arg is greater than id of the last run (no new submissions),
-    # ejudge will return the last run anyway
-    return ejudge_submissions_judge(session, f'id > {last_id}')[::-1]
+    # - If last_run is greater than id of the last existing run (no new submissions)
+    #   and filter expression is empty, ejudge will return the last run anyway.
+    # - Without last_run ejudge will return at most 20 latest submissions.
+    return ejudge_submissions_judge(session, f'id > {last_id}', last_run=last_id+1)[::-1]
 
 
 def save_last_id(submissions):
