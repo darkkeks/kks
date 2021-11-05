@@ -771,7 +771,7 @@ def ejudge_timezone(session):
             continue
         key, value, *_ = cells
         if 'Server time' in key.text:
-            server_time = datetime.strptime(row.find_all('td')[1].text, TIME_FORMAT)
+            server_time = datetime.strptime(value.text, TIME_FORMAT)
             utc_time = datetime.utcnow()
             offset_hours = round((server_time - utc_time).total_seconds() / 3600)
             break
@@ -946,7 +946,7 @@ def get_problem_info(problem, cache, session):
             elif key.text == 'Next soft deadline:':
                 deadlines.soft = Deadlines.parse(value.text, get_server_tz(cache, session))
             elif key.text == 'Deadline:':
-                deadlines.hard = Deadlines.parse(value.text, server_tz(cache, session))
+                deadlines.hard = Deadlines.parse(value.text, get_server_tz(cache, session))
 
     if not full_score_found:
         try:
