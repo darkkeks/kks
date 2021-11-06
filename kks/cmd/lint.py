@@ -25,7 +25,11 @@ def lint(diff, dry_run):
 
     directory = get_solution_directory()
 
-    files = list(directory.glob('*.c')) + list(directory.glob('*.h')) + list(directory.glob('*.cpp'))
+    files = (
+        list(directory.glob('*.c')) +
+        list(directory.glob('*.h')) +
+        list(directory.glob('*.cpp'))
+    )
 
     if not files:
         click.secho('No .c, .h, .cpp files found', fg='yellow', err=True)

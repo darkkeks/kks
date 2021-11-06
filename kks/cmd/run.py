@@ -14,7 +14,7 @@ from kks.util.common import get_solution_directory, find_test_pairs, format_file
 @click.option('-v', '--verbose', is_flag=True,
               help='Verbose mode (show used compiler args)')
 @click.option('--asan/--no-asan', is_flag=True, default=None,
-              help='Use asan (true by default)')  # if there are asan flags for the selected target and '--no-asan' is used, then only flags from the config will be used
+              help='Use asan (true by default)')
 @click.option('-g', '-vg', '--valgrind', is_flag=True,
               help='Use valgrind (disables asan)')
 @click.option('-s', '--sample', is_flag=True,
@@ -53,8 +53,11 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
         return
 
     if len(run_args) > 0:
-        output = f'Running binary with arguments ' + click.style(' '.join(run_args), fg='red', bold=True)
-        click.secho(output, fg='green', err=True)
+        click.secho(
+            click.style('Running binary with arguments ', fg='green') +
+            click.style(' '.join(run_args), fg='red', bold=True),
+            err=True
+        )
 
     exit(run_solution(binary, list(run_args), options, test_data, capture_output=False).returncode)
 
@@ -64,7 +67,10 @@ def find_test_to_run(directory, test, file, sample):
     has_test = test is not None
 
     if sum([sample, has_file, has_test]) > 1:
-        click.secho("Specify either test, file or sample to use as input, not multiple", fg='red', err=True)
+        click.secho(
+            "Specify either test, file or sample to use as input, not multiple",
+            fg='red', err=True
+        )
         return None
 
     if has_file:
@@ -85,7 +91,10 @@ def find_test_to_run(directory, test, file, sample):
     input_file, _ = next(tests, (None, None))
 
     if input_file is None:
-        click.secho(f'Could not find tests with names {", ".join(test_names)} in directory {format_file(tests_dir)}',
-                    fg='red', err=True)
+        click.secho(
+            f'Could not find tests with names {", ".join(test_names)} '
+            f'in directory {format_file(tests_dir)}',
+            fg='red', err=True
+        )
         return None
     return Test.from_file(None, input_file, None)

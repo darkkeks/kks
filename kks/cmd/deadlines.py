@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from itertools import groupby
 
 import click
@@ -6,7 +5,6 @@ import click
 from kks.ejudge import Deadlines, Status, ejudge_summary, get_contest_deadlines
 from kks.util.fancytable import FancyTable, StaticColumn
 from kks.util.ejudge import EjudgeSession
-from kks.util.storage import Cache, Config
 
 
 class ContestStatusRow:
@@ -26,7 +24,13 @@ class ContestStatusRow:
             self.deadline = contest.deadlines.to_str(contest.active_deadline())
             warn = contest.deadline_is_close()
             self._bold = warn
-        if not contest.past_deadline() and all(problem.status in [Status.OK, Status.OK_AUTO, Status.REVIEW] for problem in problem_mapping[contest.name]):
+        if (
+            not contest.past_deadline()
+            and all(
+                problem.status in [Status.OK, Status.OK_AUTO, Status.REVIEW]
+                for problem in problem_mapping[contest.name]
+            )
+        ):
             self._color = 'bright_black'
 
     def color(self):
@@ -50,7 +54,10 @@ def deadlines(last, contests, no_cache):
 
     session = EjudgeSession()
     summary = ejudge_summary(session)
-    problem_mapping = {contest: list(problems) for contest, problems in groupby(summary, lambda problem: problem.contest())}
+    problem_mapping = {
+        contest: list(problems)
+        for contest, problems in groupby(summary, lambda problem: problem.contest())
+    }
     contest_info = get_contest_deadlines(session, summary, no_cache)
 
     if contests:
@@ -65,5 +72,6 @@ def deadlines(last, contests, no_cache):
     table.add_column(StaticColumn('Penalty', 3, lambda row: row.penalty))
     table.add_column(StaticColumn.padding(1))
     table.add_column(StaticColumn('Status', 13, lambda row: row.status, right_just=False))
-    table.add_column(StaticColumn('Next deadline', len(Deadlines.PLACEHOLDER), lambda row: row.deadline, right_just=False))
+    table.add_column(StaticColumn('Next deadline', len(Deadlines.PLACEHOLDER),
+                                  lambda row: row.deadline, right_just=False))
     table.show(rows)

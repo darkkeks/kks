@@ -132,13 +132,18 @@ def run_solution(binary, args, options, test_data, capture_output=True):
 
     if test_data.is_file():
         with test_data.input_file.open('rb') as f_in:
-            process = subprocess.run(args, env=env, stdin=f_in, capture_output=capture_output)
+            process = subprocess.run(
+                args, env=env, stdin=f_in, capture_output=capture_output
+            )
     elif test_data.is_data():
-        process = subprocess.run(args, env=env, input=test_data.input_data, capture_output=capture_output)
+        process = subprocess.run(
+            args, env=env, input=test_data.input_data, capture_output=capture_output
+        )
     elif test_data.is_stdin():
-        process = subprocess.run(args, env=env, stdin=sys.stdin, capture_output=capture_output)
+        process = subprocess.run(
+            args, env=env, stdin=sys.stdin, capture_output=capture_output
+        )
     else:
         raise Exception('Unknown test type')
 
     return process
-
