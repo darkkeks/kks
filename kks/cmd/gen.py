@@ -2,8 +2,8 @@ import click
 from tqdm import tqdm
 
 from kks.util.testing import TestSource, RunOptions
-from kks.util.common import get_solution_directory, test_number_to_name, find_test_pairs, get_matching_suffix, \
-    format_file
+from kks.util.common import get_solution_directory, test_number_to_name, find_test_pairs, \
+    get_matching_suffix, format_file
 from kks.util.script import find_script
 
 

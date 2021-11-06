@@ -1,4 +1,3 @@
-from os import environ
 from pathlib import Path
 
 import click
@@ -16,7 +15,8 @@ def convert(force, files):
     """Convert statements from HTML to Markdown (e.g. kr statements copied by scp)"""
 
     md_width = Config().options.mdwidth
-    converter = HTML2Text(bodywidth=md_width, baseurl=Links.WEB_CLIENT_ROOT)  # NOTE baseurl may be incorrect
+    # NOTE baseurl may be incorrect
+    converter = HTML2Text(bodywidth=md_width, baseurl=Links.WEB_CLIENT_ROOT)
     converter.pad_tables = True
 
     for filename in files:

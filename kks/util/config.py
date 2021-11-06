@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import click
 
-from kks.util.common import find_workspace, find_problem_rootdir, config_directory
+from kks.util.common import find_workspace, find_problem_rootdir
 
 
 target_file = 'targets.yaml'
@@ -13,6 +13,7 @@ global_comment = '# This is the default config file, it is used in any subdirect
                  '# You can modify the default target (the changes will be applied only in this workspace).\n'\
                  '# Also, you can add/overwrite targets by creating another "targets.yaml" file in your working directory.\n'\
                  '\n'
+
 
 class Target:
     class Options:
@@ -92,9 +93,23 @@ def check_version(cfg_file, cfg, new_version, is_global=False):
         return
 
     old_version = cfg['__version__']
-    click.echo(click.style(str(cfg_file.absolute()), fg='blue', bold=True) +
-               click.style(' is outdated. You can run "kks init --config=update" if you want to update the default target manually (see README on Github)', fg='yellow'))
-    cfg_file.write_text(re.sub(rf'^(__version__: +){old_version}', rf'\g<1>{new_version}', cfg_file.read_text(), 1, re.M))
+    click.echo(
+        click.style(str(cfg_file.absolute()), fg='blue', bold=True) +
+        click.style(
+            ' is outdated. You can run "kks init --config=update"'
+            ' if you want to update the default target manually (see README on Github)',
+            fg='yellow'
+        )
+    )
+    click.pause()
+    cfg_file.write_text(
+        re.sub(
+            rf'^(__version__: +){old_version}',
+            rf'\g<1>{new_version}',
+            cfg_file.read_text(),
+            1, re.M
+        )
+    )
 
 
 def find_target(name):

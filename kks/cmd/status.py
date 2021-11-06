@@ -43,8 +43,11 @@ def status(todo, no_cache, filters):
         contests = {contest.name: contest for contest in contest_info}
         submittable = [Status.NOT_SUBMITTED, Status.PARTIAL, Status.REJECTED]
         problems = [
-            p for p in problems if (p.status in submittable and not contests[p.contest()].past_deadline()
-                                    or p.status == Status.REJECTED)
+            p for p in problems
+            if (
+                p.status in submittable and not contests[p.contest()].past_deadline()
+                or p.status == Status.REJECTED
+            )
         ]
         if not problems:
             click.secho('All problems are solved', fg='green')

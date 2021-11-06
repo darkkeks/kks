@@ -26,7 +26,9 @@ def run_script(script, args, ignore_exit_code=False, stdin=None, stdout=None, in
         click.secho(f'Cant run unrecognized script {format_file(script)}', fg='red', err=True)
         return None
 
-    process = subprocess.run(interpreter + [script.absolute()] + args, stdin=stdin, stdout=stdout, input=input)
+    process = subprocess.run(
+        interpreter + [script.absolute()] + args, stdin=stdin, stdout=stdout, input=input
+    )
 
     if process.returncode != 0 and not ignore_exit_code:
         click.secho('Script exited with code ' +

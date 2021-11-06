@@ -1,10 +1,10 @@
 from copy import copy
-from os import environ
 
 import pytest
 
 from kks.ejudge import Deadlines, ProblemInfo, StandingsRow, Status, TaskScore
 from kks.cmd.top import recalc_task_score
+
 
 class FrozenProblemInfo(ProblemInfo):
     def __init__(self, past_deadline, full_score, run_penalty, current_penalty):

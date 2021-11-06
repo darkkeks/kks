@@ -5,8 +5,8 @@ from itertools import groupby
 import click
 from click._compat import isatty
 
-from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, update_cached_problems, \
-    PROBLEM_INFO_VERSION
+from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, \
+    update_cached_problems, PROBLEM_INFO_VERSION
 from kks.errors import AuthError, EjudgeUnavailableError
 from kks.util.fancytable import Column, StaticColumn, FancyTable
 from kks.util.ejudge import EjudgeSession, load_auth_data
@@ -17,6 +17,7 @@ CONTEST_DELIMITER = ' | '
 
 MIN_SCORE = 20
 MAX_KR_SCORE = 200
+
 
 @click.command(short_help='Parse and display user standings')
 @click.option('-l', '--last', type=int,
@@ -54,8 +55,10 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
     config = Config()
 
     if global_opt_out:
-        if click.confirm(click.style('Do you really want to opt out from sending your group standings to '
-                                     'kks.darkkeks.me?', bold=True, fg='red')):
+        if click.confirm(click.style(
+            'Do you really want to opt out from sending your group standings to kks.darkkeks.me?',
+            bold=True, fg='red'
+        )):
             opt_out(config)
         return
     elif config.options.global_opt_out is None:
@@ -69,7 +72,9 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         user = standings.user
     except (EjudgeUnavailableError, AuthError) as err:
         fallback_mode = True
-        click.secho(f'Cannot get standings from ejudge. Reason: {err.message}', fg='yellow', err=True)
+        click.secho(
+            f'Cannot get standings from ejudge. Reason: {err.message}', fg='yellow', err=True
+        )
         if isinstance(err, AuthError) and load_auth_data() is not None:
             suggest_auth_reset(config)
         if max_:
@@ -92,7 +97,10 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
             if config.auth.contest is not None:
                 groups = [get_group_id(config.auth.contest)]
             else:
-                click.secho('You are not logged in, only global standings are available', fg='yellow')
+                click.secho(
+                    'You are not logged in, only global standings are available',
+                    fg='yellow', err=True
+                )
                 return
         if groups:
             standings = filter_groups(standings, groups)
@@ -108,21 +116,36 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
 def suggest_auth_reset(config):
     if config.options.keep_bad_credentials:
         return
-    if click.confirm(click.style('Login failed. Reset saved credentials?', bold=True, fg='red'), default=False):
+    if click.confirm(
+        click.style('Login failed. Reset saved credentials?', bold=True, fg='red'),
+        default=False
+    ):
         del config.auth
         config.save()
     else:
         config.options.keep_bad_credentials = True
         config.save()
-        click.secho('You can use "kks auth" or manually edit ~/.kks/config.ini to update credentials', err=True)
+        click.secho(
+            'You can use "kks auth" or manually edit ~/.kks/config.ini to update credentials',
+            err=True
+        )
 
 
 def init_opt_out(config):
-    click.secho('Standings can be sent for aggregation to kks api. '
-                'This allows us to create global standings (you can try it out with kks top --global)', err=True)
+    click.secho(
+        'Standings can be sent for aggregation to kks api. '
+        'This allows us to create global standings (you can try it out with kks top --global)',
+        err=True
+    )
     click.secho('You can always disable sending using kks top --global-opt-out', err=True)
-    if click.confirm(click.style('Do you want to send group standings to kks api?', bold=True, fg='red'), default=True):
-        click.secho('Thanks a lot for you contribution! We appreciate it!', fg='green', bold=True, err=True)
+    if click.confirm(
+        click.style('Do you want to send group standings to kks api?', bold=True, fg='red'),
+        default=True
+    ):
+        click.secho(
+            'Thanks a lot for you contribution! We appreciate it!',
+            fg='green', bold=True, err=True
+        )
         config.options.global_opt_out = False
         config.save()
     else:
@@ -130,8 +153,11 @@ def init_opt_out(config):
 
 
 def opt_out(config):
-    click.secho('Successfully disabled standings sending. You can always enable sending by manually editing '
-                '~/.kks/config.ini', fg='red', err=True)
+    click.secho(
+        'Successfully disabled standings sending. '
+        'You can always enable sending by manually editing ~/.kks/config.ini',
+        fg='red', err=True
+    )
     config.options.global_opt_out = True
     config.save()
 
@@ -152,8 +178,9 @@ def display_standings(standings, last, contests, all_, global_, recalculate):
 
     if isatty(sys.stdout):
         contests_width = terminal_width - table.calc_width() - 1
-        default_contest_count = \
-            get_default_contest_count(standings.contests, standings.tasks_by_contest, contests_width)
+        default_contest_count = get_default_contest_count(
+            standings.contests, standings.tasks_by_contest, contests_width
+        )
     else:
         default_contest_count = len(standings.contests)
 
@@ -200,8 +227,11 @@ class TasksColumn(Column):
 
     def value(self, row):
         return ''.join([
-            click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) + ' '.join([
-                click.style('{:>3}'.format(task.table_score() or ''), fg=task.color(), bold=task.bold())
+            click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) +
+            ' '.join([
+                click.style(
+                    '{:>3}'.format(task.table_score() or ''), fg=task.color(), bold=task.bold()
+                )
                 for task in tasks
             ])
             for contest, tasks in groupby(row.tasks, lambda task: task.contest)
@@ -307,7 +337,8 @@ def estimate_max(standings, session, force_reload):
 
 
 def recalc_task_score(row, task_score, problem_info):
-    if problem_info.past_deadline() and task_score.status in [Status.NOT_SUBMITTED, Status.PARTIAL]:  # see #72
+    # Rejected tasks can be resubmitted after the deadline (see #72).
+    if problem_info.past_deadline() and task_score.status in [Status.NOT_SUBMITTED, Status.PARTIAL]:
         return
     # NOTE may produce incorrect results for "kr" contests (with "max_kr" config option)
     # full score or run penalty for "kr" may be incorrect, scores may be partial

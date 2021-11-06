@@ -6,8 +6,8 @@ from tqdm import tqdm
 from kks.binary import compile_solution, run_solution
 from kks.util.script import find_script
 from kks.util.testing import TestSource, VirtualTestSequence, RunOptions, Test
-from kks.util.common import get_solution_directory, format_file, find_test_output, test_number_to_name, \
-    find_test_pairs, print_diff
+from kks.util.common import get_solution_directory, format_file, find_test_output, \
+    test_number_to_name, find_test_pairs, print_diff
 
 
 @click.command(name='test', short_help='Test solutions')
@@ -118,7 +118,9 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
                 return None
             output_file = find_test_output(input_file)
             if output_file is None:
-                click.secho(f'No output for test file {format_file(input_file)}', fg='yellow', err=True)
+                click.secho(
+                    f'No output for test file {format_file(input_file)}', fg='yellow', err=True
+                )
                 continue
             result.add(Test.from_file(input_file.stem, input_file, output_file))
 

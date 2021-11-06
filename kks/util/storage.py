@@ -187,11 +187,17 @@ class PickleStorage:
                     if click.confirm(click.style('Erase all saved data?', fg='red', bold=True)):
                         self._init_data(False)
                     else:
-                        click.secho(f'You need to fix or delete {self._file.absolute()} manually', fg='red', err=True)
+                        click.secho(
+                            f'You need to fix or delete {self._file.absolute()} manually',
+                            fg='red', err=True
+                        )
                         sys.exit()
 
         if self._data['__version__'] != self._version:
-            click.secho(f'{self._file} uses an incompatible storage version, clearing saved data', bg='red', err=True)
+            click.secho(
+                f'{self._file} uses an incompatible storage version, clearing saved data',
+                bg='red', err=True
+            )
             self._init_data(False)
         return self
 
