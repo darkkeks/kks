@@ -20,7 +20,7 @@ def new_submissions():
     # - If last_run is greater than id of the last existing run (no new submissions)
     #   and filter expression is empty, ejudge will return the last run anyway.
     # - Without last_run ejudge will return at most 20 latest submissions.
-    return ejudge_submissions_judge(session, f'id > {last_id}', last_run=last_id+1)[::-1]
+    return ejudge_submissions_judge(session, f'id > {last_id}', 0, -1)
 
 
 def save_last_id(submissions):

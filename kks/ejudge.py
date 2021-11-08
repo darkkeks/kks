@@ -781,13 +781,32 @@ def ejudge_timezone(session):
 
 
 def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=None):
-    """Parses submissions table.
+    """Parses (filtered) submissions table.
+
+    The list of submissions is filtered,
+    then first_run and last_run are used to return a slice of the result.
+    Filtering and slicing are done on the server side.
 
     Args:
         session: Ejudge session.
         filter_: Optional submission filter.
-        first_run: First (highest) run id.
-        last_run: Last (lowest) run id.
+        first_run: First index of the slice.
+        last_run: Last index of the slice (inclusive).
+
+    Some notes on slice indices:
+    - The slice is applied AFTER the filter.
+    - If the first index is higher than the second,
+      runs are returned in reverse chronological order.
+    - Indices may be negative (like in Python)
+    - If the first index is not specified, -1 is used
+    - If the last index is not specified, at most 20 runs are returned
+      (`first_run` is treated as the last index,
+      runs are returned in reverse chronological order).
+      If `first_run` is greater than the number of matches,
+      ejudge will return less than 20 runs (bug/feature?).
+    - If both indices are not set, last 20 runs are returned.
+    For more details, see ejudge source code
+    (lib/new_server_html_2.c:257-293 (at 773a153b1))
     """
     if not session.judge:
         raise EjudgeError('Method is only available for judges')
