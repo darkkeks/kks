@@ -203,11 +203,11 @@ class _CellParsers:
 
 
 @dataclass(frozen=True)
-class Submission:
+class BaseSubmission:
     id: int = _parse_field(_CellParsers.submission_id)
     # parsing of new fields may be unstable
     time: datetime = _parse_field(_CellParsers.submission_time)
-    user: str  # TODO!! split (size: int for unprivileged users)
+    size_or_user: str = field(repr=False)  # any better options?
     problem: str
     compiler: str
     status: str
@@ -268,6 +268,20 @@ class Submission:
 
     def bold(self):
         return self.status == Status.OK
+
+
+@dataclass(frozen=True)
+class Submission(BaseSubmission):
+    size: int = field(init=False)  # Not in order
+    def __post_init__(self):
+        object.__setattr__(self, 'size', int(self.size_or_user))
+
+
+@dataclass(frozen=True)
+class JudgeSubmission(BaseSubmission):
+    user: str = field(init=False)  # Not in order
+    def __post_init__(self):
+        object.__setattr__(self, 'user', self.size_or_user)
 
 
 class Report:
@@ -868,7 +882,7 @@ def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=Non
     with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
         server_tz = get_server_tz(cache, session)
     sub_table = tables[0]
-    return [Submission.parse(row, server_tz) for row in sub_table.find_all('tr')[1:]]
+    return [JudgeSubmission.parse(row, server_tz) for row in sub_table.find_all('tr')[1:]]
 
 
 def get_contest_deadlines(session, summary, no_cache):
