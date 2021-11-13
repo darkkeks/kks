@@ -15,14 +15,18 @@ from kks.util.storage import Config, PickleStorage
 
 def load_auth_data():
     auth = Config().auth
-    if auth.login and auth.contest_id:
-        return AuthData(**auth.asdict())
+    if auth.login:
+        data = auth.asdict()
+        data['contest_id'] = data.pop('contest')  # for compatibility with master
+        return AuthData(**data)
     return None
 
 
 def save_auth_data(auth_data, store_password=True):
     config = Config()
-    config.auth.update(asdict(auth_data))
+    data = asdict(auth_data)
+    data['contest'] = data.pop('contest_id')
+    config.auth.update(data)
     if not store_password or auth_data.password is None:
         del config.auth.password
     config.save()
@@ -193,7 +197,7 @@ class API:
 
         return self._request(url, need_json, **kwargs)
 
-    def auth(self, creds):
+    def auth(self, creds: AuthData):
         """get new sids"""
         # NOTE is 1step auth possible?
 

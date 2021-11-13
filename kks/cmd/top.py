@@ -94,8 +94,8 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
             return
 
         if not global_:  # fallback for group standings
-            if config.auth.contest_id is not None:
-                groups = [get_group_id(config.auth.contest_id)]
+            if config.auth.contest is not None:
+                groups = [get_group_id(config.auth.contest)]
             else:
                 click.secho(
                     'You are not logged in, only global standings are available',

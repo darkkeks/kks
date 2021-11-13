@@ -88,17 +88,8 @@ class EnvSection(Section):
 class AuthSection(Section):
     login: str
     password: str
-    contest_id: int
+    contest: int
     judge: bool
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        if not self._config.has_section(self._name):
-            return
-        contest = self._config.get(self._name, 'contest', fallback=None)
-        if contest is not None:
-            self._config.remove_option(self._name, 'contest')
-            self._config.set(self._name, Section.to_option('contest_id'), contest)
 
 
 class OptionsSection(EnvSection):

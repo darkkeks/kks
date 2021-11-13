@@ -44,7 +44,7 @@ def auth(login, password, group_id, contest_id, store_password, judge):
             return
 
     session = EjudgeSession(auth=False)
-    auth_data = AuthData(login, contest_id, judge, password)
+    auth_data = AuthData(login, password, contest_id, judge)
 
     session.auth(auth_data)
     save_auth_data(auth_data, store_password)

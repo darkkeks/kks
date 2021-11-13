@@ -71,9 +71,9 @@ class Status:
 @dataclass
 class AuthData:
     login: str
+    password: Optional[str]
     contest_id: int
     judge: bool
-    password: Optional[str] = None
 
 
 class BaseProblem:
