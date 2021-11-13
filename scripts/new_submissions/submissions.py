@@ -23,10 +23,13 @@ def new_submissions():
     return ejudge_submissions_judge(session, f'id > {last_id}', 0, -1)
 
 
-def save_last_id(submissions):
-    if submissions:
-        last_id = submissions[-1].id
-        ID_FILE.write_text(str(last_id))
+def save_last_id(submissions, id_file=None):
+    if not submissions:
+        return
+    if id_file is None:
+        id_file = ID_FILE
+    with open(id_file, 'w') as f:
+        f.write(str(submissions[-1].id))
 
 
 if __name__ == '__main__':
