@@ -152,6 +152,10 @@ def _skip_field(parser=None):
     return field(init=False, repr=False, compare=False, metadata=meta)
 
 
+def _parse_field(parser):
+    return field(metadata={'parser': parser})
+
+
 class _CellParsers:
     @staticmethod
     def _parse_optional(cell) -> Optional[str]:
@@ -195,10 +199,9 @@ class _CellParsers:
         return report_link['href'] if report_link is not None else None
 
 
-
 @dataclass(frozen=True)
 class Submission:
-    id: int = field(metadata={'parser': _CellParsers.submission_id})
+    id: int = _parse_field(_CellParsers.submission_id)
     # `_skip_field`s are unused, also parsing of these fields may be unstable
     time: datetime = _skip_field(parser=_CellParsers.submission_time)
     size: int = _skip_field()
@@ -207,8 +210,8 @@ class Submission:
     status: str
     tests_passed: Optional[int] = _skip_field(parser=_CellParsers.submission_tests)
     score: Optional[int] = _skip_field(parser=_CellParsers.submission_score)
-    source: str = field(metadata={'parser': _CellParsers.submission_source})
-    report: Optional[str] = field(metadata={'parser': _CellParsers.submission_report})
+    source: str = _parse_field(_CellParsers.submission_source)
+    report: Optional[str] = _parse_field(_CellParsers.submission_report)
 
     @classmethod
     def parse(cls, row):

@@ -13,7 +13,7 @@ from kks.util.storage import Config, PickleStorage
 
 def load_auth_data():
     auth = Config().auth
-    if auth.login and auth.contest:
+    if auth.login:
         return AuthData(auth.login, auth.contest, auth.password)
     return None
 
@@ -194,7 +194,7 @@ class API:
 
         return self._request(url, need_json, **kwargs)
 
-    def auth(self, creds):
+    def auth(self, creds: AuthData):
         """get new sids"""
         # NOTE is 1step auth possible?
 
