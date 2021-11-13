@@ -36,7 +36,11 @@ def auth(login, password, group_id, contest_id, store_password, judge):
     if contest_id is None:
         contest_id = get_contest_id(group_id)
         if contest_id is None:
-            click.secho(f"Invalid group id '{group_id}' (should be either a number from 201 to 2010 or 'free'", fg='red', err=True)
+            click.secho(
+                f"Invalid group id '{group_id}'"
+                "(should be either a number from 201 to 2010 or 'free'",
+                fg='red', err=True
+            )
             return
 
     session = EjudgeSession(auth=False)

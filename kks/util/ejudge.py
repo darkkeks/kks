@@ -1,5 +1,4 @@
 import json
-import pickle
 from base64 import b64decode
 from dataclasses import asdict
 from typing import Optional
@@ -38,6 +37,7 @@ def check_response(resp):
 class RunStatus:
     """A (very) limited wrapper class for responses from "run-status-json" method"""
 
+    # TODO use enum?
     COMPILING = 98  # from github.com/blackav/ejudge-fuse
     COMPILED = 97
     RUNNING = 96
@@ -108,7 +108,6 @@ class RunStatus:
             except Exception:
                 self.compiler_output = 'Cannot decode compiler output: {data}'
 
-
     def is_testing(self):
         return self.status >= 95 and self.status <= 99
 
@@ -123,7 +122,10 @@ class RunStatus:
             return f"{test['num']} - {self.get_description(test['status'])}"
 
         if failed_only:
-            test_results = '\n'.join(map(test_descr, [test for test in self.tests if test['status'] not in [self.OK, self.SKIPPED]]))
+            test_results = '\n'.join(
+                test_descr(test)
+                for test in self.tests if test['status'] not in [self.OK, self.SKIPPED]
+            )
         else:
             test_results = '\n'.join(map(test_descr, self.tests))
         return f'{self}\n{test_results}'
@@ -165,7 +167,9 @@ class API:
         except ValueError as e:
             if not need_json:
                 return resp.content
-            raise APIError(f'Invalid response. resp={resp.content}, err={e}', APIError.INVALID_RESPONSE)
+            raise APIError(
+                f'Invalid response. resp={resp.content}, err={e}', APIError.INVALID_RESPONSE
+            )
 
         # if a submission is a valid JSON file, then api.download_run will fail
         if not need_json or not data['ok']:
@@ -285,9 +289,14 @@ class EjudgeSession:
         if auth_data is None:  # auto-auth
             auth_data = load_auth_data()
             if auth_data is None:
-                raise AuthError('Auth data is not found, please use "kks auth" to log in', fg='yellow')
+                raise AuthError(
+                    'Auth data is not found, please use "kks auth" to log in', fg='yellow'
+                )
 
-            click.secho('Ejudge session is missing or invalid, trying to auth with saved data', fg='yellow', err=True)
+            click.secho(
+                'Ejudge session is missing or invalid, trying to auth with saved data',
+                fg='yellow', err=True
+            )
             if auth_data.password is None:
                 auth_data.password = click.prompt('Password', hide_input=True)
 
@@ -317,7 +326,8 @@ class EjudgeSession:
         """
         Create an API wrapper with (EJ)SID from this session
         If cookies are outdated, api requests will raise an APIError
-        If api is used before any session requests are performed, use EjudgeSession.with_auth for the first request
+        If api is used before any session requests are performed,
+        use EjudgeSession.with_auth for the first request/
         Example:
         >>> api = session.api()
         >>> problem = session.with_auth(api.problem_status, 123)
@@ -327,8 +337,12 @@ class EjudgeSession:
         return API(self.sids)
 
     def with_auth(self, api_method, *args, **kwargs):
-        """
-        api_method should only a method of API object that was created with .api() method of this instance
+        """Calls the API method, updates auth data if needed.
+
+        Args:
+            api_method: A method of an API object
+                that was returned from `self.api()`.
+                If any other API object is used, results are undefined.
         """
         try:
             return api_method(*args, **kwargs)

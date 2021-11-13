@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 
 import click
@@ -85,7 +86,7 @@ class FancyTable:
         return lines
 
     def show(self, rows, allow_high_tables=False):
-        terminal_width, terminal_height = click.get_terminal_size()
+        terminal_width, terminal_height = shutil.get_terminal_size()
         exceeds_width = self.calc_width() > terminal_width
         exceeds_height = len(rows) > terminal_height
 

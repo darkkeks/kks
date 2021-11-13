@@ -29,7 +29,10 @@ def _make_hidden(contests, all_, hidden):
 
     valid_contests = read_contests(workspace)
     if len(valid_contests) == 0:  # index was not created yet
-        click.secho(f'Inconsistent workspace, run "kks sync" to enable contest hiding', fg='yellow', err=True)
+        click.secho(
+            f'Inconsistent workspace, run "kks sync" to enable contest hiding',
+            fg='yellow', err=True
+        )
         return
 
     if all_:
@@ -42,7 +45,9 @@ def _make_hidden(contests, all_, hidden):
             is_valid_contest = contest_dir.exists()
 
         if not is_valid_contest:
-            click.secho(f'Contest {contest} does not exist (or wasnt synced)', fg='yellow', err=True)
+            click.secho(
+                f'Contest {contest} does not exist (or wasnt synced)', fg='yellow', err=True
+            )
             continue
 
         hidden_dir = get_hidden_dir(workspace)

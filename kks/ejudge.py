@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 # import requests  # we use lazy imports to improve load time for local commands
 # from bs4 import BeautifulSoup
 # from bs4.element import NavigableString
+import click
 from tqdm import tqdm
 
 from kks.errors import APIError, EjudgeError, ParseError
@@ -147,34 +148,84 @@ class CacheKeys:
         return f'dl_{contest}'
 
 
-def _skip_field():
-    return field(init=False, repr=False, compare=False, metadata={'skip': True})
+def _skip_field(parser=None):
+    meta = {'skip': True}
+    if parser is not None:
+        meta['parser'] = parser
+    return field(init=False, repr=False, compare=False, metadata=meta)
+
+
+def _parse_field(parser):
+    return field(metadata={'parser': parser})
+
+
+class _CellParsers:
+    @staticmethod
+    def _parse_optional(cell) -> Optional[str]:
+        text = cell.text.strip()
+        if text and text != 'N/A':
+            return text
+        return None
+
+    @staticmethod
+    def submission_id(cell):
+        return int(cell.text.rstrip('#'))
+
+    @staticmethod
+    def submission_time(cell):
+        # NOTE timezone is not set
+        return datetime.strptime(cell.text, TIME_FORMAT)
+
+    @staticmethod
+    def submission_tests(cell):
+        value = _CellParsers._parse_optional(cell)
+        return int(value) if value is not None else None
+
+    @staticmethod
+    def submission_score(cell):
+        value = _CellParsers._parse_optional(cell)
+        if value is None:
+            return None
+        return int(re.sub(r'=.*', '', value))  # score may include penalty
+
+    @staticmethod
+    def submission_source(cell):
+        source_link = cell.find('a')['href']
+        return source_link.replace(
+            f'action={Page.VIEW_SOURCE.value}',
+            f'action={Page.DOWNLOAD_SOURCE.value}'
+        )
+
+    @staticmethod
+    def submission_report(cell):
+        report_link = cell.find('a')
+        return report_link['href'] if report_link is not None else None
 
 
 @dataclass(frozen=True)
 class Submission:
-    id: int = field(metadata={'mapper': '_parse_id'})
-    time: datetime = field(metadata={'mapper': '_parse_time'})  # parsing of new fields may be unstable
-    user: str
+    id: int = _parse_field(_CellParsers.submission_id)
+    # parsing of new fields may be unstable
+    time: datetime = _parse_field(_CellParsers.submission_time)
+    user: str  # TODO!! split (size: int for unprivileged users)
     problem: str
     compiler: str
     status: str
-    tests_passed: Optional[int] = field(metadata={'mapper': '_parse_tests'})
-    score: Optional[int] = field(metadata={'mapper': '_parse_score'})
-    source: str = field(metadata={'mapper': '_parse_source_link'})
-    report: Optional[str] = field(metadata={'mapper': '_parse_report_link'})
+    tests_passed: Optional[int] = _parse_field(_CellParsers.submission_tests)
+    score: Optional[int] = _parse_field(_CellParsers.submission_score)
+    source: str = _parse_field(_CellParsers.submission_source)
+    report: Optional[str] = _parse_field(_CellParsers.submission_report)
 
     @classmethod
     def parse(cls, row, server_tz=timezone.utc):
 
         def parse_field(field, cell):
-            meta = field.metadata
-            if not meta:
+            # this function is  never called on `_skip_field`s
+            parser = field.metadata.get('parser')
+            if not parser:
                 # NOTE will not work with Optional types
                 return field.type(cell.text)
-            if meta.get('skip'):
-                return None
-            return getattr(cls, meta['mapper'])(cell)
+            return parser(cell)
 
         cells = row.find_all('td')
         data = {
@@ -183,43 +234,6 @@ class Submission:
         }
         data['time'] = data['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
         return cls(**data)
-
-    @staticmethod
-    def _parse_id(cell):
-        return int(cell.text.rstrip('#'))
-
-    @staticmethod
-    def _parse_time(cell):
-        return datetime.strptime(cell.text, TIME_FORMAT)
-
-    @staticmethod
-    def _parse_optional_field(cell) -> Optional[str]:
-        text = cell.text.strip()
-        if text and text != 'N/A':
-            return text
-        return None
-
-    @staticmethod
-    def _parse_tests(cell):
-        value = Submission._parse_optional_field(cell)
-        return int(value) if value is not None else None
-
-    @staticmethod
-    def _parse_score(cell):
-        value = Submission._parse_optional_field(cell)
-        if value is None:
-            return None
-        return int(re.sub(r'=.*', '', value))  # score may include penalty
-
-    @staticmethod
-    def _parse_source_link(cell):
-        source_link = cell.find('a')['href']
-        return source_link.replace(f'action={Page.VIEW_SOURCE.value}', f'action={Page.DOWNLOAD_SOURCE.value}')
-
-    @staticmethod
-    def _parse_report_link(cell):
-        report_link = cell.find('a')
-        return report_link['href'] if report_link is not None else None
 
     def short_status(self):
         if self.status == Status.REVIEW:
@@ -264,7 +278,10 @@ class Report:
                 author_cell, comment, *_ = row.find_all('td')
                 author = next(line for line in author_cell.text.splitlines() if line)
                 # if the comment contains newlines
-                yield from f'Comment by {author}: {comment.text.strip()}\n'.splitlines(keepends=True)
+                yield from (
+                    f'Comment by {author}: {comment.text.strip()}\n'
+                    .splitlines(keepends=True)
+                )
 
         if comments:
             self.lines = list(comm_format(comments))
@@ -393,7 +410,12 @@ class Deadlines:
 
 class ProblemInfo:
     """Subset of task info table used for max score estimation"""
-    def __init__(self, full_score: int, run_penalty: int, current_penalty: int, deadlines: Deadlines):
+    def __init__(  # TODO use dataclass?
+        self,
+        full_score: int,
+        run_penalty: int, current_penalty: int,
+        deadlines: Deadlines
+    ):
         self.full_score = full_score
         self.run_penalty = run_penalty
         self.current_penalty = current_penalty
@@ -410,7 +432,10 @@ class ProblemInfo:
         return self.deadlines.is_close(self.active_deadline())
 
     def past_deadline(self):
-        return self.deadlines.hard is not None and datetime.now(tz=timezone.utc) > self.deadlines.hard
+        return (
+            self.deadlines.hard is not None
+            and datetime.now(tz=timezone.utc) > self.deadlines.hard
+        )
 
 
 class ContestInfo:
@@ -429,6 +454,7 @@ class ContestInfo:
 
     def __getattr__(self, name):
         return getattr(self.first_problem, name)
+
 
 class FullProblem(SummaryProblem):
     keep_info = ['Time limit:', 'Real time limit:', 'Memory limit:']
@@ -862,7 +888,9 @@ def get_contest_deadlines(session, summary, no_cache):
                 cache.erase(CacheKeys.deadline(problem.contest()))
             cache.erase(CacheKeys.server_tz)
 
-        problems = update_cached_problems(cache, names, session, problems=first_problems, summary=summary)
+        problems = update_cached_problems(
+            cache, names, session, problems=first_problems, summary=summary
+        )
 
     return [ContestInfo(name, problem) for name, problem in zip(contest_names, problems)]
 
@@ -890,7 +918,9 @@ def update_cached_problems(cache, names, session, problems=None, summary=None):
             pbar.update(1)
             return result
 
-        return [with_progress(get_problem_info, problem, cache, session) for problem in problem_list]
+        return [
+            with_progress(get_problem_info, problem, cache, session) for problem in problem_list
+        ]
 
 
 def get_problem_info(problem, cache, session):
@@ -910,7 +940,10 @@ def get_problem_info(problem, cache, session):
     deadline_key = CacheKeys.deadline(problem.contest())
     deadlines = cache.get(deadline_key)
 
-    need_loading = any(field is None for field in [full_score, run_penalty, current_penalty, deadlines])  # new problem or need to update penalty
+    # new problem or need to update penalty
+    need_loading = any(
+        field is None for field in [full_score, run_penalty, current_penalty, deadlines]
+    )
 
     if not need_loading:
         return ProblemInfo(full_score, run_penalty, current_penalty, deadlines)
@@ -922,7 +955,8 @@ def get_problem_info(problem, cache, session):
         cache.set(CacheKeys.full_scores, full_scores)
         cache.set(CacheKeys.run_penalties, run_penalties)
 
-        if result.past_deadline() or problem.contest().startswith('kr'):  # kr tasks don't have soft deadlines, so nothing should expire
+        # kr tasks don't have soft deadlines, so their data should not expire
+        if result.past_deadline() or problem.contest().startswith('kr'):
             expiration = None
         else:
             if deadlines.soft is not None:
@@ -973,7 +1007,8 @@ def get_problem_info(problem, cache, session):
         except APIError as e:
             click.secho(f'Cannot get problem info ({problem.short_name}): {e}', err=True)
             problem_status = {}
-        full_score = problem_status.get('full_score', 0)  # NOTE is equal to 1 for running / testing kr contests
+        # NOTE for running / testing kr contests full_score == 1
+        full_score = problem_status.get('full_score', 0)
         run_penalty = problem_status.get('run_penalty', 0)
         # API never tells the deadlines and current penalty
 

@@ -12,7 +12,8 @@ from kks.util.config import target_file, global_comment
 @click.option('-c', '--config', cls=FlagOption, is_flag=True,
               help=f'Create {target_file} in current directory and exit')
 @click.option('--config_opt', cls=OptFlagOption, type=Choice2(['update', 'global']),
-              help=f'Create a copy of config for manual updating or create config in the root dir of workspace')  # TODO multiline help?
+              help='Create a copy of config for manual updating '
+                   'or create config in the root dir of workspace')  # TODO multiline help?
 def init(force, config, config_opt):
     """Initialize kks workspace in current directory."""
 
@@ -24,7 +25,12 @@ def init(force, config, config_opt):
         if config_opt == 'global':
             workspace = find_workspace()
             if workspace is None:
-                click.secho('Current directory is not in a kks workspace. To use "global" option, you need to cd into an existing workspace or run "kks init"', fg='red')
+                click.secho(
+                    'Current directory is not in a kks workspace.'
+                    'To use "global" option, you need to cd into an existing workspace '
+                    'or run "kks init"',
+                    fg='red'
+                )
                 return
             path = workspace
             is_global = True
@@ -36,8 +42,11 @@ def init(force, config, config_opt):
     if not force:
         workspace = find_workspace()
         if workspace is not None:
-            click.secho(f'Found workspace in directory {workspace}\n'
-                        f'If you are sure you want to create workspace here, specify --force', fg='yellow')
+            click.secho(
+                f'Found workspace in directory {workspace}\n'
+                'If you are sure you want to create workspace here, specify --force',
+                fg='yellow'
+            )
             return
 
     if file.exists():
@@ -57,9 +66,16 @@ def init(force, config, config_opt):
     hidden = get_hidden_dir(path)
     if hidden.exists():
         if hidden.is_dir():
-            click.secho(f'The directory for hidden contests already exists ({hidden.relative_to(path)})\n', fg='yellow')
+            click.secho(
+                f'The directory for hidden contests already exists ({hidden.relative_to(path)})\n',
+                fg='yellow'
+            )
         else:
-            click.secho(f'{hidden.relative_to(path)} exists and is not a directory, "kks (un)hide" may break!\n', fg='red')
+            click.secho(
+                f'{hidden.relative_to(path)} exists and is not a directory, '
+                '"kks (un)hide" may break!\n',
+                fg='red'
+            )
     else:
         hidden.mkdir()
 
@@ -75,10 +91,18 @@ def create_config(directory, is_global, update, force):
     else:
         if file.exists():
             if not file.is_file():
-                click.secho(f'"{file}" exists and is not a file, you will need to replace it to create custom targets', fg='red')
+                click.secho(
+                    f'"{file}" exists and is not a file, '
+                    'you will need to replace it to create custom targets',
+                    fg='red'
+                )
                 return
             elif not force:
-                click.secho(f'The file {file} already exists. Use --force to overwrite it or --config=update to create a copy', fg='yellow')
+                click.secho(
+                    f'The file {file} already exists. '
+                    'Use --force to overwrite it or --config=update to create a copy',
+                    fg='yellow'
+                )
                 return
 
     data = resource_stream('kks', f'data/{target_file}').read().decode()

@@ -1,10 +1,10 @@
-import subprocess
 import tempfile
 from pathlib import Path
 
 import click
 
 from kks.util.common import test_number_to_name
+from kks.util.compat import subprocess
 from kks.util.script import run_script, needs_compilation, compile_script
 
 
@@ -83,7 +83,12 @@ class Test:
     TYPE_FILE = 'file'
     TYPE_DATA = 'data'
 
-    def __init__(self, name, test_type, input_file=None, output_file=None, input_data=None, output_data=None):
+    def __init__(  # TODO use dataclass?
+        self,
+        name, test_type,
+        input_file=None, output_file=None,
+        input_data=None, output_data=None
+    ):
         self.name = name
         self.test_type = test_type
         self.input_file = input_file
@@ -97,11 +102,15 @@ class Test:
 
     @classmethod
     def from_file(cls, name, input_file, output_file):
-        return cls(name=name, test_type=Test.TYPE_FILE, input_file=input_file, output_file=output_file)
+        return cls(
+            name=name, test_type=Test.TYPE_FILE, input_file=input_file, output_file=output_file
+        )
 
     @classmethod
     def from_data(cls, name, input_data, output_data):
-        return cls(name=name, test_type=Test.TYPE_DATA, input_data=input_data, output_data=output_data)
+        return cls(
+            name=name, test_type=Test.TYPE_DATA, input_data=input_data, output_data=output_data
+        )
 
     def is_file(self):
         return self.test_type == Test.TYPE_FILE

@@ -1,5 +1,4 @@
 from mimetypes import guess_extension
-from os import environ
 
 import click
 
@@ -112,7 +111,10 @@ def sync(code, code_opt, force, filters):
     workspace = find_workspace()
 
     if workspace is None:
-        click.secho('You have to run sync under kks workspace (use "kks init" to create one)', fg='red', err=True)
+        click.secho(
+            'You have to run sync under kks workspace (use "kks init" to create one)',
+            fg='red', err=True
+        )
         return
 
     config = Config()
@@ -151,16 +153,24 @@ def sync(code, code_opt, force, filters):
             continue
 
         if not task_dir.exists():
-            click.secho('Creating directories for task ' + click.style(problem.name, fg='blue', bold=True))
+            click.secho(
+                'Creating directories for task ' + click.style(problem.name, fg='blue', bold=True)
+            )
             task_dir.mkdir(parents=True, exist_ok=True)
         else:
             if not task_dir.is_dir():
-                click.secho(f'File {task_dir.relative_to(workspace)} exists, skipping', fg='red', err=True)
+                click.secho(
+                    f'File {task_dir.relative_to(workspace)} exists, skipping',
+                    fg='red', err=True
+                )
                 continue
 
             if not force:
                 if code:
-                    click.secho('Syncing submissions for ' + click.style(problem.name, fg='blue', bold=True))
+                    click.secho(
+                        'Syncing submissions for ' +
+                        click.style(problem.name, fg='blue', bold=True)
+                    )
                     sync_code(problem, task_dir, submissions, session, code_all)
                     new_problems += 1
                 else:
@@ -196,7 +206,8 @@ def sync(code, code_opt, force, filters):
         md_statement_path = task_dir / 'statement.md'
 
         if config.options.save_html_statements:
-            if problem.statement_available() or not html_statement_path.exists():  # overwrite only if statement is available
+            # overwrite only if statement is available
+            if problem.statement_available() or not html_statement_path.exists():
                 with html_statement_path.open('w') as f:
                     f.write(problem.html())
         elif html_statement_path.is_file():
@@ -225,4 +236,7 @@ def sync(code, code_opt, force, filters):
 
     color = 'green' if old_problems + new_problems == total_problems else 'red'
     click.secho('Sync done!', fg='green')
-    click.secho(f'Synced tasks: {old_problems+new_problems}/{total_problems} ({old_problems} unchanged)', fg=color)
+    click.secho(
+        f'Synced tasks: {old_problems+new_problems}/{total_problems} ({old_problems} unchanged)',
+        fg=color
+    )

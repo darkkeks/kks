@@ -1,11 +1,11 @@
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 
 import click
 
 from kks.util.common import get_solution_directory, get_clang_style_string, print_diff
+from kks.util.compat import subprocess
 
 
 @click.command(short_help='Lint solution')
@@ -25,7 +25,11 @@ def lint(diff, dry_run):
 
     directory = get_solution_directory()
 
-    files = list(directory.glob('*.c')) + list(directory.glob('*.h')) + list(directory.glob('*.cpp'))
+    files = (
+        list(directory.glob('*.c')) +
+        list(directory.glob('*.h')) +
+        list(directory.glob('*.cpp'))
+    )
 
     if not files:
         click.secho('No .c, .h, .cpp files found', fg='yellow', err=True)
