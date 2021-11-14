@@ -377,6 +377,7 @@ class EjudgeSession:
         check_response(response)
         if 'Invalid session' in response.text:
             self.auth()
+            params['SID'] = self.sids.sid
             response = method(url, *args, **kwargs)
         return response
 
