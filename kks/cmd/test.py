@@ -87,7 +87,7 @@ def test_(target, verbose, tests, test_range, files, sample,
             if not tests and not test_range:
                 test_range = range(1, 101)
 
-            all_tests = sorted(set(tests) | set(test_range))
+            all_tests = sorted(set(tests) | set(test_range or []))
 
             tests = VirtualTestSequence(test_source, all_tests)
 
