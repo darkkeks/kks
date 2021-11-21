@@ -3,6 +3,7 @@ from copy import copy
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from functools import wraps
 from itertools import groupby
 from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -15,7 +16,7 @@ from tqdm import tqdm
 
 from kks.errors import APIError, EjudgeError, ParseError
 from kks.util.h2t import HTML2Text
-from kks.util.storage import PickleStorage
+from kks.util.storage import Cache, PickleStorage
 
 
 CONTEST_ID_BY_GROUP = {}
@@ -54,6 +55,13 @@ class Page(Enum):
     SUBMIT_CLAR = 141
     CLARS = 142
     SETTINGS = 143
+
+
+class ClarFilter(Enum):
+    ALL = 1
+    UNANSWERED = 2
+    ALL_WITH_COMMENTS = 3
+    TO_ALL = 4
 
 
 class Status:
@@ -201,9 +209,49 @@ class _CellParsers:
         report_link = cell.find('a')
         return report_link['href'] if report_link is not None else None
 
+    @staticmethod
+    def clar_flags(cell):
+        return cell.text.strip()
+
+    @staticmethod
+    def clar_time(cell):
+        return _CellParsers.submission_time(cell)
+
+    @staticmethod
+    def clar_details(cell):
+        link = cell.find('a')  # always exists?
+        return link['href'] if link is not None else None
+
+
+class ParsedRow:
+    """Base for dataclasses which can be parsed from table rows"""
+
+    @classmethod
+    def parse(cls, row):
+        attrs = cls._parse(row)
+        return cls(**attrs)
+
+    @classmethod
+    def _parse(cls, row):
+
+        def parse_field(field, cell):
+            # this function is  never called on `_skip_field`s
+            parser = field.metadata.get('parser')
+            if not parser:
+                # NOTE will not work with Optional types
+                return field.type(cell.text)
+            return parser(cell)
+
+        cells = row.find_all('td')
+        attrs = {
+            field.name: parse_field(field, cell)
+            for field, cell in zip(fields(cls), cells) if field.init
+        }
+        return attrs
+
 
 @dataclass(frozen=True)
-class BaseSubmission:
+class BaseSubmission(ParsedRow):
     id: int = _parse_field(_CellParsers.submission_id)
     # parsing of new fields may be unstable
     time: datetime = _parse_field(_CellParsers.submission_time)
@@ -218,22 +266,9 @@ class BaseSubmission:
 
     @classmethod
     def parse(cls, row, server_tz=timezone.utc):
-
-        def parse_field(field, cell):
-            # this function is  never called on `_skip_field`s
-            parser = field.metadata.get('parser')
-            if not parser:
-                # NOTE will not work with Optional types
-                return field.type(cell.text)
-            return parser(cell)
-
-        cells = row.find_all('td')
-        data = {
-            field.name: parse_field(field, cell)
-            for field, cell in zip(fields(cls), cells) if field.init
-        }
-        data['time'] = data['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
-        return cls(**data)
+        attrs = cls._parse(row)
+        attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        return cls(**attrs)
 
     def short_status(self):
         if self.status == Status.REVIEW:
@@ -282,6 +317,27 @@ class JudgeSubmission(BaseSubmission):
     user: str = field(init=False)  # Not in order
     def __post_init__(self):
         object.__setattr__(self, 'user', self.size_or_user)
+
+
+@dataclass(frozen=True)
+class JudgeClarInfo(ParsedRow):
+    id: int
+    # Possible values: "", "N" - unanswered?, "A" - answered?, "R" - not used?
+    flags: str = _parse_field(_CellParsers.clar_flags)
+    # NOTE other time formats? (show_astr_time in lib/new_server_html_2.c:ns_write_all_clars)
+    time: datetime = _parse_field(_CellParsers.clar_time)
+    ip: str
+    size: int
+    from_user: str
+    to: str
+    subject: str
+    details: str = _parse_field(_CellParsers.clar_details)
+
+    @classmethod
+    def parse(cls, row, server_tz=timezone.utc):
+        attrs = cls._parse(row)
+        attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        return cls(**attrs)
 
 
 class Report:
@@ -660,6 +716,15 @@ def get_contest_url_with_creds(auth_data):
     return f'{root}?{urlencode(params)}'
 
 
+def requires_judge(func):
+    @wraps(func)
+    def wrapper(session, *args, **kwargs):
+        if not session.judge:
+            raise EjudgeError('Method is only available for judges')
+        return func(session, *args, **kwargs)
+    return wrapper
+
+
 # NOTE all "ejudge_xxx" methods may raise kks.errors.AuthError
 # If session was used previously to make a request, and no errors were raised, AuthError will not be raised
 def ejudge_summary(session):
@@ -761,7 +826,6 @@ def to_task_score(contest, cell):
 
 def ejudge_submissions(session):
     from bs4 import BeautifulSoup
-    from kks.util.storage import Cache
 
     page = session.get_page(Page.SUBMISSIONS, params={'all_runs': 1})
 
@@ -820,6 +884,7 @@ def ejudge_timezone(session):
     return timezone(timedelta(hours=offset_hours))
 
 
+@requires_judge
 def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=None):
     """Parses (filtered) submissions table.
 
@@ -848,11 +913,7 @@ def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=Non
     For more details, see ejudge source code
     (lib/new_server_html_2.c:257-293 (at 773a153b1))
     """
-    if not session.judge:
-        raise EjudgeError('Method is only available for judges')
-
     from bs4 import BeautifulSoup
-    from kks.util.storage import Cache
 
     filter_status = (bool(filter_), first_run is not None, last_run is not None)
     storage = PickleStorage('storage')
@@ -873,21 +934,81 @@ def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=Non
     if any(filter_status) or page is None:
         page = session.get_page(
             Page.MAIN_PAGE,
-            params={'filter_expr': filter_, 'filter_first_run': first_run, 'filter_last_run': last_run}
+            params={
+                'filter_expr': filter_,
+                'filter_first_run': first_run,
+                'filter_last_run': last_run
+            }
         )
     soup = BeautifulSoup(page.content, 'html.parser')
-    tables = soup.find_all('table', {'class': 'b1'})
-    if len(tables) < 2:
+    title = soup.find('h2', text='Submissions')
+    table = title.find_next('table', {'class': 'b1'})
+    if table is None or table.find_previous('h2') is not title:
+        # Bad filter expression (other errors?)
         return None
     with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
         server_tz = get_server_tz(cache, session)
-    sub_table = tables[0]
-    return [JudgeSubmission.parse(row, server_tz) for row in sub_table.find_all('tr')[1:]]
+    return [JudgeSubmission.parse(row, server_tz) for row in table.find_all('tr')[1:]]
+
+
+@requires_judge
+def ejudge_clars_judge(session, filter_=ClarFilter.UNANSWERED, first_clar=None, last_clar=None):
+    """Parses the list of clars.
+
+    NOTE: first_clar and last_clar do not work as expected, see details below.
+
+    Args:
+        filter_: Which clars to return.
+        first_clar: First index in the *unfiltered* list of clars Default: -1.
+        last_clar: How many clars to return (see below). Default: -10.
+
+    From ejudge source:
+    > last_clar is actually count
+    > count == 0, show all matching in descending border
+    > count < 0, descending order
+    > count > 0, ascending order
+
+    first_clar (last_clar) must be in range [-total, total-1],
+    where "total" is the total number of clars (unfiltered).
+    If value is not in the allowed range, -1 (-10) is used.
+    """
+    from bs4 import BeautifulSoup
+
+    filter_status = (first_clar is not None, last_clar is not None)
+    storage = PickleStorage('storage')
+    with storage.load():
+        old_filter_status = storage.get('last_clar_filter_status', (False, False))
+
+    page = None
+    # A reset is required even if one field is reset (?)
+    if any((new_status < old_status for (old_status, new_status) in zip(old_filter_status, filter_status))):
+        page = session.get_page(
+            Page.MAIN_PAGE,
+            params={'action_73': 'Reset filter'}
+        )
+    with storage.load():
+        storage.set('last_clar_filter_status', filter_status)
+
+    # Use result from reset if indicess are not set and filter is UNANSWERED.
+    if page is None or any(filter_status) or filter_ is not ClarFilter.UNANSWERED:
+        page = session.get_page(
+            Page.MAIN_PAGE,
+            params={
+                'filter_mode_clar': filter_.value,
+                'filter_first_clar': first_clar,
+                'filter_last_clar': last_clar
+            }
+        )
+
+    soup = BeautifulSoup(page.content, 'html.parser')
+    title = soup.find('h2', text='Messages')
+    table = title.find_next('table', {'class': 'b1'})
+    if table is None or table.find_previous('h2') is not title:
+        return None  # is this possible?
+    return [JudgeClarInfo.parse(row) for row in table.find_all('tr')[1:]]
 
 
 def get_contest_deadlines(session, summary, no_cache):
-    from kks.util.storage import Cache
-
     names = [problem.short_name for problem in summary]
 
     contest_names = []
