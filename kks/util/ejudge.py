@@ -1,7 +1,7 @@
 import json
 from base64 import b64decode
 from typing import Optional
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 import click
 
@@ -352,6 +352,10 @@ class EjudgeSession:
                 return api_method(*args, **kwargs)
             raise e
 
+    @staticmethod
+    def needs_auth(url):
+        return 'SID' in parse_qs(urlsplit(url).query)
+
     def _update_sids(self, url):
         self.sids.sid = parse_qs(urlsplit(url).query)['SID'][0]
         self.sids.ejsid = self.http.cookies['EJSID']
@@ -367,6 +371,12 @@ class EjudgeSession:
     def _request(self, method, url, *args, **kwargs):
         # NOTE params should only be passed as a keyword argument
         params = kwargs.get('params', {}).copy()
+        # If SID is included in the url, move it to params
+        parts = urlsplit(url)
+        query = parse_qs(parts.query)
+        if 'SID' in query:
+            params['SID'] = query.pop('SID')[0]
+            url = urlunsplit(parts._replace(query=urlencode(query, doseq=True)))
         params['SID'] = self.sids.sid
         page_id: Optional[Page] = kwargs.pop('page_id', None)
         if page_id is not None:
@@ -375,7 +385,8 @@ class EjudgeSession:
 
         response = method(url, *args, **kwargs)
         check_response(response)
-        if 'Invalid session' in response.text:
+        # the requested page may contain binary data (e.g. problem attachments)
+        if b'Invalid session' in response.content:
             self.auth()
             params['SID'] = self.sids.sid
             response = method(url, *args, **kwargs)
