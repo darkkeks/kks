@@ -226,7 +226,7 @@ def sync(code, code_opt, force, filters):
 
         if problem.output_data is not None:
             with (tests_dir / '000.out').open('w') as f:
-                f.write(problem.output_data + '\n')
+                f.write(problem.output_data)
 
         if code:
             click.secho('Syncing submissions')
