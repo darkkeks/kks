@@ -74,3 +74,46 @@ class GroupedGroup(click.Group):
                     with formatter.indentation():
                         formatter.write_dl(rows)
                         formatter.write_paragraph()
+
+
+class ArgNotRequiredIf(click.Argument):
+    # Based on https://stackoverflow.com/a/44349292
+    def __init__(self, *args, **kwargs):
+        self.not_required_if = kwargs.pop('not_required_if')
+        assert self.not_required_if, "'not_required_if' parameter required"
+        super().__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        self_present = opts.get(self.name) is not None
+        other_present = opts.get(self.not_required_if) is not None
+
+        if other_present:
+            if self_present:
+                raise click.UsageError(
+                    f"Illegal usage: {self.make_metavar()} is mutually exclusive with {self._get_other_opts(ctx)}"
+                )
+            else:
+                self.required = False
+
+        return super().handle_parse_result(ctx, opts, args)
+
+    def _get_other_opts(self, ctx):
+        for param in ctx.command.params:
+            if param.name == self.not_required_if:
+                return ' / '.join([f"'{opt}'" for opt in param.opts])
+
+
+class RequiredIf(click.Option):
+    def __init__(self, *args, **kwargs):
+        self.required_if = kwargs.pop('required_if')
+        assert self.required_if, "'required_if' parameter required"
+        super().__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        self_present = opts.get(self.name) is not None
+        other_present = opts.get(self.required_if) is not None
+
+        if other_present:
+            self.required = True
+
+        return super().handle_parse_result(ctx, opts, args)

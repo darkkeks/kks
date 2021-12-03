@@ -376,7 +376,12 @@ class EjudgeSession:
 
     def _check_page_access(self, page_id: Page):
         if self.judge:
-            if page_id not in [Page.MAIN_PAGE, Page.USER_STANDINGS]:  # standings format for judges is different, "kks top" will just crash
+            if page_id not in [
+                Page.MAIN_PAGE,
+                Page.USER_STANDINGS,  # standings format for judges is different, "kks top" will just crash
+                Page.VIEW_SOURCE,
+                Page.DOWNLOAD_SOURCE,
+            ]:
                 raise EjudgeError('Page is not available for judges')
         else:
             pass
