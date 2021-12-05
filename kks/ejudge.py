@@ -685,6 +685,21 @@ class FullProblem(SummaryProblem):
         converter.pad_tables = True
         return converter.handle(str(self._html))
 
+    def attachments(self):
+        """Returns a dict of attachments in form of {filename: url}"""
+        if not self.statement_available():
+            return {}
+        attachments = {}
+        for tag in self._html.find_all(['a', 'img']):
+            url = tag['href'] if tag.name == 'a' else tag['src']
+            parts = urlsplit(url)
+            if parts.netloc != Links.HOST:
+                continue
+            query = parse_qs(parts.query)
+            if 'file' in query:
+                attachments[query['file'][0]] = url
+        return attachments
+
 
 def get_contest_id(group_id: str) -> int:
     return CONTEST_ID_BY_GROUP.get(group_id, None)

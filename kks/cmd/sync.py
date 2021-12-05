@@ -1,4 +1,5 @@
 from mimetypes import guess_extension
+from shutil import rmtree
 
 import click
 
@@ -82,7 +83,7 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
 def sync_code(problem, task_dir, submissions, session, full_sync):
     sub_dir = task_dir / 'submissions'
     if sub_dir.exists():
-        if not task_dir.is_dir():
+        if not sub_dir.is_dir():
             click.secho(f'File {sub_dir.relative_to(find_workspace())} exists, skipping',
                         fg='red', err=True)
             return
@@ -91,6 +92,35 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
     problem_subs = submissions.get(problem.short_name, [])
     if problem_subs:
         save_needed(problem, problem_subs, sub_dir, session, full_sync)
+
+
+def sync_attachments(problem, dest_dir, session):
+    attachments = problem.attachments()
+    dest_dir_exists = dest_dir.exists()
+    if dest_dir_exists and not dest_dir.is_dir():
+        if attachments:
+            click.secho(
+                f'File {dest_dir.relative_to(find_workspace())} exists, '
+                'skipping attachment sync',
+                fg='red', err=True
+            )
+        # Don't warn if the attachment list is empty
+        return
+
+    if dest_dir_exists:
+        # If an attachment was removed from the statement, it should be deleted.
+        # Remove all attachments, existing ones will be resynced anyway.
+        rmtree(dest_dir)
+
+    if not attachments:
+        return
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for att_name, url in attachments.items():
+        att_path = dest_dir / att_name
+        page = session.get(url)
+        with att_path.open('wb') as f:
+            f.write(page.content)
 
 
 @click.command(short_help='Parse problems from ejudge', cls=OptFlagCommand)
@@ -204,6 +234,7 @@ def sync(code, code_opt, force, filters):
 
         html_statement_path = task_dir / 'statement.html'
         md_statement_path = task_dir / 'statement.md'
+        attachments_path = task_dir / 'attachments'
 
         if config.options.save_html_statements:
             # overwrite only if statement is available
@@ -219,6 +250,12 @@ def sync(code, code_opt, force, filters):
                     f.write(problem.markdown(width=md_width))
         elif md_statement_path.is_file():
             md_statement_path.unlink()
+
+        if config.options.save_attachments:
+            if problem.statement_available():
+                sync_attachments(problem, attachments_path, session)
+        elif attachments_path.is_dir():
+            rmtree(attachments_path)
 
         if problem.input_data is not None:
             with (tests_dir / '000.in').open('w') as f:

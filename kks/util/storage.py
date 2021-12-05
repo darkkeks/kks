@@ -95,6 +95,7 @@ class AuthSection(Section):
 class OptionsSection(EnvSection):
     save_html_statements: bool = True
     save_md_statements: bool = True
+    save_attachments: bool = True
     mdwidth: int = 100
     max_kr: bool = False
     deadline_warning_days: int = 1
