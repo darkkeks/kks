@@ -183,6 +183,8 @@ class _CellParsers:
     @staticmethod
     def submission_time(cell):
         # NOTE timezone is not set
+        if not cell.text.strip():  # Cleared/deleted submissions (judge only)
+            return None
         return datetime.strptime(cell.text, TIME_FORMAT)
 
     @staticmethod
@@ -199,8 +201,10 @@ class _CellParsers:
 
     @staticmethod
     def submission_source(cell):
-        source_link = cell.find('a')['href']
-        return source_link.replace(
+        source_link = cell.find('a')
+        if not source_link:
+            return None
+        return source_link['href'].replace(
             f'action={Page.VIEW_SOURCE.value}',
             f'action={Page.DOWNLOAD_SOURCE.value}'
         )
@@ -208,7 +212,9 @@ class _CellParsers:
     @staticmethod
     def submission_report(cell):
         report_link = cell.find('a')
-        return report_link['href'] if report_link is not None else None
+        if not report_link:
+            return None
+        return report_link['href']
 
     @staticmethod
     def clar_flags(cell):
@@ -255,7 +261,7 @@ class ParsedRow:
 class BaseSubmission(ParsedRow):
     id: int = _parse_field(_CellParsers.submission_id)
     # parsing of new fields may be unstable
-    time: datetime = _parse_field(_CellParsers.submission_time)
+    time: Optional[datetime] = _parse_field(_CellParsers.submission_time)
     size_or_user: str = field(repr=False)  # any better options?
     problem: str
     compiler: str
@@ -268,7 +274,8 @@ class BaseSubmission(ParsedRow):
     @classmethod
     def parse(cls, row, server_tz=timezone.utc):
         attrs = cls._parse(row)
-        attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        if attrs['time']:
+            attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
         return cls(**attrs)
 
     def short_status(self):

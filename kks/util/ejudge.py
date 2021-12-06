@@ -41,7 +41,7 @@ def check_response(resp):
 class RunStatus:
     """A (very) limited wrapper class for responses from "run-status-json" method"""
 
-    # TODO!! use enum?
+    # TODO!! use enum
     COMPILING = 98  # from github.com/blackav/ejudge-fuse
     COMPILED = 97
     RUNNING = 96
