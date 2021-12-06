@@ -48,6 +48,7 @@ class Links:
 class Page(Enum):
     MAIN_PAGE = 2
     VIEW_SOURCE = 36
+    SET_RUN_STATUS = 67
     DOWNLOAD_SOURCE = 91
     USER_STANDINGS = 94
     SUMMARY = 137
@@ -308,6 +309,7 @@ class BaseSubmission(ParsedRow):
 @dataclass(frozen=True)
 class Submission(BaseSubmission):
     size: int = field(init=False)  # Not in order
+
     def __post_init__(self):
         object.__setattr__(self, 'size', int(self.size_or_user))
 
@@ -315,8 +317,12 @@ class Submission(BaseSubmission):
 @dataclass(frozen=True)
 class JudgeSubmission(BaseSubmission):
     user: str = field(init=False)  # Not in order
+
     def __post_init__(self):
         object.__setattr__(self, 'user', self.size_or_user)
+
+    def set_status(self, status: int, session):
+        session.post_page(Page.SET_RUN_STATUS, {'run_id': self.id, 'status': status})  # how to check success?
 
 
 @dataclass(frozen=True)

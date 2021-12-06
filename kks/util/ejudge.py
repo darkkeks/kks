@@ -41,7 +41,7 @@ def check_response(resp):
 class RunStatus:
     """A (very) limited wrapper class for responses from "run-status-json" method"""
 
-    # TODO use enum?
+    # TODO!! use enum?
     COMPILING = 98  # from github.com/blackav/ejudge-fuse
     COMPILED = 97
     RUNNING = 96
@@ -60,12 +60,19 @@ class RunStatus:
     PARTIAL = 7
     ACCEPTED = 8
     IGNORED = 9
+    DISQUALIFIED = 10
     PENDING = 11
+    SEC_ERR = 13
     STYLE_ERR = 14
     PENDING_REVIEW = 16
     REJECTED = 17
     SKIPPED = 18
     SYNC_ERR = 19
+    SUMMONED = 23
+
+    FULL_REJUDGE = 95  # ?
+    REJUDGE = 99
+    NO_CHANGE = 100  # ?
 
     # There are more, but only these were seen on caos.ejudge.ru
 
@@ -85,12 +92,18 @@ class RunStatus:
         PARTIAL: 'Partial solution',
         ACCEPTED: 'Accepted for testing',
         IGNORED: 'Ignored',
+        DISQUALIFIED: 'Disqualified',
         PENDING: 'Pending check',
+        SEC_ERR: 'Security violation',
         STYLE_ERR: 'Coding style violation',
         PENDING_REVIEW: 'Pending review',
         REJECTED: 'Rejected',
         SKIPPED: 'Skipped',
-        SYNC_ERR: 'Synchronization error'
+        SYNC_ERR: 'Synchronization error',
+        SUMMONED: 'Summoned for defence',
+        FULL_REJUDGE: 'Full rejudge',
+        REJUDGE: 'Rejudge',
+        NO_CHANGE: 'No change',
     }
 
     @staticmethod
@@ -381,6 +394,7 @@ class EjudgeSession:
                 Page.USER_STANDINGS,  # standings format for judges is different, "kks top" will just crash
                 Page.VIEW_SOURCE,
                 Page.DOWNLOAD_SOURCE,
+                Page.SET_RUN_STATUS,
             ]:
                 raise EjudgeError('Page is not available for judges')
         else:
