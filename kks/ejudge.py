@@ -177,7 +177,7 @@ class _CellParsers:
 
     @staticmethod
     def submission_id(cell):
-        return int(cell.text.rstrip('#'))
+        return int(cell.text.rstrip('#@'))
 
     @staticmethod
     def submission_time(cell):
