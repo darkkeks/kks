@@ -35,8 +35,20 @@ class BotDB:
         self._conn.execute('CREATE INDEX IF NOT EXISTS idx_reviewer ON submissions(reviewer);')
 
     @db_method
+    def user_exists(self, uid):
+        return self._conn.execute('SELECT id FROM users WHERE id = ?', (uid,)).fetchone() is not None
+
+    @db_method
+    def get_user(self, uid):
+        return self._conn.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+
+    @db_method
     def add_user(self, uid, first_name, last_name, *, commit=False):
         self._conn.execute('INSERT OR IGNORE INTO users(id, first_name, last_name) VALUES (?, ?, ?)', (uid, first_name, last_name))
+
+    @db_method
+    def get_submission(self, sub_id):
+        return self._conn.execute('SELECT * FROM submissions WHERE id = ?', (sub_id,)).fetchone()
 
     @db_method
     def add_submission(self, sub_id, uid, *, commit=False):
