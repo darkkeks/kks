@@ -3,7 +3,6 @@
 import re
 import logging
 import typing as t
-from collections import Counter
 from os import environ
 from pathlib import Path
 from random import randint
@@ -18,6 +17,7 @@ from telegram.utils.helpers import escape_markdown
 
 from kks.ejudge import Status, Submission
 from utils.submissions import new_submissions, save_last_id
+from utils.db import BotDB
 
 
 logging.basicConfig(
@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 STRIKETHROUGH = '~'
+# TODO use config
 TOKEN = environ.get('EJUDGE_TELEGRAM_TOKEN')
 CHAT_ID = environ.get('EJUDGE_TELEGRAM_CHAT')
-POST_OTHER = bool(int(environ.get('EJUDGE_POST_OTHER') or '0'))
 # compatibility
 BASE_DIR = Path(__file__).resolve().parent
 ID_FILE = BASE_DIR/'last_run_id'
@@ -96,8 +96,6 @@ def post_pending(context: CallbackContext, pending: t.List[Submission]):
     for i in range(0, len(pending), batch_size):
         lines = []
         buttons = []
-        if i == 0:
-            lines.append('Pending:')
         for sub in pending[i:i+batch_size]:
             lines.append(
                 f'[{sub.time.strftime("%d.%m %H:%M:%S")}] {sub.id} - {sub.user} - {sub.problem} ({sub.score})'
@@ -105,18 +103,6 @@ def post_pending(context: CallbackContext, pending: t.List[Submission]):
             buttons.append(InlineKeyboardButton(f'Take run {sub.id}', callback_data=f'{len(lines) - 1}_{randint(1, 10**9)}'))
         messages.append(('\n'.join(lines), InlineKeyboardMarkup.from_column(buttons)))
     send_messages(context, messages)
-
-
-def post_other(context: CallbackContext, counts: Counter, had_previous_messages):
-    lines = []
-    if had_previous_messages:
-        lines.append('Other submissions:')
-    else:
-        lines.append('New submissions:')
-    lines += [
-        f'{status}: {cnt}' for status, cnt in sorted(counts.items())
-    ]
-    send_message(context, '\n'.join(lines))
 
 
 def check_updates(context: CallbackContext):
@@ -131,19 +117,14 @@ def check_updates(context: CallbackContext):
         return
 
     pending = []
-    counts = Counter()
     for sub in submissions:
         if sub.status == Status.REVIEW:
             pending.append(sub)
-        else:
-            counts[sub.status] += 1
     pending.sort(key=lambda sub: sub.problem)
 
     try:
         if pending:
             post_pending(context, pending)
-        if counts and POST_OTHER:
-            post_other(context, counts, bool(pending))
     except TelegramError:
         logger.error('Cannot post an update. Error:')
         logger.error(format_exc())

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
+import typing as t
 
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import FancyTable, StaticColumn
@@ -11,11 +12,13 @@ BASE_DIR = Path(__file__).resolve().parent
 ID_FILE = BASE_DIR/'last_run_id'
 
 
-def new_submissions():
+def new_submissions(id_file: t.Optional[Path] = None):
     """Gets new submissions in chronological order"""
     last_id = -1
-    if ID_FILE.exists():
-        last_id = int(ID_FILE.read_text())
+    if id_file is None:
+        id_file = ID_FILE
+    if id_file.exists():
+        last_id = int(id_file.read_text())
     session = EjudgeSession()
     # - If last_run is greater than id of the last existing run (no new submissions)
     #   and filter expression is empty, ejudge will return the last run anyway.
@@ -23,7 +26,7 @@ def new_submissions():
     return ejudge_submissions_judge(session, f'id > {last_id}', 0, -1)
 
 
-def save_last_id(submissions, id_file=None):
+def save_last_id(submissions, id_file: t.Optional[Path] = None):
     if not submissions:
         return
     if id_file is None:

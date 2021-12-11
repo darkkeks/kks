@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 from collections import Counter
 from os import environ
+from pathlib import Path
 
 import requests
 import click
 
 from kks.ejudge import Status
-from submissions import new_submissions, save_last_id
+from utils.submissions import new_submissions, save_last_id
+
+
+# compatibility
+BASE_DIR = Path(__file__).resolve().parent
+ID_FILE = BASE_DIR/'last_run_id'
 
 
 def send_message(token, chat_id, lines):
@@ -47,7 +53,7 @@ def main():
         click.secho('Chat id is not set', err=True, fg='red')
         return
 
-    submissions = new_submissions()
+    submissions = new_submissions(ID_FILE)
     if not submissions:
         return
 
@@ -77,7 +83,7 @@ def main():
 
     # If an exception is raised, just silently fail. In this case last id won't be updated
     send_message(token, chat_id, lines)
-    save_last_id(submissions)
+    save_last_id(submissions, ID_FILE)
 
 
 if __name__ == '__main__':
