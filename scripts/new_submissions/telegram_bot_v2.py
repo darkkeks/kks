@@ -27,6 +27,21 @@ logger = logging.getLogger(__name__)
 
 
 STRIKETHROUGH = '~'
+BOLD = '*'
+
+
+class AllowDuplicateRequests:
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not isinstance(exc_value, BadRequest):
+            return False
+        err_msg = str(exc_value)
+        if err_msg.startswith('Message is not modified') or err_msg.startswith('Message to delete not found'):
+            # Ignore these errors. See Case 2 in note about version conflicts below.
+            return True
+        return False
 
 
 class Bot:
@@ -93,7 +108,7 @@ class Bot:
             if old_uid is not None and old_uid != user.id:
                 # Version conflict, see note above. Try to merge versions.
                 # Case 1: remove run 1 from 2nd version. All should be OK.
-                # Case 2: reapply the first request. BadRequest will be raised (see below), but it's OK.
+                # Case 2: reapply the first request. BadRequest will be raised, but it's OK.
                 _, first_name, last_name = self.db.get_user(old_uid)
             else:
                 first_name = user.first_name
@@ -105,22 +120,31 @@ class Bot:
                 escape_markdown(f' [{first_name[0]}{last_name[0]}]', version=2)
             )
 
-        try:  # any better options to filter BadRequest's?
-            try:
-                if not_empty:
-                    message.edit_text(
-                        '\n'.join(lines),
-                        reply_markup=InlineKeyboardMarkup(keyboard),
-                        parse_mode='MarkdownV2'
-                    )
-                else:
-                    if old_uid is not None and old_uid != user.id:
-                        update.callback_query.answer('This run is taken by another user')
-                    message.delete()
+        try:  # Generic telegram error handling
+            try:  # Filter BadRequest's. If we can't delete an old message, just edit it.
+                with AllowDuplicateRequests():
+                    if not_empty:
+                        message.edit_text(
+                            '\n'.join(lines),
+                            reply_markup=InlineKeyboardMarkup(keyboard),
+                            parse_mode='MarkdownV2'
+                        )
+                    else:
+                        if old_uid is not None and old_uid != user.id:
+                            # Need to answer the query while the message still exists
+                            update.callback_query.answer('This run is taken by another user')
+                        message.delete()
             except BadRequest as e:
-                if str(e).startswith('Message is not modified') or str(e).startswith('Message to delete not found'):
-                    # Case 2 from above
-                    pass
+                if str(e).startswith('Message can\'t be deleted'):
+                    # TODO check this error. From bot API docs:
+                    # > A message can only be deleted if it was sent less than 48 hours ago.
+                    # > If the bot has can_delete_messages permission in a supergroup or a channel,
+                    #   it can delete any message there.
+                    with AllowDuplicateRequests():
+                        message.edit_text(
+                            BOLD + escape_markdown('[DELETED]', version=2) + BOLD,
+                            parse_mode='MarkdownV2'
+                        )
                 else:
                     raise
         except RetryAfter as err:
