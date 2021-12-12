@@ -54,6 +54,16 @@ class BotDB:
     def add_submission(self, sub_id, uid, *, commit=False):
         self._conn.execute('INSERT OR IGNORE INTO submissions(id, reviewer) VALUES (?, ?)', (sub_id, uid))
 
+    @db_method
+    def get_stats(self):
+        return self._conn.execute('SELECT reviewer, COUNT(id) FROM submissions GROUP BY reviewer').fetchall()
+
+    @db_method
+    def dump_submissions(self):
+        return self._conn.execute(
+            'SELECT s.id, u.first_name, u.last_name, u.id '
+            'FROM submissions AS s INNER JOIN users AS u ON (s.reviewer = u.id)').fetchall()
+
     def commit(self):
         with self._lock:
             self._commit()

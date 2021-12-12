@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import re
 import logging
 import typing as t
+from functools import wraps
+from io import StringIO
 from pathlib import Path
 from random import randint
 from time import sleep
@@ -12,7 +15,7 @@ from traceback import format_exc
 import yaml
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import BadRequest, RetryAfter, TelegramError
-from telegram.ext import CallbackContext, CallbackQueryHandler, Updater
+from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
 from telegram.utils.helpers import escape_markdown
 
 from kks.ejudge import Status, Submission
@@ -44,6 +47,20 @@ class AllowDuplicateRequests:
         return False
 
 
+def restricted_cmd(method):
+
+    @wraps(method)
+    def wrapper(*args, **kwargs):
+        self, update = args[:2]
+        uid = update.effective_user.id
+        if not self.db.user_exists(uid):
+            logger.warning(f'Unauthorized command from user {uid}')
+            return
+        return method(*args, **kwargs)
+
+    return wrapper
+
+
 class Bot:
     def __init__(self, token, chat_id, id_file, db_path):
         self.updater = Updater(token)
@@ -55,6 +72,9 @@ class Bot:
             self.handle_query,
             pattern=re.compile(r'^(\d+)_\d+(?:_(\d+))?$')
         ))
+        self.updater.dispatcher.add_handler(CommandHandler('get', self.get_reviewer, Filters.chat_type.private))
+        self.updater.dispatcher.add_handler(CommandHandler('stats', self.show_stats, Filters.chat_type.private))
+        self.updater.dispatcher.add_handler(CommandHandler('dump', self.create_dump, Filters.chat_type.private))
 
     def start(self):
         self.db.create_tables()
@@ -163,6 +183,52 @@ class Bot:
             update.callback_query.answer()
             return
         update.callback_query.answer('This run is taken by another user')
+
+    @restricted_cmd
+    def get_reviewer(self, update: Update, context: CallbackContext):
+        cid = update.effective_chat.id
+        run_id = None
+        if context.args:
+            try:
+                run_id = int(context.args[0])
+            except ValueError:
+                pass
+        if run_id is None:
+            context.bot.send_message(cid, 'Usage: /get RUN_ID')
+            return
+        sub = self.db.get_submission(run_id)
+        if sub is None:
+            context.bot.send_message(cid, 'Submission is not in database')
+            return
+        _, reviewer = sub
+        _, first_name, last_name = self.db.get_user(reviewer)
+        full_name = f'{first_name} {last_name}' if last_name else first_name
+        full_name = escape_markdown(full_name, version=2)
+        context.bot.send_message(
+            cid,
+            f'{run_id} \\- [{full_name}](tg://user?id={reviewer})',
+            parse_mode='MarkdownV2'
+        )
+
+    @restricted_cmd
+    def show_stats(self, update: Update, context: CallbackContext):
+        stats = self.db.get_stats()
+        stats.sort(key=lambda x: x[1], reverse=True)
+        lines = []
+        for uid, runs in stats:
+            _, first_name, last_name = self.db.get_user(uid)  # Use a single SELECT?
+            full_name = f'{first_name} {last_name}' if last_name else first_name
+            lines.append(f'{full_name}: {runs}')
+        context.bot.send_message(update.effective_chat.id, '\n'.join(lines))
+
+    @restricted_cmd
+    def create_dump(self, update: Update, context: CallbackContext):
+        output = StringIO()
+        csv.writer(output).writerows(
+            [('id', 'first_name', 'last_name', 'tg_user_id')] + self.db.dump_submissions()
+        )
+        output.seek(0)
+        context.bot.send_document(update.effective_chat.id, output, 'submissions.csv')
 
     def check_updates(self, context: CallbackContext):
         try:
