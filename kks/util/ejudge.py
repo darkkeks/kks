@@ -34,6 +34,7 @@ def save_auth_data(auth_data, store_password=True):
 
 def check_response(resp):
     # will not raise on auth errors (ejudge does not change the status code)
+    # TODO handle 414 (Request-URI Too Long) separately
     if not resp.ok:
         raise EjudgeUnavailableError
 

@@ -21,7 +21,7 @@ def create_db(db_path, user_file, msg_file):
     """
 
     db = BotDB(db_path)
-    db.create_tables()
+    db.init()
 
     with open(user_file) as f:
         users = json.load(f)
@@ -35,12 +35,13 @@ def create_db(db_path, user_file, msg_file):
 
     for line in lines:
         m = re.search(r'\[.+?\] (\d+) - .* \[(.+?)\]', line)
+        # TODO add ej_user and problem, import pending submissions
         if not m:
             continue
         sub_id, user = m.groups()
         if user not in users:
             continue
-        db.add_submission(sub_id, users[user][0])
+        db.assign_submission(sub_id, users[user][0])
     db.commit()
     print(f'Imported messages into {db_path.resolve()}')
 

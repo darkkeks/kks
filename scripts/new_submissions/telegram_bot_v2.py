@@ -18,15 +18,19 @@ from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
 from telegram.utils.helpers import escape_markdown
 
-from kks.ejudge import Status, Submission
+from kks.ejudge import Status, Submission, ejudge_users_judge
+from kks.util.ejudge import EjudgeSession
 from utils.submissions import new_submissions, save_last_id
-from utils.db import BotDB
+from utils.db import BotDB, UnknownUser, import_ej_users
 
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.WARNING
 )
 logger = logging.getLogger(__name__)
+
+
+__version__ = '2.1.0'
 
 
 STRIKETHROUGH = '~'
@@ -61,6 +65,12 @@ def restricted_cmd(method):
     return wrapper
 
 
+def abbrev_name(first_name, last_name):
+    first_name = first_name.lstrip() or ' '
+    last_name = (last_name or '').lstrip() or ' '
+    return first_name[0] + last_name[0]
+
+
 class Bot:
     def __init__(self, token, chat_id, id_file, db_path):
         self.updater = Updater(token)
@@ -77,7 +87,11 @@ class Bot:
         self.updater.dispatcher.add_handler(CommandHandler('dump', self.create_dump, Filters.chat_type.private))
 
     def start(self):
-        self.db.create_tables()
+        self.db.init()
+        if not self.db.has_ej_users():
+            # Add invisible/banned/not-ok users to avoid unnecessary updates on submissions from these users.
+            users = ejudge_users_judge(EjudgeSession(), show_not_ok=True, show_invisible=True, show_banned=True)
+            import_ej_users(self.db, users)
         self.updater.job_queue.run_custom(self.check_updates, {'trigger': 'cron', 'minute': 0})
         self.updater.start_polling()
         self.updater.idle()
@@ -95,17 +109,20 @@ class Bot:
         if not self.db.user_exists(user.id):
             self.db.add_user(user.id, user.first_name, user.last_name, commit=True)
         lines = message.text_markdown_v2.split('\n')
+        line = lines[choice_index]
+
+        if sub_id is None:
+            # Message from V1
+            # Text is escaped markdown, so we need more backslashes.
+            match = re.match(r'\\\[[^\]]+\\\] (\d+)', line)
+            if match is not None:
+                sub_id = match.group(1)
+            else:
+                logger.error(f'Cannot parse run id from line "{line}"')
 
         if sub_id is not None:
             sub_id = int(sub_id)
-        else:
-            # Text is escaped markdown, so we need more backslashes.
-            match = re.match(r'\\\[[^\]]+\\\] (\d+)', lines[choice_index])
-            if match is not None:
-                sub_id = int(match.group(1))
-
-        old_uid = None
-        if sub_id is not None:
+            old_uid = None
             sub = self.db.get_submission(sub_id)
             if sub is not None:
                 # NOTE A version conflict is possible.
@@ -133,11 +150,10 @@ class Bot:
             else:
                 first_name = user.first_name
                 last_name = user.last_name
-            first_name = first_name.lstrip() or ' '
-            last_name = (last_name or '').lstrip() or ' '
+            line = re.sub(r' \\\[Prev: ..\\\]$', '', line)
             lines[choice_index] = (
-                STRIKETHROUGH + lines[choice_index] + STRIKETHROUGH +
-                escape_markdown(f' [{first_name[0]}{last_name[0]}]', version=2)
+                STRIKETHROUGH + line + STRIKETHROUGH +
+                escape_markdown(f' [{abbrev_name(first_name, last_name)}]', version=2)
             )
 
         try:  # Generic telegram error handling
@@ -177,7 +193,8 @@ class Bot:
             return
 
         # NOTE If the bot is stopped at this point, the run can be lost. Is it possible to make updates atomic?
-        self.db.add_submission(sub_id, user.id, commit=True)
+        if sub_id is not None:
+            self.db.assign_submission(sub_id, user.id, commit=True)
 
         if old_uid is None or old_uid == user.id:
             update.callback_query.answer()
@@ -224,13 +241,15 @@ class Bot:
     @restricted_cmd
     def create_dump(self, update: Update, context: CallbackContext):
         output = StringIO()
+        header, data = self.db.dump_submissions()
         csv.writer(output).writerows(
-            [('id', 'first_name', 'last_name', 'tg_user_id')] + self.db.dump_submissions()
+            [header] + data
         )
         output.seek(0)
         context.bot.send_document(update.effective_chat.id, output, 'submissions.csv')
 
     def check_updates(self, context: CallbackContext):
+        # TODO check clars to add commented runs which have already been reviewed
         try:
             submissions = new_submissions(self.id_file)
         except Exception:
@@ -245,6 +264,11 @@ class Bot:
         for sub in submissions:
             if sub.status == Status.REVIEW:
                 pending.append(sub)
+        if pending:
+            with self.db.lock:
+                for sub in pending:
+                    self.db.add_submission(sub)
+                self.db.commit()
         pending.sort(key=lambda sub: sub.problem)
 
         try:
@@ -265,9 +289,28 @@ class Bot:
             lines = []
             buttons = []
             for sub in pending[i:i+batch_size]:
-                lines.append(
-                    f'[{sub.time.strftime("%d.%m %H:%M:%S")}] {sub.id} - {sub.user} - {sub.problem} ({sub.score})'
-                )
+                time_str = sub.time.strftime('%d.%m %H:%M:%S')
+                line = f'[{time_str}] {sub.id} - {sub.user} - {sub.problem} ({sub.score})'
+                try:
+                    reviewer = self.db.get_previous_reviewer(sub)
+                except UnknownUser:
+                    logger.warning(f'Cannot find user: {sub.user}, trying to update DB...')
+                    users = ejudge_users_judge(EjudgeSession(), show_not_ok=True, show_invisible=True, show_banned=True)
+                    for user in users:
+                        if user.name == sub.user:
+                            self.db.add_ej_user(user.id, user.name)
+                            break
+                    else:
+                        logger.warning(f'User {sub.user} is not in user list, random uid will be used')
+                        # Assign a random uid to avoid updates on new submissions from this user.
+                        # This shouldn't happen often, if it is possible at all.
+                        # (user was added, then removed?)
+                        self.db.add_ej_user(randint(1000000, 9999999), sub.user)
+                    reviewer = self.db.get_previous_reviewer(sub)
+                if reviewer:
+                    _, first_name, last_name = reviewer
+                    line += f' [Prev: {abbrev_name(first_name, last_name)}]'
+                lines.append(line)
                 buttons.append(InlineKeyboardButton(
                     f'Take run {sub.id}',
                     callback_data=f'{len(lines) - 1}_{randint(1, 10**9)}_{sub.id}'
