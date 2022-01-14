@@ -138,7 +138,7 @@ class BotDB:
 
     @db_method
     def get_stats(self):
-        return self._conn.execute('SELECT reviewer, COUNT(id) FROM submissions GROUP BY reviewer').fetchall()
+        return self._conn.execute('SELECT reviewer, COUNT(id) FROM submissions WHERE reviewer IS NOT NULL GROUP BY reviewer').fetchall()
 
     @db_method
     def dump_submissions(self):

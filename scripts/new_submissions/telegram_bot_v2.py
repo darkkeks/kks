@@ -217,7 +217,7 @@ class Bot:
         if sub is None:
             context.bot.send_message(cid, 'Submission is not in database')
             return
-        _, reviewer = sub
+        _, reviewer, *_ = sub
         _, first_name, last_name = self.db.get_user(reviewer)
         full_name = f'{first_name} {last_name}' if last_name else first_name
         full_name = escape_markdown(full_name, version=2)
