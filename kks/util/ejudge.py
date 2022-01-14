@@ -395,6 +395,7 @@ class EjudgeSession:
                 Page.VIEW_SOURCE,
                 Page.DOWNLOAD_SOURCE,
                 Page.SET_RUN_STATUS,
+                Page.USERS_AJAX,
             ]:
                 raise EjudgeError('Page is not available for judges')
         else:

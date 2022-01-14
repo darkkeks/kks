@@ -46,6 +46,7 @@ class Links:
 
 
 class Page(Enum):
+    # Values of NEW_SRV_ACTION_* in include/ejudge/new_server_proto.h
     MAIN_PAGE = 2
     VIEW_SOURCE = 36
     SET_RUN_STATUS = 67
@@ -56,6 +57,7 @@ class Page(Enum):
     SUBMIT_CLAR = 141
     CLARS = 142
     SETTINGS = 143
+    USERS_AJAX = 278
 
 
 class ClarFilter(Enum):
@@ -168,6 +170,23 @@ def _parse_field(parser):
     return field(metadata={'parser': parser})
 
 
+class _FieldParsers:
+    def parse_optional_datetime(value: Optional[str]):
+        # NOTE timezone is not set
+        if value is None or not value.strip():
+            # Cleared/deleted submissions (judge only), empty "Login date" for users, etc.
+            return None
+        return datetime.strptime(value, TIME_FORMAT)
+
+    def parse_bad_encoding(value: Optional[str]):
+        if not value:
+            return value
+        # Weird byte-wise unicode escaping in JSON.
+        # Used by ejudge: 'ы' -> '"\\xd1\\x8b"'
+        # json.dumps: 'ы' -> '"\\u044b"'
+        return value.encode('latin-1').decode('utf-8')
+
+
 class _CellParsers:
     @staticmethod
     def _parse_optional(cell) -> Optional[str]:
@@ -182,10 +201,7 @@ class _CellParsers:
 
     @staticmethod
     def submission_time(cell):
-        # NOTE timezone is not set
-        if not cell.text.strip():  # Cleared/deleted submissions (judge only)
-            return None
-        return datetime.strptime(cell.text, TIME_FORMAT)
+        return _FieldParsers.parse_optional_datetime(cell.text)
 
     @staticmethod
     def submission_tests(cell):
@@ -222,7 +238,7 @@ class _CellParsers:
 
     @staticmethod
     def clar_time(cell):
-        return _CellParsers.submission_time(cell)
+        return _FieldParsers.parse_optional_datetime(cell.text)
 
     @staticmethod
     def clar_details(cell):
@@ -350,6 +366,61 @@ class JudgeClarInfo(ParsedRow):
     def parse(cls, row, server_tz=timezone.utc):
         attrs = cls._parse(row)
         attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        return cls(**attrs)
+
+
+def _dict_skip_field(key=None, parser=None):
+    meta = {'skip': True}
+    if key is not None:
+        meta['key'] = key
+    if parser is not None:
+        meta['parser'] = parser
+    return field(init=False, repr=False, compare=False, metadata=meta)
+
+
+def _dict_parse_field(key, parser=None):
+    return field(metadata={'key': key, 'parser': parser})
+
+
+@dataclass(frozen=True)
+class JudgeUser:
+    """Subset of user info from "Regular users" page."""
+    serial: int = _dict_skip_field()  # row number in the rendered table (?)
+    id: int = _dict_parse_field('user_id')
+    login: str = _dict_parse_field('user_login')
+    name: str = _dict_parse_field('user_name', _FieldParsers.parse_bad_encoding)
+    is_banned: bool
+    is_invisible: bool
+    is_locked: bool  # ?
+    is_incomplete: bool  # ?
+    is_disqualified: bool  # != is_banned?
+    is_privileged: bool
+    is_reg_readonly: bool
+    # NOTE timestamps are not parsed. If you wish to add them to the class,
+    #      you will need to pass timezone info to `parse` (see JudgeClarInfo for an example).
+    registration_date: datetime = _dict_skip_field('create_time', _FieldParsers.parse_optional_datetime)
+    login_date: datetime = _dict_skip_field('last_login_time', _FieldParsers.parse_optional_datetime)
+    run_count: int
+    run_size: int
+    clar_count: int
+    result_score: int = _skip_field()  # ?
+
+    # move to a separate base class?
+    @classmethod
+    def parse(cls, data):
+
+        def parse_field(field):
+            key = field.metadata.get('key', field.name)
+            parser = field.metadata.get('parser')
+            if not parser:
+                # NOTE will not work with Optional types
+                return field.type(data[key])
+            return parser(data[key])
+
+        attrs = {
+            field.name: parse_field(field)
+            for field in fields(cls) if field.init
+        }
         return cls(**attrs)
 
 
@@ -1039,6 +1110,29 @@ def ejudge_clars_judge(session, filter_=ClarFilter.UNANSWERED, first_clar=None, 
     if table is None or table.find_previous('h2') is not title:
         return None  # is this possible?
     return [JudgeClarInfo.parse(row) for row in table.find_all('tr')[1:]]
+
+
+@requires_judge
+def ejudge_users_judge(session, show_not_ok=False, show_invisible=False, show_banned=False, show_only_pending=False):
+    """Gets users from the "Regular users" tab.
+
+    Args:
+        session: Ejudge session.
+        show_not_ok: Include users with status(?) Pending/Rejected.
+        show_invisible: Include users with the "invisible" flag.
+        show_banned: Include banned/locked(?)/disqualified users.
+        show_only_pending: Return only users with status Pending.
+    """
+
+    resp = session.get_page(Page.USERS_AJAX, {
+        'show_not_ok': show_not_ok,
+        'show_invisible': show_invisible,
+        'show_banned': show_banned,
+        'show_only_pending': show_only_pending,
+    }).json()
+    if 'data' not in resp:
+        return []  # TODO handle errors?
+    return [JudgeUser.parse(user) for user in resp['data']]
 
 
 def get_contest_deadlines(session, summary, no_cache):
