@@ -30,20 +30,21 @@ def get(output, force, url):
         # Otherwise, use the name from url path or domain name.
         output = query.get('file', [''])[0] or parts.path.rsplit('/', 1)[1] or parts.netloc
 
-    if Path(output).exists() and not force:
+    out_file = Path(output)
+    if out_file.exists() and not force:
         click.confirm(
-            f'File {format_file(output)} already exists. Overwrite?',
+            f'File {format_file(out_file)} already exists. Overwrite?',
             abort=True
         )
+    out_file.parent.mkdir(parents=True, exist_ok=True)
 
     if EjudgeSession.needs_auth(url):
         page = EjudgeSession().get(url)
     else:
         import requests
         page = requests.get(url)
-    with open(output, 'wb') as f:
-        f.write(page.content)
+    out_file.write_bytes(page.content)
     click.secho(
         click.style('Saved to ', fg='green') +
-        format_file(output)
+        format_file(out_file)
     )
