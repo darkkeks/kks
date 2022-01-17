@@ -36,6 +36,7 @@ class BotDB:
     def __init__(self, path):
         self._lock = RLock()
         self._conn = sqlite3.connect(path, check_same_thread=False)
+        self._conn.execute('PRAGMA foreign_keys = ON')
 
     def __del__(self):
         self._conn.close()
