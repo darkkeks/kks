@@ -12,14 +12,15 @@ BASE_DIR = Path(__file__).resolve().parent
 ID_FILE = BASE_DIR/'last_run_id'
 
 
-def new_submissions(id_file: t.Optional[Path] = None):
+def new_submissions(id_file: t.Optional[Path] = None, session: t.Optional[EjudgeSession] = None):
     """Gets new submissions in chronological order"""
     last_id = -1
     if id_file is None:
         id_file = ID_FILE
     if id_file.exists():
         last_id = int(id_file.read_text())
-    session = EjudgeSession()
+    if session is None:
+        session = EjudgeSession()
     # - If last_run is greater than id of the last existing run (no new submissions)
     #   and filter expression is empty, ejudge will return the last run anyway.
     # - Without last_run ejudge will return at most 20 latest submissions.

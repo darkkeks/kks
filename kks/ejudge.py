@@ -1017,6 +1017,9 @@ def ejudge_submissions_judge(session, filter_=None, first_run=None, last_run=Non
     For more details, see ejudge source code
     (lib/new_server_html_2.c:257-293 (at 773a153b1))
     """
+    # TODO use JSON?
+    # ejudge has a `priv_list_runs_json` method (action id 301, same as for unprivileged users).
+    # If this page is requested from a regular session, main page is returned for some reason.
     from bs4 import BeautifulSoup
 
     filter_status = (bool(filter_), first_run is not None, last_run is not None)
