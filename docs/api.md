@@ -67,6 +67,8 @@ Returns the statement in HTML format
 ```
 newest first, if no prob\_id is passed then all runs are returned
 
+Also can be retrieved by a regular session on a page with action id 301 (`NEW_SRV_ACTION_LIST_RUNS_JSON`)
+
 ### run-status-json
 **parameters**: `run_id` (int)
 ```
@@ -95,6 +97,8 @@ OK:
     }
 }
 ```
+
+Also can be retrieved by a regular session on a page with action id 302 (`NEW_SRV_ACTION_RUN_STATUS_JSON`)
 
 ### download-run
 **parameters**: `prob_id` (int)
