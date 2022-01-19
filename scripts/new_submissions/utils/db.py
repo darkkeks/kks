@@ -132,7 +132,7 @@ class BotDB:
         if user is None:  # new user?
             raise UnknownUser()
         user_id = user[0]
-        row = self._conn.execute('SELECT reviewer FROM submissions WHERE (user, problem) = (?, ?) AND id < ? ORDER BY id DESC LIMIT 1', (user_id, sub.problem, sub.id)).fetchone()
+        row = self._conn.execute('SELECT reviewer FROM submissions WHERE (user, problem) = (?, ?) AND id < ? AND reviewer IS NOT NULL ORDER BY id DESC LIMIT 1', (user_id, sub.problem, sub.id)).fetchone()
         if row is not None:
             return self.get_user(row[0])
         return None
