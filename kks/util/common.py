@@ -1,5 +1,6 @@
 import difflib
 import pickle
+from contextlib import AbstractContextManager
 from functools import wraps
 from pathlib import Path
 from time import time, sleep
@@ -14,6 +15,24 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
+
+
+class override_attr(AbstractContextManager):
+    def __init__(self, obj, attr, new_value):
+        self._new_value = new_value
+        self._obj = obj
+        self._attr = attr
+        # Make this CM re-entrant (see contextlib._RedirectStream)
+        self._old_values = []
+
+    def __enter__(self):
+        self._old_values.append(getattr(self._obj, self._attr))
+        setattr(self._obj, self._attr, self._new_value)
+        return self._new_value
+
+    def __exit__(self, exctype, excinst, exctb):
+        setattr(self._obj, self._attr, self._old_values.pop())
+
 
 
 def config_directory():

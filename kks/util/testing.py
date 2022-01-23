@@ -8,7 +8,8 @@ import click
 
 from kks.util.common import test_number_to_name
 from kks.util.compat import subprocess
-from kks.util.script import run_script, needs_compilation, compile_script
+from kks.util.script import FileArgs, RunResult, StreamArgs, \
+                            run_script, needs_compilation, compile_script
 
 
 class TestSource:
@@ -25,11 +26,21 @@ class TestSource:
         if needs_compilation(self.solution):
             self.solution_directory = tempfile.TemporaryDirectory(prefix='kks-')
 
-    def generate_input(self, test, stdout=subprocess.PIPE):
+    def generate_input(
+        self,
+        test: str,
+        stdout: StreamArgs = subprocess.PIPE
+    ) -> RunResult:
         return run_script(self.generator, [test], stdout=stdout,
                           ignore_exit_code=self.options.ignore_exit_code)
 
-    def generate_output(self, test, stdin=None, stdout=subprocess.PIPE, input=None):
+    def generate_output(
+        self,
+        test: str,
+        stdin: Optional[FileArgs] = None,
+        stdout: StreamArgs = subprocess.PIPE,
+        input: Optional[bytes] = None
+    ) -> RunResult:
         return run_script(self.solution, [test], stdin=stdin, stdout=stdout, input=input,
                           ignore_exit_code=self.options.ignore_exit_code)
 
@@ -73,8 +84,14 @@ class VirtualTestSequence:
     def __iter__(self):
         for test in self.tests:
             name = test_number_to_name(test)
-            input_data = self.test_source.generate_input(name).stdout
-            output_data = self.test_source.generate_output(name, input=input_data).stdout
+            input_res = self.test_source.generate_input(name)
+            if not input_res.ok:
+                raise click.Abort()
+            input_data = input_res.output
+            output_res = self.test_source.generate_output(name, input=input_data)
+            if not output_res.ok:
+                raise click.Abort()
+            output_data = output_res.output
             yield DataTest(name, input_data, output_data)
 
     def __len__(self):

@@ -129,13 +129,15 @@ def generate_tests(test_source, test_pairs, output_only, force):
         t.set_description(f'Generating test {format_file(input_file)}')
 
         if not output_only:
-            with input_file.open('wb') as f:
-                if test_source.generate_input(input_file.stem, stdout=f) is None:
-                    return
-
-        with input_file.open('rb') as f_in, output_file.open('wb') as f_out:
-            if test_source.generate_output(input_file.stem, stdin=f_in, stdout=f_out) is None:
+            if not test_source.generate_input(input_file.stem, stdout=(input_file, 'wb')).ok:
                 return
+
+        if not test_source.generate_output(
+            input_file.stem,
+            stdin=(input_file, 'rb'),
+            stdout=(output_file, 'wb')
+        ).ok:
+            return
 
         generated_tests += 1
 

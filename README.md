@@ -164,6 +164,8 @@ kks test --sample
 # Run solution on tests [1, 10]
 kks test --range 1 10
 kks test --test 15 -test 16
+# Run virtual tests (no need to generate files in tests directory)
+kks test --virtual --range 1 100
 
 # Submit a solution (problem and solution are auto-detected)
 # There will be a confirmation before every submit, to avoid accidental submits
@@ -206,3 +208,34 @@ kks run -T debug
 Это значит, что параметры сборки по умолчанию (без использования файлов конфигурации) были обновлены.
 В таком случае стоит запустить `kks init --config=update` в директории с указанным файлом и вручную добавить необходимые изменения.
 Если этого не cделать, могут появиться проблемы при компиляции решений для (некоторых) новых задач.
+
+## Ускорение тестов
+
+Если для тестирования используются python-скрипты (`gen.py` и/или `solve.py`), можно значительно ускорить процесс тестирования (до x10, в зависимости от задачи).
+
+Для ускорения скрипта в нём нужно объявить глобальную переменную `_rerun_`. Ограничение - скрипт не должен иметь глобальных побочных эффектов, т.к. все запуски будут производиться в одном и том же интерпретаторе.
+
+Пример:
+```python3
+# gen.py
+import sys
+import random
+
+_rerun_ = True  # speedup gen.py execution
+random.seed(int(sys.argv[1]))
+print(random.randint(0, 10), random.randint(0, 10))
+```
+
+```python3
+# solve.py
+import sys
+# global side effect: sys.path is changed, memory usage is increased
+sys.path.append('/path/to/aplusb')
+from aplusb import aplusb
+# sys.path.pop()  # uncomment this to safely enable _rerun_
+
+# _rerun_ = True  # bad idea
+a, b = map(int, input().split())
+print(aplusb(a, b))
+```
+
