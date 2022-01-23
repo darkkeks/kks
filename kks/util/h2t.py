@@ -122,6 +122,7 @@ class HTML2Text(html2text.HTML2Text):
             else:
                 self.o(")")
             return True
+
         if tag == "div":
             if start:
                 if self.hidden:
@@ -143,6 +144,29 @@ class HTML2Text(html2text.HTML2Text):
                     self.o("**[end of hidden text]**")
                     self.p()
                     return True
+
+        if tag == "li":
+            self.pbr()
+            if start:
+                if self.list:
+                    li = self.list[-1]
+                else:
+                    li = ListElement("ul", 0)
+                if self.google_doc:
+                    nest_count = self.google_nest_count(tag_style)
+                else:
+# ====================modified====================
+                    nest_count = max(0, len(self.list) - 1)
+# ====================!modified====================
+                # TODO: line up <ol><li>s > 9 correctly.
+                self.o("  " * nest_count)
+                if li.name == "ul":
+                    self.o(self.ul_item_mark + " ")
+                elif li.name == "ol":
+                    li.num += 1
+                    self.o(str(li.num) + ". ")
+                self.start = True
+            return True
 
         if tag not in ["table", "tr", "td", "th"]:
             return False
