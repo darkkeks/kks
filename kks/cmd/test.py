@@ -55,7 +55,7 @@ def test_(target, verbose, tests, test_range, files, sample,
     options = RunOptions(
         continue_on_error=continue_on_error,
         ignore_exit_code=ignore_exit_code,
-        asan=asan and not valgrind,
+        asan=asan if not valgrind else False,
         valgrind=valgrind,
         is_sample=sample,
     )

@@ -40,7 +40,7 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
     directory = get_solution_directory()
 
     options = RunOptions(
-        asan=asan and not valgrind,
+        asan=asan if not valgrind else False,
         valgrind=valgrind,
     )
 
