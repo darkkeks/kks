@@ -42,7 +42,11 @@ def gen(output_only, generator, solution, tests, test_range, force, ignore_exit_
     )
 
     generator = find_script(directory, 'gen', default=generator, exists=not output_only)
+    if generator is None:
+        return
     solution = find_script(directory, 'solve', default=solution)
+    if solution is None:
+        return
 
     with TestSource(generator, solution, options) as test_source:
         test_pairs = find_tests_to_gen(directory, tests, test_range)

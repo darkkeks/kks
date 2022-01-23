@@ -32,7 +32,9 @@ ASAN_ENV = {
 
 VALGRIND_ARGS = [
     'valgrind',
+    '--quiet',
     '--leak-check=full',
+    '--error-exitcode=1'
 ]
 
 

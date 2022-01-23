@@ -14,7 +14,7 @@ SCRIPT_EXTENSIONS = ['.py', '.py3', '.sh', '.out', '.cpp']
 CPP_EXTENSIONS = ['.cpp']
 
 
-def run_script(script, args, ignore_exit_code=False, stdin=None, stdout=None, input=None):
+def run_script(script: Path, args, ignore_exit_code=False, stdin=None, stdout=None, input=None):
     ext = script.suffix
 
     interpreter = ['python3'] if ext in ['.py', '.py3'] \
@@ -31,9 +31,13 @@ def run_script(script, args, ignore_exit_code=False, stdin=None, stdout=None, in
     )
 
     if process.returncode != 0 and not ignore_exit_code:
-        click.secho('Script exited with code ' +
-                    click.style(str(process.returncode), fg='red', bold=True) +
-                    ' (args: ' + ' '.join(args) + ')', fg='yellow')
+        click.echo(
+            click.style('Script ', fg='yellow') +
+            format_file(script.name) +
+            click.style(' exited with code ', fg='yellow') +
+            click.style(str(process.returncode), fg='red', bold=True) +
+            click.style(' (args: ' + ' '.join(args) + ')', fg='yellow')
+        )
         return None
 
     return process

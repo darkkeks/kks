@@ -55,7 +55,7 @@ def test_(target, verbose, tests, test_range, files, sample,
     options = RunOptions(
         continue_on_error=continue_on_error,
         ignore_exit_code=ignore_exit_code,
-        asan=asan and not valgrind,
+        asan=asan if not valgrind else False,
         valgrind=valgrind,
         is_sample=sample,
     )
@@ -78,7 +78,11 @@ def test_(target, verbose, tests, test_range, files, sample,
         run_tests(binary, tests, options)
     else:
         generator = find_script(directory, 'gen', default=generator)
+        if generator is None:
+            return
         solution = find_script(directory, 'solve', default=solution)
+        if solution is None:
+            return
         with TestSource(generator, solution, options) as test_source:
             if test_range:
                 l, r = sorted(test_range)
