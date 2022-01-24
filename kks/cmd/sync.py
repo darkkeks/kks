@@ -222,12 +222,15 @@ def sync(code, code_opt, force, filters):
             with gen.open('w') as file:
                 file.write('import sys\n'
                            'import random\n'
+                           '_rerun_ = True\n'
                            '\n'
                            't = int(sys.argv[1])\n'
                            'random.seed(t)\n')
 
         solve = task_dir / 'solve.py'
-        solve.touch()
+        if not solve.exists():
+            with solve.open('w') as file:
+                file.write('_rerun_ = True\n')
 
         tests_dir = task_dir / 'tests'
         tests_dir.mkdir(exist_ok=True)
