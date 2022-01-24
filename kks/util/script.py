@@ -6,7 +6,11 @@ from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+try:
+    from typing import Literal
+except ImportError:  # py<3.8
+    from typing_extensions import Literal
 
 import click
 

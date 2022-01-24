@@ -25,6 +25,7 @@ setup(
         'html2text==2020.1.16',
         'pyyaml',
         "dataclasses;python_version<'3.7'",
+        "typing-extensions;python_version<'3.8'",
     ],
     python_requires=">=3.6",
     entry_points='''

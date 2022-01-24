@@ -28,6 +28,11 @@ def _subprocess():
 
     @wraps(run)
     def wrapper(*args, **kwargs):
+        if 'stdin' in kwargs and kwargs['stdin'] is None:
+            # If both stdin and input are not None, run() shpuld fail.
+            # 3.6:  `if 'stdin' in kwargs`, stdin=None may fail
+            # 3.7+: `if kwargs.get('stdin') is not None`, stdin=None is OK
+            del kwargs['stdin']
         if kwargs.pop('capture_output', False):
             # backport from 3.7+
             if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
