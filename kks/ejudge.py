@@ -49,6 +49,7 @@ class Page(Enum):
     # Values of NEW_SRV_ACTION_* in include/ejudge/new_server_proto.h
     MAIN_PAGE = 2
     VIEW_SOURCE = 36
+    SEND_COMMENT = 64
     SET_RUN_STATUS = 67
     DOWNLOAD_SOURCE = 91
     USER_STANDINGS = 94
@@ -57,6 +58,10 @@ class Page(Enum):
     SUBMIT_CLAR = 141
     CLARS = 142
     SETTINGS = 143
+    IGNORE_WITH_COMMENT = 233
+    OK_WITH_COMMENT = 237
+    REJECT_WITH_COMMENT = 238
+    SUMMON_WITH_COMMENT = 239
     USERS_AJAX = 278
 
 
@@ -344,8 +349,26 @@ class JudgeSubmission(BaseSubmission):
     def __post_init__(self):
         object.__setattr__(self, 'user', self.size_or_user)
 
-    def set_status(self, status: int, session):
+    def set_status(self, session, status: int):
         session.post_page(Page.SET_RUN_STATUS, {'run_id': self.id, 'status': status})  # how to check success?
+
+    def send_comment(self, session, comment: str, status: Optional[int] = None):
+        from kks.util.ejudge import RunStatus
+
+        if status == RunStatus.IGNORED:
+            page = Page.IGNORE_WITH_COMMENT
+        elif status == RunStatus.OK:
+            page = Page.OK_WITH_COMMENT
+        elif status == RunStatus.REJECTED:
+            page = Page.REJECT_WITH_COMMENT
+        elif status == RunStatus.SUMMONED:
+            page = Page.SUMMON_WITH_COMMENT
+        elif status is None:
+            page = Page.SEND_COMMENT
+        else:
+            raise ValueError(f'Unsupported status: {status}')  # TODO use enum for status
+
+        session.post_page(page, {'run_id': self.id, 'msg_text': comment})  # how to check success?
 
 
 @dataclass(frozen=True)
