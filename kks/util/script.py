@@ -2,7 +2,6 @@ from pathlib import Path
 
 import click
 
-from kks.binary import compile_cpp
 from kks.util.common import format_file
 from kks.util.compat import subprocess
 
@@ -48,6 +47,7 @@ def needs_compilation(script):
 
 
 def compile_script(workdir, script, options):
+    from kks.binary import compile_cpp  # avoid circular import. TODO refactor kks.binary?
     if script.suffix in CPP_EXTENSIONS:
         return compile_cpp(workdir, [script], options)
     else:

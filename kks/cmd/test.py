@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import Set
 
 import click
 from tqdm import tqdm
 
 from kks.binary import compile_solution, run_solution
 from kks.util.script import find_script
-from kks.util.testing import TestSource, VirtualTestSequence, RunOptions, Test
+from kks.util.testing import TestSource, VirtualTestSequence, RunOptions, FileTest
 from kks.util.common import get_solution_directory, format_file, find_test_output, \
     test_number_to_name, find_test_pairs, print_diff
 
@@ -109,7 +110,7 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
     :return: Пары (input, output)
     """
 
-    result = set()
+    result: Set[FileTest] = set()
 
     need_files = not sample and len(files) != 0
     need_numbers = not sample and tests or test_range
@@ -126,7 +127,7 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
                     f'No output for test file {format_file(input_file)}', fg='yellow', err=True
                 )
                 continue
-            result.add(Test.from_file(input_file.stem, input_file, output_file))
+            result.add(FileTest(input_file.stem, input_file, output_file))
 
     test_names = None
 
@@ -154,7 +155,7 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
 
         for input_file, output_file in find_test_pairs(tests_dir, test_names):
             if output_file is not None:
-                result.add(Test.from_file(input_file.stem, input_file, output_file))
+                result.add(FileTest(input_file.stem, input_file, output_file))
             else:
                 click.secho(f'Test {format_file(input_file)} has no output', fg='yellow', err=True)
 
@@ -169,10 +170,10 @@ def run_tests(binary, tests, options):
     for test in t:
         if options.is_sample:
             t.clear()
-            input_data = test.read_input()
+            input_data = test.get_input()
             click.secho("Sample input:", bold=True)
             click.secho(input_data.decode())
-            output_data = test.read_output()
+            output_data = test.get_output()
             click.secho("Sample output:", bold=True)
             click.secho(output_data.decode())
 
@@ -202,7 +203,7 @@ def run_test(binary, options, test):
             click.secho(error_output)
         return False
 
-    expected_output = test.read_output()
+    expected_output = test.get_output()
     actual_output = process.stdout
 
     if expected_output != actual_output:

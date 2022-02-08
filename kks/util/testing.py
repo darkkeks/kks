@@ -1,5 +1,8 @@
 import tempfile
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -72,72 +75,71 @@ class VirtualTestSequence:
             name = test_number_to_name(test)
             input_data = self.test_source.generate_input(name).stdout
             output_data = self.test_source.generate_output(name, input=input_data).stdout
-            yield Test.from_data(name, input_data, output_data)
+            yield DataTest(name, input_data, output_data)
 
     def __len__(self):
         return len(self.tests)
 
 
-class Test:
-    TYPE_STDIN = 'stdin'
-    TYPE_FILE = 'file'
-    TYPE_DATA = 'data'
+@dataclass(eq=False)
+class Test(ABC):
+    name: str
 
-    def __init__(  # TODO use dataclass?
-        self,
-        name, test_type,
-        input_file=None, output_file=None,
-        input_data=None, output_data=None
-    ):
-        self.name = name
-        self.test_type = test_type
-        self.input_file = input_file
-        self.output_file = output_file
-        self.input_data = input_data
-        self.output_data = output_data
+    def __hash__(self):
+        return hash(self.name)
 
-    @classmethod
-    def from_stdin(cls):
-        return cls(name='stdin', test_type=Test.TYPE_STDIN)
+    def __eq__(self, other):
+        # NOTE not sure about this.
+        # Should `kks run -f 001.dat -f tests/001.dat` run both tests?
+        # If yes, subclasses should override __eq__ and filename should be added to WA output.
+        if not isinstance(other, Test):
+            return NotImplemented
+        return self.name == other.name
 
-    @classmethod
-    def from_file(cls, name, input_file, output_file):
-        return cls(
-            name=name, test_type=Test.TYPE_FILE, input_file=input_file, output_file=output_file
-        )
+    @abstractmethod
+    def get_input(self):
+        raise NotImplementedError()
 
-    @classmethod
-    def from_data(cls, name, input_data, output_data):
-        return cls(
-            name=name, test_type=Test.TYPE_DATA, input_data=input_data, output_data=output_data
-        )
+    @abstractmethod
+    def get_output(self):
+        raise NotImplementedError()
 
-    def is_file(self):
-        return self.test_type == Test.TYPE_FILE
 
-    def is_data(self):
-        return self.test_type == Test.TYPE_DATA
+@dataclass(eq=False)
+class ManualTest(Test):
+    name: str = 'stdin'
 
-    def is_stdin(self):
-        return self.test_type == Test.TYPE_STDIN
+    def get_input(self):
+        return None
 
-    def read_input(self):
-        if self.test_type == Test.TYPE_FILE:
-            with self.input_file.open('rb') as f_in:
-                return f_in.read()
-        elif self.test_type == Test.TYPE_DATA:
-            return self.input_data
-        else:
-            return None
+    def get_output(self):
+        return None
 
-    def read_output(self):
-        if self.test_type == Test.TYPE_FILE:
-            with self.output_file.open('rb') as f_out:
-                return f_out.read()
-        elif self.test_type == Test.TYPE_DATA:
-            return self.output_data
-        else:
-            return None
+
+@dataclass(eq=False)
+class FileTest(Test):
+    input_file: Path
+    output_file: Optional[Path]
+
+    def get_input(self):
+        with self.input_file.open('rb') as f_in:
+            return f_in.read()
+
+    def get_output(self):
+        with self.output_file.open('rb') as f_out:
+            return f_out.read()
+
+
+@dataclass(eq=False)
+class DataTest(Test):
+    input_data: bytes
+    output_data: bytes
+
+    def get_input(self):
+        return self.input_data
+
+    def get_output(self):
+        return self.output_data
 
 
 class RunOptions:

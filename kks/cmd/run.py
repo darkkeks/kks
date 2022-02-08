@@ -1,10 +1,11 @@
 from pathlib import Path
 from sys import exit
+from typing import Optional
 
 import click
 
 from kks.binary import compile_solution, run_solution
-from kks.util.testing import RunOptions, Test
+from kks.util.testing import RunOptions, FileTest, ManualTest
 from kks.util.common import get_solution_directory, find_test_pairs, format_file, test_number_to_name
 
 
@@ -62,25 +63,28 @@ def run(asan, valgrind, sample, test, file, target, verbose, run_args):
     exit(run_solution(binary, list(run_args), options, test_data, capture_output=False).returncode)
 
 
-def find_test_to_run(directory, test, file, sample):
-    has_file = file is not None
+def find_test_to_run(directory: Path, test: Optional[str], filename: Optional[str], sample: bool):
+    has_file = filename is not None
     has_test = test is not None
+    n_opts = sum([sample, has_file, has_test])
 
-    if sum([sample, has_file, has_test]) > 1:
+    if n_opts > 1:
         click.secho(
             "Specify either test, file or sample to use as input, not multiple",
             fg='red', err=True
         )
         return None
 
+    if n_opts == 0:
+        return ManualTest()
     if has_file:
-        return Test.from_file(None, Path(file), None)
-    elif sample:
+        file = Path(filename)
+        return FileTest(file.stem, file, None)
+
+    if sample:
         test_names = ['000']
-    elif has_test:
+    else:  # has_test
         test_names = {test, test_number_to_name(test)}
-    else:
-        return Test.from_stdin()
 
     tests_dir = directory / 'tests'
     if not tests_dir.is_dir():
@@ -97,4 +101,4 @@ def find_test_to_run(directory, test, file, sample):
             fg='red', err=True
         )
         return None
-    return Test.from_file(None, input_file, None)
+    return FileTest(input_file.stem, input_file, None)
