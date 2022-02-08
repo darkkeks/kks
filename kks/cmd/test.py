@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Set
+from typing import List, Set, Tuple, Optional
 
 import click
 from tqdm import tqdm
@@ -65,19 +65,7 @@ def test_(target, verbose, tests, test_range, files, sample,
     if binary is None:
         return
 
-    if not virtual:
-        files = [Path(f) for f in files]
-
-        tests = find_tests_to_run(directory, files, tests, test_range, sample)
-        if tests is None:
-            return
-
-        if len(tests) == 0:
-            click.secho('No tests to run!', fg='red')
-            return
-
-        run_tests(binary, tests, options)
-    else:
+    if virtual and not sample:
         generator = find_script(directory, 'gen', default=generator)
         if generator is None:
             return
@@ -97,9 +85,28 @@ def test_(target, verbose, tests, test_range, files, sample,
             tests = VirtualTestSequence(test_source, all_tests)
 
             run_tests(binary, tests, options)
+    else:
+        files = [Path(f) for f in files]
+
+        try:
+            tests = find_tests_to_run(directory, files, tests, test_range, sample)
+        except (FileNotFoundError, NotADirectoryError):
+            return
+
+        if len(tests) == 0:
+            click.secho('No tests to run!', fg='red')
+            return
+
+        run_tests(binary, tests, options)
 
 
-def find_tests_to_run(directory, files, tests, test_range, sample):
+def find_tests_to_run(
+    directory: Path,
+    files: List[Path],
+    tests: Tuple[int, ...],
+    test_range: Optional[Tuple[int, int]],
+    sample: bool
+) -> List[FileTest]:
     """
     Возвращает тесты для команды test
     :param directory: Папка задачи
@@ -108,56 +115,66 @@ def find_tests_to_run(directory, files, tests, test_range, sample):
     :param test_range: Промежуток номеров тестов
     :param sample: Вернуть только семпл
     :return: Пары (input, output)
+    :raises NotADirectoryError: `tests` не сузествует или не является директорией.
+    :raises FileNotFoundError: Файл с входными данными для теста не найден.
     """
 
-    result: Set[FileTest] = set()
-
-    need_files = not sample and len(files) != 0
-    need_numbers = not sample and tests or test_range
-
-    # need file tests
-    if need_files:
-        for input_file in files:
-            if not input_file.is_file():
-                click.secho(f'File {format_file(input_file)} not found', fg='red', err=True)
-                return None
-            output_file = find_test_output(input_file)
-            if output_file is None:
-                click.secho(
-                    f'No output for test file {format_file(input_file)}', fg='yellow', err=True
-                )
-                continue
-            result.add(FileTest(input_file.stem, input_file, output_file))
-
-    test_names = None
-
-    # number tests
-    if need_numbers:
-        test_numbers = list(tests)
-        if test_range:
-            l, r = sorted(test_range)
-            test_numbers += list(range(l, r + 1))
-
-        if sample:
-            test_numbers += [0]
-
-        test_names = [test_number_to_name(number) for number in test_numbers]
-
-    if sample:
-        test_names = ['000']
-
-    # need numbers or need all
-    if need_numbers or not need_files:
+    def _find_tests_in_dir(test_names: Optional[List[str]]) -> Set[FileTest]:
         tests_dir = directory / 'tests'
         if not tests_dir.is_dir():
             click.secho(f'Not a directory: {format_file(tests_dir)}', fg='red', err=True)
-            return None
+            raise NotADirectoryError()
 
+        # if there are duplicate files with different suffixes, ignore them
+        found_tests: Set[FileTest] = set()
         for input_file, output_file in find_test_pairs(tests_dir, test_names):
             if output_file is not None:
-                result.add(FileTest(input_file.stem, input_file, output_file))
+                found_tests.add(FileTest(input_file.stem, input_file, output_file))
             else:
                 click.secho(f'Test {format_file(input_file)} has no output', fg='yellow', err=True)
+        return found_tests
+
+    if sample:
+        return list(_find_tests_in_dir(['000']))
+
+    need_files = len(files) != 0
+    need_numbers = tests or test_range
+
+    # default - use all tests from the directory
+    if not need_files and not need_numbers:
+        return list(_find_tests_in_dir(None))
+
+    # use a set to avoid duplicate tests.
+    # "kks test -t 1 -t 1 -r 1 1 -f tests/001.in" should run the test only once.
+    result: Set[FileTest] = set()
+
+    # add file tests, if any
+    for input_file in files:
+        if not input_file.is_file():
+            click.secho(
+                click.style('File ', fg='red') +
+                format_file(input_file) +
+                click.style(' not found', fg='red'),
+                err=True
+            )
+            raise FileNotFoundError()
+        output_file = find_test_output(input_file)
+        if output_file is None:
+            click.secho(
+                f'No output for test file {format_file(input_file)}', fg='yellow', err=True
+            )
+            continue
+        result.add(FileTest(input_file.stem, input_file, output_file))
+
+    # add number tests (-t, -r)
+    if need_numbers:
+        test_numbers = set(tests)
+        if test_range:
+            l, r = sorted(test_range)
+            test_numbers |= set(range(l, r + 1))
+
+        test_names = [test_number_to_name(number) for number in test_numbers]
+        result |= _find_tests_in_dir(test_names)
 
     return sorted(result, key=lambda test: test.name)
 
