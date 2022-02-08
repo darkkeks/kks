@@ -66,7 +66,7 @@ def find_workspace(path=None):
         path = path.parent
 
 
-def get_solution_directory():
+def get_solution_directory() -> Path:
     return Path()
 
 

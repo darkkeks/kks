@@ -6,6 +6,7 @@ import click
 
 from kks.util.compat import subprocess
 from kks.util.config import find_target
+from kks.util.testing import DataTest, FileTest, ManualTest, Test
 
 
 GPP_ARGS = [  # used only for test generator / solution
@@ -122,7 +123,7 @@ def compile_gnu(workdir, files, options, compiler_args, linker_args=[], out_file
     return workdir / (out_file or 'a.out')
 
 
-def run_solution(binary, args, options, test_data, capture_output=True):
+def run_solution(binary, args, options, test: Test, capture_output=True):
     args = [binary.absolute()] + args
 
     env = os.environ
@@ -132,16 +133,16 @@ def run_solution(binary, args, options, test_data, capture_output=True):
     if options.valgrind:
         args = VALGRIND_ARGS + args
 
-    if test_data.is_file():
-        with test_data.input_file.open('rb') as f_in:
+    if isinstance(test, FileTest):
+        with test.input_file.open('rb') as f_in:
             process = subprocess.run(
                 args, env=env, stdin=f_in, capture_output=capture_output
             )
-    elif test_data.is_data():
+    elif isinstance(test, DataTest):
         process = subprocess.run(
-            args, env=env, input=test_data.input_data, capture_output=capture_output
+            args, env=env, input=test.input_data, capture_output=capture_output
         )
-    elif test_data.is_stdin():
+    elif isinstance(test, ManualTest):
         process = subprocess.run(
             args, env=env, stdin=sys.stdin, capture_output=capture_output
         )

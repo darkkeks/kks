@@ -5,6 +5,7 @@ import warnings
 import html2text
 from html2text import config
 from html2text.utils import skipwrap, dumb_property_dict
+from html2text.elements import ListElement
 
 __h2t_version__ = (2020, 1, 16)
 if html2text.__version__ != __h2t_version__:
@@ -152,10 +153,10 @@ class HTML2Text(html2text.HTML2Text):
                     li = self.list[-1]
                 else:
                     li = ListElement("ul", 0)
-                if self.google_doc:
-                    nest_count = self.google_nest_count(tag_style)
-                else:
 # ====================modified====================
+                if self.google_doc:
+                    return False  # need tag_style
+                else:
                     nest_count = max(0, len(self.list) - 1)
 # ====================!modified====================
                 # TODO: line up <ol><li>s > 9 correctly.
