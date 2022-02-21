@@ -149,6 +149,10 @@ class Sids:
 
 
 class API:
+    class MethodGroup:
+        CLIENT = 'new-client'
+        REGISTER = 'register'
+
     def __init__(self, sids=None):
         import requests
 
@@ -207,56 +211,56 @@ class API:
             'login': login,
             'password': password,
         }
-        return self._api_method('register', 'login-json', data=data, use_sids=False)
+        return self._api_method(self.MethodGroup.REGISTER, 'login-json', data=data, use_sids=False)
 
     def enter_contest(self, sids, contest_id):
         data = {
             'contest_id': contest_id
         }
-        return self._api_method('register', 'enter-contest-json', sids, data=data)
+        return self._api_method(self.MethodGroup.REGISTER, 'enter-contest-json', sids, data=data)
 
     def contest_status(self):
-        return self._api_method('client', 'contest-status-json')
+        return self._api_method(self.MethodGroup.CLIENT, 'contest-status-json')
 
     def problem_status(self, prob_id):
         data = {
             'problem': int(prob_id)
         }
-        return self._api_method('client', 'problem-status-json', data=data)
+        return self._api_method(self.MethodGroup.CLIENT, 'problem-status-json', data=data)
 
     def problem_statement(self, prob_id):
         data = {
             'problem': int(prob_id)
         }
-        return self._api_method('client', 'problem-statement-json', data=data, need_json=False)
+        return self._api_method(self.MethodGroup.CLIENT, 'problem-statement-json', data=data, need_json=False)
 
     def list_runs(self, prob_id=None):
         # newest runs go first
         # if no prob_id is passed then all runs are returned (useful for sync?)
         if prob_id is None:
-            return self._api_method('client', 'list-runs-json')['runs']
+            return self._api_method(self.MethodGroup.CLIENT, 'list-runs-json')['runs']
         data = {
             'prob_id': int(prob_id)
         }
-        return self._api_method('client', 'list-runs-json', data=data)['runs']
+        return self._api_method(self.MethodGroup.CLIENT, 'list-runs-json', data=data)['runs']
 
     def run_status(self, run_id):
         data = {
             'run_id': int(run_id)
         }
-        return self._api_method('client', 'run-status-json', data=data)
+        return self._api_method(self.MethodGroup.CLIENT, 'run-status-json', data=data)
 
     def download_run(self, run_id):
         data = {
             'run_id': int(run_id)
         }
-        return self._api_method('client', 'download-run', data=data, need_json=False)
+        return self._api_method(self.MethodGroup.CLIENT, 'download-run', data=data, need_json=False)
 
     def run_messages(self, run_id):
         data = {
             'run_id': int(run_id)
         }
-        return self._api_method('client', 'run-messages-json', data=data)
+        return self._api_method(self.MethodGroup.CLIENT, 'run-messages-json', data=data)
 
     # run-test-json - test results? unknown params
 
@@ -270,7 +274,7 @@ class API:
         files = {
             'file': (file.name, open(file, 'rb'))
         }
-        return self._api_method('client', 'submit-run', data=data, files=files)
+        return self._api_method(self.MethodGroup.CLIENT, 'submit-run', data=data, files=files)
 
 
 class EjudgeSession:
