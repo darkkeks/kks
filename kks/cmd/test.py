@@ -142,7 +142,7 @@ def find_tests_to_run(
 
     # default - use all tests from the directory
     if not need_files and not need_numbers:
-        return list(_find_tests_in_dir(None))
+        return sorted(_find_tests_in_dir(None), key=lambda test: test.name)
 
     # use a set to avoid duplicate tests.
     # "kks test -t 1 -t 1 -r 1 1 -f tests/001.in" should run the test only once.
