@@ -51,6 +51,13 @@ class Page(Enum):
     VIEW_SOURCE = 36
     SEND_COMMENT = 64
     SET_RUN_STATUS = 67
+
+    # No links from other pages. Legacy endpoints, replaced by EDIT_RUN?
+    # there are more CHANGE_* actions (user/problem/flags...)
+    CHANGE_RUN_LANGUAGE = 79
+    CHANGE_RUN_SCORE = 88  # Changes score in VIEW_SOURCE, but not in standings or main page
+    CHANGE_RUN_SCORE_ADJ = 89
+
     DOWNLOAD_SOURCE = 91
     USER_STANDINGS = 94
     SUMMARY = 137
@@ -62,6 +69,8 @@ class Page(Enum):
     OK_WITH_COMMENT = 237
     REJECT_WITH_COMMENT = 238
     SUMMON_WITH_COMMENT = 239
+    EDIT_RUN_PAGE = 267  # Shows the form with run details. Rrquires EDIT_RUN capability.
+    EDIT_RUN = 268  # Actual "edit" action.
     USERS_AJAX = 278
 
 
