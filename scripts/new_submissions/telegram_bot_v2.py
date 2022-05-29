@@ -18,7 +18,8 @@ from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
 from telegram.utils.helpers import escape_markdown
 
-from kks.ejudge import Status, Submission, ejudge_submissions_judge, ejudge_users_judge
+from kks.ejudge import Status
+from kks.ejudge_priv import Submission, ejudge_submissions, ejudge_users
 from kks.util.ejudge import EjudgeSession
 from utils.submissions import new_submissions, save_last_id
 from utils.db import BotDB, UnknownUser, import_ej_users
@@ -93,7 +94,7 @@ class Bot:
         self.db.init()
         if not self.db.has_ej_users():
             # Add invisible/banned/not-ok users to avoid unnecessary updates on submissions from these users.
-            users = ejudge_users_judge(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
+            users = ejudge_users(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
             import_ej_users(self.db, users)
         self.updater.job_queue.run_custom(self.check_updates, {'trigger': 'cron', 'minute': 0})
         self.updater.start_polling()
@@ -246,7 +247,7 @@ class Bot:
         if sub is not None:
             context.bot.send_message(cid, 'Submission is already in the database')
             return
-        res = ejudge_submissions_judge(self.session, f'id == {run_id}')
+        res = ejudge_submissions(self.session, f'id == {run_id}')
         if not res:
             context.bot.send_message(cid, 'Submission does not exist')
             return
@@ -327,7 +328,7 @@ class Bot:
                     reviewer = self.db.get_previous_reviewer(sub)
                 except UnknownUser:
                     logger.warning(f'Cannot find user: {sub.user}, trying to update DB...')
-                    users = ejudge_users_judge(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
+                    users = ejudge_users(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
                     for user in users:
                         if user.name == sub.user:
                             self.db.add_ej_user(user.id, user.name)

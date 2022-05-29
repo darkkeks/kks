@@ -5,7 +5,7 @@ import typing as t
 
 from kks.util.ejudge import EjudgeSession
 from kks.util.fancytable import FancyTable, StaticColumn
-from kks.ejudge import ejudge_submissions_judge
+from kks.ejudge_priv import ejudge_submissions
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -24,7 +24,7 @@ def new_submissions(id_file: t.Optional[Path] = None, session: t.Optional[Ejudge
     # - If last_run is greater than id of the last existing run (no new submissions)
     #   and filter expression is empty, ejudge will return the last run anyway.
     # - Without last_run ejudge will return at most 20 latest submissions.
-    return ejudge_submissions_judge(session, f'id > {last_id}', 0, -1)
+    return ejudge_submissions(session, f'id > {last_id}', 0, -1)
 
 
 def save_last_id(submissions, id_file: t.Optional[Path] = None):
