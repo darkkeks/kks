@@ -394,6 +394,9 @@ class JudgeSubmission(BaseSubmission):
     def set_status(self, session, status: int):
         session.post_page(Page.SET_RUN_STATUS, {'run_id': self.id, 'status': status})  # how to check success?
 
+    def set_lang(self, session, lang: Lang):
+        session.post_page(Page.CHANGE_RUN_LANGUAGE, {'run_id': self.id, 'param': lang.value})  # how to check success?
+
     def send_comment(self, session, comment: str, status: Optional[int] = None):
         from kks.util.ejudge import RunStatus
 
