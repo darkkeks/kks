@@ -93,6 +93,43 @@ class Status:
     NOT_SUBMITTED = 'Not submitted'
 
 
+class Lang(Enum):
+    def __new__(cls, value, suf, realname=None):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj.realname = realname
+        obj.suf = suf
+        return obj
+
+    @property
+    def name(self):
+        if self.realname is not None:
+            return self.realname
+        return self._name_
+
+    # NOTE compiler ids may change
+    gcc = (2, '.c')
+    gxx = (3, '.cpp', 'g++')
+    python = (13, '.py')
+    perl = (14, '.pl')
+    ruby = (21, '.rb')
+    python3 = (23, '.py')
+    make = (25, '.tar')
+    gcc_vg = (28, '.c', 'gcc-vg')
+    gxx_vg = (29, '.cpp', 'g++-vg')
+    clang = (51, '.c')
+    clangxx = (52, '.cpp', 'clang++')
+    make_vg = (54, '.tar', 'make-vg')
+    gcc_32 = (57, '.c', 'gcc-32')
+    clang_32 = (61, '.c', 'clang-32')
+    clangxx_32 = (61, '.cpp', 'clang++-32')
+    gas_32 = (66, '.S', 'gas-32')
+    gas = (67, '.S')
+    rust = (70, '.rs')
+    gas_aarch64 = (101, '.S', 'gas-aarch64')
+    gas_armv7l = (102, '.S', 'gas-armv7l')
+
+
 @dataclass
 class AuthData:
     login: str
@@ -320,15 +357,11 @@ class BaseSubmission(ParsedRow):
         return self.status
 
     def suffix(self):
-        if self.compiler.startswith('gas'):
-            return '.S'
-        if '++' in self.compiler:
-            return '.cpp'
-        if self.compiler.startswith('make'):
-            return '.tar'
-        if self.compiler.startswith('gcc') or self.compiler.startswith('clang'):
-            return '.c'
-        return ''
+        compiler = self.compiler.replace('-', '_').replace('+', 'x')
+        try:
+            return getattr(Lang, compiler).suf
+        except AttributeError:
+            return ''
 
     def color(self):
         if self.status in [Status.OK, Status.REVIEW]:
@@ -683,6 +716,7 @@ class FullProblem(SummaryProblem):
     def suffix(self):
         if self._suffix is not None:
             return self._suffix
+        # if no langs are available, guess by problem name
         pref = self.name.split('/', 1)[0]
         if pref == 'asm':
             return '.S'
@@ -758,18 +792,11 @@ class FullProblem(SummaryProblem):
         return html
 
     @staticmethod
-    def _lang_suf(lang_id):
-        # NOTE compiler ids may change
-        lang_id = int(lang_id)
-        if lang_id in [2, 28, 51, 57, 61]:
-            return '.c'
-        if lang_id in [3, 29, 52, 58, 62]:
-            return '.cpp'
-        if lang_id in [25, 54]:
-            return '.tar'
-        if lang_id in [66, 67, 101, 102]:
-            return '.S'
-        return None
+    def _lang_suf(lang_id: str):
+        try:
+            return Lang(int(lang_id)).suf
+        except ValueError:
+            return None
 
     @staticmethod
     def guess_suffix(html):
