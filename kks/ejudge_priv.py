@@ -301,3 +301,16 @@ def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=F
     if 'data' not in resp:
         return []  # TODO handle errors?
     return [User.parse(user) for user in resp['data']]
+
+
+# Inconsistent naming, but it's more readable than ejudge_rejudge or something similar
+@requires_judge
+def rejudge_runs(session, ids: Iterable[int]):
+    sorted_ids = sorted(ids)
+    # binmask = sum(1 << id for id in ids)
+    mask = [] # [hex(binmask & UINT64_MAX), hex((binmask >> 64) & UINT64_MAX), ...]
+    resp = session.post_page(Page.REJUDGE_DISPLAYED, {
+        'run_mask_size': len(mask),
+        'run_mask': '+'.join(mask),
+    })
+    # check status
