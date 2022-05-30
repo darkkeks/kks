@@ -61,6 +61,7 @@ class Page(Enum):
 
     DOWNLOAD_SOURCE = 91
     USER_STANDINGS = 94
+    # Bulk rejudge requires some capability from MASTER_SET (REJUDGE_RUN?). TODO check
     REJUDGE_DISPLAYED = 102
     REJUDGE_PROBLEM = 104  # Not implemented (yet?)
     SUMMARY = 137
@@ -72,7 +73,7 @@ class Page(Enum):
     OK_WITH_COMMENT = 237
     REJECT_WITH_COMMENT = 238
     SUMMON_WITH_COMMENT = 239
-    EDIT_RUN_PAGE = 267  # Shows the form with run details. Rrquires EDIT_RUN capability.
+    EDIT_RUN_PAGE = 267  # Shows the form with run details. Requires EDIT_RUN capability.
     EDIT_RUN = 268  # Actual "edit" action.
     USERS_AJAX = 278
 

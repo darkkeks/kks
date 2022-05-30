@@ -412,6 +412,10 @@ class EjudgeSession:
                 Page.CHANGE_RUN_SCORE_ADJ,
                 Page.EDIT_RUN,
                 Page.EDIT_RUN_PAGE,
+                Page.REJUDGE_DISPLAYED_CONFIRM,
+                Page.REJUDGE_PROBLEM_CONFIRM,
+                Page.REJUDGE_DISPLAYED,
+                Page.REJUDGE_PROBLEM,
             ]:
                 raise EjudgeError('Page is not available for judges')
         else:

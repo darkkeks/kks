@@ -305,12 +305,18 @@ def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=F
 
 # Inconsistent naming, but it's more readable than ejudge_rejudge or something similar
 @requires_judge
-def rejudge_runs(session, ids: Iterable[int]):
-    sorted_ids = sorted(ids)
-    # binmask = sum(1 << id for id in ids)
-    mask = [] # [hex(binmask & UINT64_MAX), hex((binmask >> 64) & UINT64_MAX), ...]
+def rejudge_runs(session, runs_or_ids):
+    # binmask = sum(1 << run_id for run_id in ids)
+    # run_mask = f'{binmask & UINT64_MAX:x}+{(binmask >> 64) & UINT64_MAX:x}+...'
+    mask = []
+    for run_id in sorted(x.id if isinstance(x, BaseSubmission) else x for x in runs_or_ids):
+        chunk = run_id // 64
+        while len(mask) <= chunk:
+            mask.append(0)
+        mask[-1] += 1 << (run_id % 64)
     resp = session.post_page(Page.REJUDGE_DISPLAYED, {
         'run_mask_size': len(mask),
-        'run_mask': '+'.join(mask),
+        'run_mask': '+'.join(f'{chunk:x}' for chunk in mask),
     })
+    return resp
     # check status
