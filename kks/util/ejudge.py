@@ -407,6 +407,7 @@ class EjudgeSession:
                 Page.OK_WITH_COMMENT,
                 Page.REJECT_WITH_COMMENT,
                 Page.SUMMON_WITH_COMMENT,
+                Page.CHANGE_RUN_PROB_ID,
                 Page.CHANGE_RUN_LANGUAGE,
                 Page.CHANGE_RUN_SCORE,
                 Page.CHANGE_RUN_SCORE_ADJ,

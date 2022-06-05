@@ -54,6 +54,7 @@ class Page(Enum):
     REJUDGE_DISPLAYED_CONFIRM = 70
     # No links from other pages. Legacy endpoints, replaced by EDIT_RUN?
     # there are more CHANGE_* actions (user/problem/flags...)
+    CHANGE_RUN_PROB_ID = 77
     CHANGE_RUN_LANGUAGE = 79
     CHANGE_RUN_SCORE = 88  # Changes score in VIEW_SOURCE, but not in standings or main page
     CHANGE_RUN_SCORE_ADJ = 89

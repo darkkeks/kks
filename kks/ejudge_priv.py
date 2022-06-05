@@ -44,6 +44,9 @@ class Submission(BaseSubmission):
         session.post_page(Page.CHANGE_RUN_LANGUAGE, {'run_id': self.id, 'param': lang.name})
         # redirects to VIEW_SOURCE on success?
 
+    def set_prob_id(self, session, prob_id: int):
+        session.post_page(Page.CHANGE_RUN_PROB_ID, {'run_id': self.id, 'param': prob_id})
+
     def set_score(self, session, score: int):
         session.post_page(Page.CHANGE_RUN_SCORE, {'run_id': self.id, 'param': score})
 
