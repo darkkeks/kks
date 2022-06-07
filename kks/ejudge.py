@@ -120,7 +120,7 @@ class Lang(Enum):
     make_vg = (54, '.tar', 'make-vg')
     gcc_32 = (57, '.c', 'gcc-32')
     clang_32 = (61, '.c', 'clang-32')
-    clangxx_32 = (61, '.cpp', 'clang++-32')
+    clangxx_32 = (62, '.cpp', 'clang++-32')
     gas_32 = (66, '.S', 'gas-32')
     gas = (67, '.S')
     rust = (70, '.rs')
