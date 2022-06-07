@@ -41,7 +41,7 @@ class Submission(BaseSubmission):
 
     def set_lang(self, session, lang: Lang):
         # how to check success?
-        session.post_page(Page.CHANGE_RUN_LANGUAGE, {'run_id': self.id, 'param': lang.name})
+        session.post_page(Page.CHANGE_RUN_LANGUAGE, {'run_id': self.id, 'param': lang.value})
         # redirects to VIEW_SOURCE on success?
 
     def set_prob_id(self, session, prob_id: int):
