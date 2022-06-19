@@ -397,6 +397,7 @@ def ejudge_archive(session, settings: ArchiveSettings, output: BinaryIO):
     # needed even if run_selection is not SELECTED
     params.update(_run_mask(settings.runs_or_ids))
 
-    resp = session.post_page(Page.DOWNLOAD_ARCHIVE, params)
+    resp = session.post_page(Page.DOWNLOAD_ARCHIVE, params, stream=True)
     # TODO check status
-    output.write(resp.content)
+    for chunk in resp.iter_content(1024**2):
+        output.write(chunk)
