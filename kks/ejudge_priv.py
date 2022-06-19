@@ -152,7 +152,7 @@ class User:
 class ArchiveSettings:
     class RunSelection(Enum):
         ALL = 0
-        SEELCTED = 1
+        SELECTED = 1
         OK = 2
         OK_PR = 3
         OK_PR_RJ_IG_PD_DQ = 4
@@ -179,12 +179,12 @@ class ArchiveSettings:
         PROBLEM = 1
         USER_ID = 2
         USER_LOGIN = 3
-        USER_NAME = 4
-        PROBLEM_USER_ID = 5
-        PROBLEM_USER_LOGIN = 6
-        PROBLEM_USER_NAME = 7
-        USER_ID_PROBLEM = 8
-        USER_LOGIN_PROBLEM = 9
+        USER_NAME = 8
+        PROBLEM_USER_ID = 4
+        PROBLEM_USER_LOGIN = 5
+        PROBLEM_USER_NAME = 9
+        USER_ID_PROBLEM = 6
+        USER_LOGIN_PROBLEM = 7
         USER_NAME_PROBLEM = 10
 
     run_selection: RunSelection = RunSelection.OK_PR_RJ_IG_PD_DQ
