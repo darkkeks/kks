@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
-from enum import Enum
+from enum import Enum, Flag
 from functools import wraps
-from typing import Iterable, Optional
+from typing import BinaryIO, Iterable, Optional
 
 from kks.ejudge import MSK_TZ, PROBLEM_INFO_VERSION, \
     BaseSubmission, Lang, Page, ParsedRow, _CellParsers, _FieldParsers, \
@@ -148,12 +148,78 @@ class User:
         return cls(**attrs)
 
 
+@dataclass
+class ArchiveSettings:
+    class RunSelection(Enum):
+        ALL = 0
+        SEELCTED = 1
+        OK = 2
+        OK_PR = 3
+        OK_PR_RJ_IG_PD_DQ = 4
+
+    class FilePattern(Flag):
+        def __new__(cls, param_name):
+            obj = object.__new__(cls)
+            obj._value_ = 1 << len(cls.__members__)
+            obj.param_name = param_name
+            return obj
+
+        CONTEST_ID = 'file_pattern_contest'
+        RUN_ID = 'file_pattern_run'
+        USER_ID = 'file_pattern_uid'
+        USER_LOGIN = 'file_pattern_login'
+        USER_NAME = 'file_pattern_name'
+        PROBLEM_SHORT_NAME = 'file_pattern_prob'
+        LANG_SHORT_NAME = 'file_pattern_lang'
+        SUBMIT_TIME = 'file_pattern_time'
+        LANG_SUFFIX = 'file_pattern_suffix'
+
+    class DirStruct(Enum):
+        NONE = 0
+        PROBLEM = 1
+        USER_ID = 2
+        USER_LOGIN = 3
+        USER_NAME = 4
+        PROBLEM_USER_ID = 5
+        PROBLEM_USER_LOGIN = 6
+        PROBLEM_USER_NAME = 7
+        USER_ID_PROBLEM = 8
+        USER_LOGIN_PROBLEM = 9
+        USER_NAME_PROBLEM = 10
+
+    run_selection: RunSelection = RunSelection.OK_PR_RJ_IG_PD_DQ
+    file_pattern: FilePattern = (FilePattern.CONTEST_ID | FilePattern.RUN_ID
+                                | FilePattern.USER_NAME | FilePattern.SUBMIT_TIME
+                                | FilePattern.LANG_SUFFIX)
+    dir_struct: DirStruct = DirStruct.PROBLEM
+    use_problem_extid: bool = False # Use 'extid' as problem name (extid is some kind of id for ej-batch)
+    use_problem_dir: bool = False  # Use 'problem_dir' as problem name (ejudge uses true by default)
+    problem_dir_prefix: str = ''  # Common prefix to remove
+    runs_or_ids: Iterable = ()  # used only if run_selection is SELECTED
+
+
 def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Iterable[bool]):
     # filter status[i] = ith component is not empty
     return any(
         new_status < old_status
         for (old_status, new_status) in zip(old_filter_status, new_filter_status)
     )
+
+
+def _run_mask(runs_or_ids: Optional[Iterable]):
+    # binmask = sum(1 << run_id for run_id in ids)
+    # run_mask = f'{binmask & UINT64_MAX:x}+{(binmask >> 64) & UINT64_MAX:x}+...'
+    mask = []
+    if runs_or_ids is not None:
+        for run_id in sorted(x.id if isinstance(x, BaseSubmission) else x for x in runs_or_ids):
+            chunk = run_id // 64
+            while len(mask) <= chunk:
+                mask.append(0)
+            mask[-1] += 1 << (run_id % 64)
+    return {
+        'run_mask_size': len(mask),
+        'run_mask': '+'.join(f'{chunk:x}' for chunk in mask),
+    }
 
 
 @requires_judge
@@ -308,18 +374,29 @@ def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=F
 
 # Inconsistent naming, but it's more readable than ejudge_rejudge or something similar
 @requires_judge
-def rejudge_runs(session, runs_or_ids):
-    # binmask = sum(1 << run_id for run_id in ids)
-    # run_mask = f'{binmask & UINT64_MAX:x}+{(binmask >> 64) & UINT64_MAX:x}+...'
-    mask = []
-    for run_id in sorted(x.id if isinstance(x, BaseSubmission) else x for x in runs_or_ids):
-        chunk = run_id // 64
-        while len(mask) <= chunk:
-            mask.append(0)
-        mask[-1] += 1 << (run_id % 64)
-    resp = session.post_page(Page.REJUDGE_DISPLAYED, {
-        'run_mask_size': len(mask),
-        'run_mask': '+'.join(f'{chunk:x}' for chunk in mask),
-    })
-    return resp
-    # check status
+def rejudge_runs(session, runs_or_ids: Iterable):
+    resp = session.post_page(Page.REJUDGE_DISPLAYED, _run_mask(runs_or_ids))
+    # TODO check status
+
+
+@requires_judge
+def ejudge_archive(session, settings: ArchiveSettings, output: BinaryIO):
+    # TODO move params construction to ArchiveSettings method?
+    params = {
+        'run_selection': settings.run_selection.value,
+        'dir_struct': settings.dir_struct.value,
+        'problem_dir_prefix': settings.problem_dir_prefix,
+    }
+    if settings.use_problem_extid:
+        params['use_problem_extid'] = 'on'
+    if settings.use_problem_dir:
+        params['use_problem_dir'] = 'on'
+    for flag in ArchiveSettings.FilePattern:
+        if flag in settings.file_pattern:
+            params[flag.param_name] = 'on'
+    # needed even if run_selection is not SELECTED
+    params.update(_run_mask(settings.runs_or_ids))
+
+    resp = session.post_page(Page.DOWNLOAD_ARCHIVE, params)
+    # TODO check status
+    output.write(resp.content)

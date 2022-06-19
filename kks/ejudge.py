@@ -70,11 +70,13 @@ class Page(Enum):
     SUBMIT_CLAR = 141
     CLARS = 142
     SETTINGS = 143
+    DOWNLOAD_ARCHIVE_FORM = 148
+    DOWNLOAD_ARCHIVE = 149
     IGNORE_WITH_COMMENT = 233
     OK_WITH_COMMENT = 237
     REJECT_WITH_COMMENT = 238
     SUMMON_WITH_COMMENT = 239
-    EDIT_RUN_PAGE = 267  # Shows the form with run details. Requires EDIT_RUN capability.
+    EDIT_RUN_FORM = 267  # Shows the form with run details. Requires EDIT_RUN capability.
     EDIT_RUN = 268  # Actual "edit" action.
     USERS_AJAX = 278
 

@@ -294,6 +294,34 @@ class API:
         return self._api_method(self.MethodGroup.CLIENT, 'submit-run', data=data, files=files)
 
 
+# TODO add params to Page members? PAGE_NAME = (page_id, avail_for_regular_users, avail_for_judges)
+_judge_pages = [
+    Page.MAIN_PAGE,
+    # Page.USER_STANDINGS,  # standings format for judges is different
+    Page.VIEW_SOURCE,
+    Page.DOWNLOAD_SOURCE,
+    Page.SET_RUN_STATUS,
+    Page.USERS_AJAX,
+    Page.SEND_COMMENT,
+    Page.IGNORE_WITH_COMMENT,
+    Page.OK_WITH_COMMENT,
+    Page.REJECT_WITH_COMMENT,
+    Page.SUMMON_WITH_COMMENT,
+    Page.CHANGE_RUN_PROB_ID,
+    Page.CHANGE_RUN_LANGUAGE,
+    Page.CHANGE_RUN_SCORE,
+    Page.CHANGE_RUN_SCORE_ADJ,
+    Page.EDIT_RUN,
+    Page.EDIT_RUN_FORM,
+    Page.REJUDGE_DISPLAYED_CONFIRM,
+    Page.REJUDGE_PROBLEM_CONFIRM,
+    Page.REJUDGE_DISPLAYED,
+    Page.REJUDGE_PROBLEM,
+    Page.DOWNLOAD_ARCHIVE,
+    Page.DOWNLOAD_ARCHIVE_FORM,
+]
+
+
 class EjudgeSession:
     def __init__(self, auth=True):
         import requests
@@ -394,30 +422,7 @@ class EjudgeSession:
 
     def _check_page_access(self, page_id: Page):
         if self.judge:
-            # TODO add params to Page members? PAGE_NAME = (page_id, avail_for_regular_users, avail_for_judges)
-            if page_id not in [
-                Page.MAIN_PAGE,
-                Page.USER_STANDINGS,  # standings format for judges is different, "kks top" will just crash
-                Page.VIEW_SOURCE,
-                Page.DOWNLOAD_SOURCE,
-                Page.SET_RUN_STATUS,
-                Page.USERS_AJAX,
-                Page.SEND_COMMENT,
-                Page.IGNORE_WITH_COMMENT,
-                Page.OK_WITH_COMMENT,
-                Page.REJECT_WITH_COMMENT,
-                Page.SUMMON_WITH_COMMENT,
-                Page.CHANGE_RUN_PROB_ID,
-                Page.CHANGE_RUN_LANGUAGE,
-                Page.CHANGE_RUN_SCORE,
-                Page.CHANGE_RUN_SCORE_ADJ,
-                Page.EDIT_RUN,
-                Page.EDIT_RUN_PAGE,
-                Page.REJUDGE_DISPLAYED_CONFIRM,
-                Page.REJUDGE_PROBLEM_CONFIRM,
-                Page.REJUDGE_DISPLAYED,
-                Page.REJUDGE_PROBLEM,
-            ]:
+            if page_id not in _judge_pages:
                 raise EjudgeError('Page is not available for judges')
         else:
             pass
