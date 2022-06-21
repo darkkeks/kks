@@ -230,7 +230,7 @@ class TasksColumn(Column):
             click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) +
             ' '.join([
                 click.style(
-                    '{:>3}'.format(task.table_score() or ''), fg=task.color(), bold=task.bold()
+                    '{:>3}'.format(task.table_score() or ''), fg=task.color(), bg=task.bg_color(), bold=task.bold()
                 )
                 for task in tasks
             ])

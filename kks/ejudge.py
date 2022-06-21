@@ -90,6 +90,8 @@ class Status:
     REJECTED = 'Rejected'
     IGNORED = 'Ignored'
     PARTIAL = 'Partial solution'
+    DISQUALIFIED = 'Disqualified'
+    CHECK_FAILED = 'Check failed'
     NOT_SUBMITTED = 'Not submitted'
 
 
@@ -428,23 +430,33 @@ class Report:
 
 
 class TaskScore:
+    _colors = {
+        Status.REVIEW: 'green',
+        Status.OK: 'green',
+        # in standings CHECK has the same class/style as TESTING
+        Status.TESTING: 'bright_yellow',
+        Status.REJECTED: 'yellow',
+        Status.PARTIAL: 'red',
+        Status.CHECK_FAILED: 'bright_red',
+        Status.DISQUALIFIED: 'white',
+    }
+
     def __init__(self, contest: str, score: Optional[str], status: str):
         self.contest = contest
         self.score = score
         self.status = status
 
+    def bg_color(self):
+        if self.status == Status.DISQUALIFIED:
+            return 'bright_red'
+        return None
+
     def color(self):
-        return 'green' if self.status == Status.REVIEW \
-            else 'green' if self.status == Status.OK \
-            else 'bright_yellow' if self.status == Status.TESTING \
-            else 'yellow' if self.status == Status.REJECTED \
-            else 'red' if self.status == Status.PARTIAL \
-            else 'white'
-        # in standings CHECK has the same style as TESTING
+        return self._colors.get(self.status, 'white')
 
     def bold(self):
         # TESTING is bold for more contrast with REJECTED
-        return self.status in [Status.OK, Status.TESTING]
+        return self.status in [Status.OK, Status.TESTING, Status.CHECK_FAILED, Status.DISQUALIFIED]
 
     def table_score(self):
         if self.status in [Status.TESTING, Status.REJECTED] and self.score is None:
@@ -872,6 +884,8 @@ def to_task_score(contest, cell):
     status = Status.REVIEW if 'cell_attr_pr' in cell['class'] \
         else Status.REJECTED if 'cell_attr_rj' in cell['class'] \
         else Status.TESTING if 'cell_attr_tr' in cell['class'] \
+        else Status.CHECK_FAILED if 'cell_attr_cf' in cell['class'] \
+        else Status.DISQUALIFIED if 'cell_attr_dq' in cell['class'] \
         else Status.PARTIAL if score == '0' \
         else Status.OK if score is not None \
         else Status.NOT_SUBMITTED
