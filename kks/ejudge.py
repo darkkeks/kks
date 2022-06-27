@@ -275,14 +275,11 @@ class _CellParsers:
         return int(re.sub(r'=.*', '', value))  # score may include penalty
 
     @staticmethod
-    def submission_source(cell):
+    def submission_source_details(cell):
         source_link = cell.find('a')
         if not source_link:
             return None
-        return source_link['href'].replace(
-            f'action={Page.VIEW_SOURCE.value}',
-            f'action={Page.DOWNLOAD_SOURCE.value}'
-        )
+        return source_link['href']
 
     @staticmethod
     def submission_report(cell):
@@ -343,8 +340,19 @@ class BaseSubmission(ParsedRow):
     status: str
     tests_passed: Optional[int] = _parse_field(_CellParsers.submission_tests)
     score: Optional[int] = _parse_field(_CellParsers.submission_score)
-    source: str = _parse_field(_CellParsers.submission_source)
+    source_details: Optional[str] = _parse_field(_CellParsers.submission_source_details)
     report: Optional[str] = _parse_field(_CellParsers.submission_report)
+    source: Optional[str] = field(init=False)
+
+    def __post_init__(self):
+        if self.source_details is None:
+            source_link = None
+        else:
+            source_link = self.source_details.replace(
+                f'action={Page.VIEW_SOURCE.value}',
+                f'action={Page.DOWNLOAD_SOURCE.value}'
+            )
+        object.__setattr__(self, 'source', source_link)
 
     @classmethod
     def parse(cls, row, server_tz=timezone.utc):
@@ -389,44 +397,57 @@ class Submission(BaseSubmission):
     size: int = field(init=False)  # Not in order
 
     def __post_init__(self):
+        super().__post_init__()
         object.__setattr__(self, 'size', int(self.size_or_user))
+
+
+@dataclass
+class RunComment:
+    author: str
+    text: str
+
+    def format(self):
+        return f'Comment by {self.author}: {self.text.rstrip()}'
+
+
+@dataclass
+class TestInfo:
+    number: int
+    status: str
+
+    def format(self):
+        return f'{self.number} - {self.status}'
 
 
 class Report:
     def __init__(self, comments, tests):
+        self.comments = []
+        self.failed_tests = []
+        self.total_tests = len(tests)
 
-        def comm_format(comments):
-            for row in comments:
-                author_cell, comment, *_ = row.find_all('td')
-                author = next(line for line in author_cell.text.splitlines() if line)
-                # if the comment contains newlines
-                yield from (
-                    f'Comment by {author}: {comment.text.strip()}\n'
-                    .splitlines(keepends=True)
-                )
-
-        if comments:
-            self.lines = list(comm_format(comments))
-        else:
-            self.lines = []
-
-        failed_tests = []
+        for comm_row in comments:
+            author_cell, comment, *_ = comm_row.find_all('td')
+            author = next(line for line in author_cell.text.splitlines() if line)
+            self.comments.append(RunComment(author, comment.text))
 
         for test in tests:
             test_num, status, *_ = test.find_all('td')
             if status.text != Status.OK:
-                failed_tests.append(f'{test_num.text} - {status.text}\n')
-
-        if failed_tests:
-            if comments:
-                self.lines.append('\n')
-            self.lines.append(f'Total tests: {len(tests)}\n')
-            self.lines.append('Failed tests:\n')
-            self.lines += failed_tests
+                self.failed_tests.append(TestInfo(int(test_num.text), status.text))
 
     def as_comment(self):
+        lines = []
+        for comm in self.comments:
+            lines += comm.format().splitlines()
+        if self.failed_tests:
+            if self.comments:
+                lines.append('')
+            lines.append(f'Total tests: {self.total_tests}')
+            lines.append('Failed tests:')
+            lines += [test.format() for test in self.failed_tests]
+
         sep_lines = 3
-        return ''.join('// ' + line for line in self.lines) + '\n' * sep_lines
+        return '\n'.join('// ' + line for line in lines) + '\n' * sep_lines
 
 
 class TaskScore:
@@ -912,9 +933,10 @@ def ejudge_submissions(session):
     }
 
 
-def ejudge_report(link, session):
+def ejudge_report(session, link):
     from bs4 import BeautifulSoup
 
+    # NOTE also works in privileged mode. Comments are parsed correctly, but test info is broken
     page = session.get(link)
     soup = BeautifulSoup(page.content, 'html.parser')
     message_table = soup.find('table', {'class': 'message-table'})

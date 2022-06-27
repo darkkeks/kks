@@ -31,8 +31,10 @@ class ClarFilter(Enum):
 @dataclass(frozen=True)
 class Submission(BaseSubmission):
     user: str = field(init=False)  # Not in order
+    # TODO add more optional fields, use table header for parsing (need new base class?)
 
     def __post_init__(self):
+        super().__post_init__()
         object.__setattr__(self, 'user', self.size_or_user)
 
     def set_status(self, session, status: int):
