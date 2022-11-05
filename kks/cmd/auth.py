@@ -4,11 +4,13 @@ from kks.ejudge import AuthData, get_contest_id
 from kks.util.ejudge import EjudgeSession, save_auth_data
 
 
+GROUP_ID_HINT = "2022 group id (e.g. 214, 2110)"
+
+
 @click.command(short_help='Authorize and save authentication data to configuration directory')
 @click.option('-l', '--login', prompt=True)
 @click.password_option('-p', '--password', confirmation_prompt=False)
-@click.option('-g', '--group-id',
-              help='''2021 group id (e.g. 204, 2010 or 'free' for 'вольнослушатели')''')
+@click.option('-g', '--group-id', help=GROUP_ID_HINT)
 @click.option('-c', '--contest-id', type=int,
               help='''Ejudge contest id.
               For example, https://caos.myltsev.ru/cgi-bin/new-client?contest_id=133 has contest id 133''')
@@ -27,7 +29,7 @@ def auth(login, password, group_id, contest_id, store_password, judge):
     - data.json      - data parsed from ejudge (page urls, for example)"""
 
     if group_id is None and contest_id is None:
-        group_id = click.prompt("2021 group id (e.g. 204, 2010 or 'free' for 'вольнослушатели')")
+        group_id = click.prompt(GROUP_ID_HINT)
 
     if group_id is not None and contest_id is not None:
         click.secho("Specify either contest id, or group id, not both", fg='red', err=True)
@@ -38,7 +40,7 @@ def auth(login, password, group_id, contest_id, store_password, judge):
         if contest_id is None:
             click.secho(
                 f"Invalid group id '{group_id}'"
-                "(should be either a number from 201 to 2010 or 'free'",
+                "(should be a number from 211 to 2110)",
                 fg='red', err=True
             )
             return

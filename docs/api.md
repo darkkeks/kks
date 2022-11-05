@@ -101,12 +101,12 @@ OK:
 Also can be retrieved by a regular session on a page with action id 302 (`NEW_SRV_ACTION_RUN_STATUS_JSON`)
 
 ### download-run
-**parameters**: `prob_id` (int)
+**parameters**: `run_id` (int)
 
 Returns source file
 
 ### run-messages-json
-**parameters**: `prob_id` (int)
+**parameters**: `run_id` (int)
 
 Comments
 

@@ -22,9 +22,10 @@ CONTEST_ID_BY_GROUP = {}
 CONTEST_ID_BY_GROUP.update({
     f'19{group}': 130 + group for group in range(1, 12)
 })
-CONTEST_ID_BY_GROUP.update({
-    f'20{group}': int(f'20{group}') for group in range(1, 11)
-})
+for year in [20, 21]:
+    CONTEST_ID_BY_GROUP.update({
+        f'{year}{group}': int(f'{year}{group}') for group in range(1, 11)
+    })
 CONTEST_ID_BY_GROUP['free'] = 2021
 
 GROUP_ID_BY_CONTEST = {
@@ -850,6 +851,9 @@ def ejudge_standings(session):
     name = title[:title.find('[') - 1]
 
     table = soup.find('table', class_='standings')
+    if table is None:  # contest not started
+        return Standings([], [], name)
+
     rows = table.find_all('tr')
 
     tasks = [

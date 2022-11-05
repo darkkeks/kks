@@ -38,7 +38,7 @@ MAX_KR_SCORE = 200
               help='Calculate scores and sort based on filtered results')
 @click.option('--global-opt-out', is_flag=True,
               help='Opt out from submitting your group results')
-@click.option('-y', '--year', type=int, default=2021,
+@click.option('-y', '--year', type=int, default=2022,
               help='Show standings for the selected year')
 def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, global_opt_out, year):
     """
