@@ -383,7 +383,7 @@ class Bot:
 def main() -> None:
     try:
         token = environ['EJ_SUB_TELEGRAM_TOKEN']
-        chat_id = environ['EJ_SUH_TELEGRAM_CHAT']
+        chat_id = environ['EJ_SUB_TELEGRAM_CHAT']
         db_path = environ.get('EJ_SUB_DB_FILE', Path(__file__).resolve().parent/'caos.db')
     except KeyError as e:
         logger.error(f'Missing config key: "{e.args[0]}"')
