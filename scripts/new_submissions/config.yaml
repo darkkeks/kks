@@ -1,6 +1,0 @@
-token: "123:ABCDEF"
-chat_id: 12345  # user/group/channel id
-
-# Paths may be absolute or relative to parent of this file
-id_file: ./last_run_id
-db_path: ./caos.db

@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
-import argparse
 import csv
 import re
 import logging
 import typing as t
 from functools import wraps
 from io import StringIO
+from os import environ
 from pathlib import Path
 from random import randint
 from time import sleep
 from traceback import format_exc
 
-import yaml
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
@@ -21,7 +20,7 @@ from telegram.utils.helpers import escape_markdown
 from kks.ejudge import Status
 from kks.ejudge_priv import Submission, ejudge_submissions, ejudge_users
 from kks.util.ejudge import EjudgeSession
-from utils.submissions import new_submissions, save_last_id
+from utils.submissions import new_submissions
 from utils.db import BotDB, UnknownUser, import_ej_users
 
 
@@ -73,10 +72,9 @@ def abbrev_name(first_name, last_name):
 
 
 class Bot:
-    def __init__(self, token, chat_id, id_file, db_path):
+    def __init__(self, token, chat_id, db_path):
         self.updater = Updater(token)
         self.chat_id = chat_id
-        self.id_file = id_file
         self.db = BotDB(db_path)
         # TODO add session lock?
         self.session = EjudgeSession()
@@ -269,6 +267,8 @@ class Bot:
             _, first_name, last_name = self.db.get_user(uid)  # Use a single SELECT?
             full_name = f'{first_name} {last_name}' if last_name else first_name
             lines.append(f'{full_name}: {runs}')
+        if not lines:
+            lines.append('No reviewed runs :(')
         context.bot.send_message(update.effective_chat.id, '\n'.join(lines))
 
     @restricted_cmd
@@ -284,7 +284,7 @@ class Bot:
     def check_updates(self, context: CallbackContext):
         # TODO check clars to add commented runs which have already been reviewed
         try:
-            submissions = new_submissions(self.id_file, self.session)
+            submissions = new_submissions(self.session, self.db.get_last_run_id())
         except Exception:
             logger.error('Cannot get new submissions. Error:')
             logger.error(format_exc())
@@ -313,7 +313,7 @@ class Bot:
             return
 
         # Update last id only if all updates were successfully posted.
-        save_last_id(submissions, self.id_file)
+        self.db.set_last_run_id(submissions[-1].id)
 
     def post_pending(self, context: CallbackContext, pending: t.List[Submission]):
         batch_size = 10
@@ -331,14 +331,14 @@ class Bot:
                     users = ejudge_users(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
                     for user in users:
                         if user.name == sub.user:
-                            self.db.add_ej_user(user.id, user.name)
+                            self.db.add_ej_user(user.id, user.name, commit=True)
                             break
                     else:
                         logger.warning(f'User {sub.user} is not in user list, random uid will be used')
                         # Assign a random uid to avoid updates on new submissions from this user.
                         # This shouldn't happen often, if it is possible at all.
                         # (user was added, then removed?)
-                        self.db.add_ej_user(randint(1000000, 9999999), sub.user)
+                        self.db.add_ej_user(randint(1000000, 9999999), sub.user, commit=True)
                     reviewer = self.db.get_previous_reviewer(sub)
                 if reviewer:
                     _, first_name, last_name = reviewer
@@ -381,42 +381,15 @@ class Bot:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', metavar='FILE', type=Path, required=True,
-                        help='Config file')
-    args = parser.parse_args()
-    config_file = args.config.resolve()
-
-    if not config_file.is_file():
-        logger.error(f'{config_file} is not a file')
-        return
-
-    with config_file.open('r') as f:
-        try:
-            config = yaml.safe_load(f)
-        except yaml.parser.ParserError:
-            logger.error(f'Cannot parse {config_file}')
-            return
-
     try:
-        token = config['token']
-        chat_id = config['chat_id']
-        id_file = config['id_file']
-        db_path = config['db_path']
+        token = environ['EJ_SUB_TELEGRAM_TOKEN']
+        chat_id = environ['EJ_SUH_TELEGRAM_CHAT']
+        db_path = environ.get('EJ_SUB_DB_FILE', Path(__file__).resolve().parent/'caos.db')
     except KeyError as e:
         logger.error(f'Missing config key: "{e.args[0]}"')
         return
 
-    def get_path(path_str):
-        path = Path(path_str)
-        if path.is_absolute():
-            return path
-        return config_file.parent/path
-
-    id_file = get_path(id_file)
-    db_path = get_path(db_path)
-
-    bot = Bot(token, chat_id, id_file, db_path)
+    bot = Bot(token, chat_id, db_path)
     bot.start()
 
 

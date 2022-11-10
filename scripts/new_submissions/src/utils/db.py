@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+import inspect
 import sqlite3
 from functools import wraps
 from threading import RLock
+from typing import Optional
 
 
 __version__ = '0.2.0'
@@ -16,9 +18,12 @@ def db_method(method):
     @wraps(method)
     def wrapper(*args, **kwargs):
         self = args[0]
+        bound_arguments = inspect.signature(method).bind(*args, **kwargs)
+        bound_arguments.apply_defaults()
+        commit = bound_arguments.arguments.get('commit')
         with self._lock:
             result = method(*args, **kwargs)
-            if kwargs.get('commit'):
+            if commit:
                 self._commit()
         return result
 
@@ -48,7 +53,8 @@ class BotDB:
         self._create_indices()
 
     def _create_tables(self):
-        if self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ej_users'").fetchone() is not None:
+        last_table = 'int_kv'
+        if self._conn.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{last_table}'").fetchone() is not None:
             return
         self._conn.execute(
             'CREATE TABLE IF NOT EXISTS users ('
@@ -65,6 +71,9 @@ class BotDB:
             'FOREIGN KEY (reviewer) REFERENCES users(id), '
             'FOREIGN KEY (user) REFERENCES ej_users(id)'
             ')'
+        )
+        self._conn.execute(
+            'CREATE TABLE IF NOT EXISTS int_kv ("key" str, value int, PRIMARY KEY ("key"))'
         )
 
     def _add_columns(self):
@@ -150,6 +159,17 @@ class BotDB:
             'INNER JOIN users AS u ON (s.reviewer = u.id) '
             'LEFT JOIN ej_users AS eu ON (s.user = eu.id) ').fetchall()
         return header, data
+
+    @db_method
+    def get_last_run_id(self) -> Optional[int]:
+        row = self._conn.execute('SELECT value FROM int_kv WHERE "key" = \'last_run_id\'').fetchone()
+        if row is not None:
+            return row[0]
+        return None
+
+    @db_method
+    def set_last_run_id(self, run_id: int, commit=True):
+        self._conn.execute('INSERT OR REPLACE INTO int_kv("key", value) VALUES (\'last_run_id\', ?)', (run_id,))
 
     @property
     def lock(self):
