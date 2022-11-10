@@ -7,6 +7,8 @@ import requests
 import click
 
 from kks.ejudge import Status
+from utils import load_module
+load_module(__file__, '../utils/submissions.py', 'utils.submissions')
 from utils.submissions import new_submissions, save_last_id
 
 
