@@ -77,7 +77,9 @@ class Submission(BaseSubmission):
 @dataclass(frozen=True)
 class ClarInfo(ParsedRow):
     id: int
-    # Possible values: "", "N" - unanswered?, "A" - answered?, "R" - not used?
+    # Possible values:
+    # For judge/admin: "", "N" - unanswered?, "A" - answered?, "R" - not used?
+    # Unprivileged user: "U" - unanswered, "A" - answered, "N" - ?
     flags: str = _parse_field(_CellParsers.clar_flags)
     # NOTE other time formats? (show_astr_time in lib/new_server_html_2.c:ns_write_all_clars)
     time: datetime = _parse_field(_CellParsers.clar_time)
