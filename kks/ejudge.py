@@ -434,7 +434,8 @@ class Deadlines:
     @staticmethod
     def parse(text, server_tz):
         """Parse datetime string (obtained from a problem page) and convert it to UTC"""
-        dt = datetime.strptime(text, TIME_FORMAT)
+        # YYYY//MM/DD [hh[:mm[:ss]]]
+        dt = datetime(*map(int, re.findall(r'\d+', text)))
         return dt.replace(tzinfo=server_tz).astimezone(MSK_TZ)
 
 
@@ -944,6 +945,7 @@ def get_problem_info(problem, cache, session):
     run_penalty = 0  # may be incorrect for kr
     current_penalty = 0
     deadlines = Deadlines(None, None)
+    alt_soft_deadline = None
     full_score_found = False
 
     if problem_info is None:
@@ -960,10 +962,18 @@ def get_problem_info(problem, cache, session):
                 current_penalty = int(value.text)
             elif key.text == 'Next soft deadline:':
                 deadlines.soft = Deadlines.parse(value.text, get_server_tz(cache, session))
+            elif key.text == 'Date penalty formula:':
+                deadline, dp_value = value.text.rsplit(' ', 1)
+                if dp_value.isdigit():
+                    # If fixed formula is used, "next soft deadline" is not rendered (ejudge 3.9.1)
+                    alt_soft_deadline = Deadlines.parse(deadline, get_server_tz(cache, session))
             elif key.text == 'Deadline:':
                 deadlines.hard = Deadlines.parse(value.text, get_server_tz(cache, session))
+        if deadlines.soft is None:
+            deadlines.soft = alt_soft_deadline
 
     if not full_score_found:
+        # problems past deadline, something else?
         try:
             problem_status = session.api().problem_status(problem.extract_id()).get('problem', {})
         except APIError as e:
