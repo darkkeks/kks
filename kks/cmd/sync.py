@@ -1,3 +1,4 @@
+from enum import Enum
 from mimetypes import guess_extension
 from shutil import rmtree
 
@@ -10,7 +11,12 @@ from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Config
 
 
-def save_needed(problem, submissions, sub_dir, session, full_sync):
+class CodeSync(Enum):
+    ALL = 'all'
+    REJECTS = 'rejects'
+
+
+def save_needed(problem, submissions, sub_dir, session, mode: CodeSync):
     def prefix(submission):
         return f'{submission.id:05d}'
 
@@ -32,8 +38,10 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
                 return ''
             return suf
 
-    if full_sync:
+    if mode == CodeSync.ALL:
         needed = submissions
+    elif mode == CodeSync.REJECTS:
+        needed = [sub for sub in submissions if sub.status == Status.REJECTED]
     else:
         ok, review, reject, partial = [], [], [], []
         for sub in submissions:
@@ -63,8 +71,12 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
             if old[0].stem == file.stem:
                 continue
             old[0].rename(file.with_suffix(old[0].suffix))
-            # may need to load the report
+
+            # may need to load the report (PR -> RJ: comments, running -> partial: failed tests)
             if sub.status not in [Status.PARTIAL, Status.REJECTED]:
+                # Comments for existing PR->OK, PR->IG submissions are not synced.
+                # Also, comments without status change are not updated (see stem check above)
+                # TODO check new comments on Clars page?
                 continue
 
         resp = session.get(sub.source)
@@ -80,7 +92,7 @@ def save_needed(problem, submissions, sub_dir, session, full_sync):
             f.write(source)
 
 
-def sync_code(problem, task_dir, submissions, session, full_sync):
+def sync_code(problem, task_dir, submissions, session, mode: CodeSync):
     sub_dir = task_dir / 'submissions'
     if sub_dir.exists():
         if not sub_dir.is_dir():
@@ -91,7 +103,7 @@ def sync_code(problem, task_dir, submissions, session, full_sync):
         sub_dir.mkdir(parents=True, exist_ok=True)
     problem_subs = submissions.get(problem.short_name, [])
     if problem_subs:
-        save_needed(problem, problem_subs, sub_dir, session, full_sync)
+        save_needed(problem, problem_subs, sub_dir, session, mode)
 
 
 def sync_attachments(problem, dest_dir, session):
@@ -126,8 +138,8 @@ def sync_attachments(problem, dest_dir, session):
 @click.command(short_help='Parse problems from ejudge', cls=OptFlagCommand)
 @click.option('--code', cls=FlagOption, is_flag=True,
               help='Download latest submitted solutions')
-@click.option('--code_opt', cls=OptFlagOption, type=Choice2(['all']),
-              help='Download all submissions')
+@click.option('--code_opt', cls=OptFlagOption, type=Choice2(['all', 'rejects']),
+              help='Download all / all rejected submissions')
 @click.option('-f', '--force', is_flag=True, default=False,
               help='Force sync existing tasks')
 @click.argument('filters', nargs=-1)
@@ -152,8 +164,8 @@ def sync(code, code_opt, force, filters):
     session = EjudgeSession()
     problems = ejudge_summary(session)
 
-    code_all = code_opt == 'all'
-    code = code or code_all
+    code_sync_mode = CodeSync(code_opt) if code_opt else None
+    code = code or code_sync_mode
     if code:
         submissions = ejudge_submissions(session)
 
@@ -201,7 +213,7 @@ def sync(code, code_opt, force, filters):
                         'Syncing submissions for ' +
                         click.style(problem.name, fg='blue', bold=True)
                     )
-                    sync_code(problem, task_dir, submissions, session, code_all)
+                    sync_code(problem, task_dir, submissions, session, code_sync_mode)
                     new_problems += 1
                 else:
                     old_problems += 1
@@ -267,7 +279,7 @@ def sync(code, code_opt, force, filters):
 
         if code:
             click.secho('Syncing submissions')
-            sync_code(problem, task_dir, submissions, session, code_all)
+            sync_code(problem, task_dir, submissions, session, code_sync_mode)
 
     write_contests(workspace, contests)
 
