@@ -286,7 +286,7 @@ def ejudge_submissions(session, filter_=None, first_run=None, last_run=None):
             }
         )
     soup = BeautifulSoup(page.content, 'html.parser')
-    title = soup.find('h2', text='Submissions')
+    title = soup.find('h2', string='Submissions')
     table = title.find_next('table', {'class': 'b1'})
     if table is None or table.find_previous('h2') is not title:
         # Bad filter expression (other errors?)
@@ -346,7 +346,7 @@ def ejudge_clars(session, filter_=ClarFilter.UNANSWERED, first_clar=None, last_c
         )
 
     soup = BeautifulSoup(page.content, 'html.parser')
-    title = soup.find('h2', text='Messages')
+    title = soup.find('h2', string='Messages')
     table = title.find_next('table', {'class': 'b1'})
     if table is None or table.find_previous('h2') is not title:
         return None  # is this possible?

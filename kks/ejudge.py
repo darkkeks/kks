@@ -662,14 +662,14 @@ class FullProblem(SummaryProblem):
     def parse_sample(html):
         input_data, output_data = None, None
 
-        input_title = html.find('h4', text='Input')
+        input_title = html.find('h4', string='Input')
         if input_title is not None:
             input_data = input_title.find_next('pre').text
             # Add trailing newline, like in vim
             if not input_data.endswith('\n'):
                 input_data += '\n'
 
-        output_title = html.find('h4', text='Output')
+        output_title = html.find('h4', string='Output')
         if output_title is not None:
             output_data = output_title.find_next('pre').text
             if not output_data.endswith('\n'):
@@ -686,7 +686,7 @@ class FullProblem(SummaryProblem):
         problem_info = html.find('table', {'class': 'line-table-wb'})
         if problem_info is None:
             return None
-        next_block = problem_info.find_next('h3', text='Submit a solution')
+        next_block = problem_info.find_next('h3', string='Submit a solution')
         if next_block is None:
             next_block = problem_info.find_next('h2')
 
