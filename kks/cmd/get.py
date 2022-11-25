@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 def get(output, force, url):
     """Download a file from ejudge"""
     parts = urlsplit(url)
-    if parts.netloc != Links.HOST:
+    if parts.netloc != Links.DOMAIN:
         click.secho(
             f'Not an ejudge URL. Use wget/curl instead.',
             fg='red', err=True

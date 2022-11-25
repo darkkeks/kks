@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from itertools import groupby
+from os import environ
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit, quote as urlquote
 
@@ -38,8 +39,9 @@ MSK_TZ = timezone(timedelta(hours=3))
 
 
 class Links:
-    HOST = 'caos.myltsev.ru'
-    CGI_BIN = f'https://{HOST}/cgi-bin'
+    SCHEME = environ.get('KKS_CUSTOM_SCHEME', 'https')
+    DOMAIN = environ.get('KKS_CUSTOM_DOMAIN', 'caos.myltsev.ru')
+    CGI_BIN = f'{SCHEME}://{DOMAIN}/cgi-bin'
     WEB_CLIENT_ROOT = f'{CGI_BIN}/new-client'
 
 
@@ -648,7 +650,7 @@ class FullProblem(SummaryProblem):
         for tag in self._html.find_all(['a', 'img']):
             url = tag['href'] if tag.name == 'a' else tag['src']
             parts = urlsplit(url)
-            if parts.netloc != Links.HOST:
+            if parts.netloc != Links.DOMAIN:
                 continue
             query = parse_qs(parts.query)
             if 'file' in query:

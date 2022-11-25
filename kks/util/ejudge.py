@@ -286,7 +286,7 @@ class EjudgeSession:
         self.sids = self._load_sids() or Sids(None, None)
 
         if self.sids.sid and self.sids.ejsid:
-            self.http.cookies.set('EJSID', self.sids.ejsid, domain=Links.HOST)
+            self.http.cookies.set('EJSID', self.sids.ejsid, domain=Links.DOMAIN)
         elif auth:
             self.auth()
 
