@@ -8,7 +8,6 @@ import click
 
 from kks import __version__
 from kks.ejudge import AuthData, Links, Page, get_contest_url, contest_root_url
-from kks.util.common import config_directory
 from kks.errors import EjudgeError, EjudgeUnavailableError, AuthError, APIError
 from kks.util.storage import Config, PickleStorage
 
