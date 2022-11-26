@@ -23,7 +23,7 @@ def get(output, force, run_id, url):
     """Download a file from ejudge"""
     if run_id is None:
         parts = urlsplit(url)
-        if parts.netloc != Links.HOST:
+        if parts.netloc != Links.DOMAIN:
             click.secho(
                 f'Not an ejudge URL. Use wget/curl instead.',
                 fg='red', err=True
