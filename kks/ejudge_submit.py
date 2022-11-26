@@ -2,7 +2,7 @@ import click
 
 from kks.errors import APIError
 from kks.util.common import prompt_choice, with_retries
-from kks.util.ejudge import RunStatus
+from kks.util.ejudge import ExtendedRunStatus, RunStatus
 
 
 class SubmissionResult:
@@ -67,7 +67,7 @@ def submit_solution(session, file, prob_name, timeout):
 
     @with_retries(step=2, timeout=timeout)
     def get_final_result(api, run_id):
-        res = RunStatus(api.run_status(run_id))
+        res = ExtendedRunStatus(api.run_status(run_id))
         if res.is_testing():
             return None
         return SubmissionResult.parse_status(res)
