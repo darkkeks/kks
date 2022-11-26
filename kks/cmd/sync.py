@@ -85,7 +85,7 @@ def save_needed(problem, submissions, sub_dir, session, mode: CodeSync):
 
         source = resp.content
         if sub.status in [Status.PARTIAL, Status.REJECTED]:
-            report = ejudge_report(sub.report, session)
+            report = ejudge_report(session, sub.report)
             source = report.as_comment().encode() + source
 
         with open(file, 'wb') as f:
