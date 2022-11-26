@@ -1,6 +1,7 @@
 import json
 from base64 import b64decode
 from dataclasses import asdict
+from enum import Enum
 from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
@@ -38,84 +39,64 @@ def check_response(resp):
         raise EjudgeUnavailableError
 
 
-class RunStatus:
-    """A (very) limited wrapper class for responses from "run-status-json" method"""
+class RunStatus(Enum):
+    """Numerical run status. Returned by "run-status-json" API method and used by privileged methods."""
 
-    # TODO!! use enum
-    COMPILING = 98  # from github.com/blackav/ejudge-fuse
-    COMPILED = 97
-    RUNNING = 96
+    def __new__(cls, value, description=None):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj._description = description
+        return obj
+
+    @property
+    def description(self):
+        if self._description is not None:
+            return self._description
+        return self._name_.replace('_', ' ').capitalize()
+
+    # from github.com/blackav/ejudge-fuse and ejudge source
+    COMPILING = 98
+    COMPILED  = 97
+    RUNNING   = 96
 
     # this group is also used in test results
-    OK = 0
-    CE = 1
-    RE = 2
-    TL = 3
-    PE = 4
-    WA = 5
-    ML = 12
-    WT = 15
+    OK = (0, 'OK'                       )
+    CE = (1, 'Compilation error'        )
+    RE = (2, 'Runtime error'            )
+    TL = (3, 'Time limit exceeded'      )
+    PE = (4, 'Presentation error'       )
+    WA = (5, 'Wrong answer'             )
+    ML = (12, 'Memory limit exceeded'   )
+    WT = (15, 'Wall time-limit exceeded')
 
-    CHECK_FAILED = 6
-    PARTIAL = 7
-    ACCEPTED = 8
-    IGNORED = 9
-    DISQUALIFIED = 10
-    PENDING = 11
-    SEC_ERR = 13
-    STYLE_ERR = 14
-    PENDING_REVIEW = 16
-    REJECTED = 17
-    SKIPPED = 18
-    SYNC_ERR = 19
-    SUMMONED = 23
+    CHECK_FAILED   = (6,                          )
+    PARTIAL        = (7, 'Partial solution'       )
+    ACCEPTED       = (8, 'Accepted for testing'   )
+    IGNORED        = (9,                          )
+    DISQUALIFIED   = (10,                         )
+    PENDING        = (11, 'Pending check'         )
+    SEC_ERR        = (13, 'Security violation'    )
+    STYLE_ERR      = (14, 'Coding style violation')
+    PENDING_REVIEW = (16,                         )
+    REJECTED       = (17,                         )
+    SKIPPED        = (18,                         )  # also used for tests
+    SYNC_ERR       = (19, 'Synchronization error' )
+    SUMMONED       = (23, 'Summoned for defence'  )
 
     FULL_REJUDGE = 95  # ?
-    REJUDGE = 99
-    NO_CHANGE = 100  # ?
+    REJUDGE      = 99
+    NO_CHANGE    = 100  # NOP? Seen only in status-edit window in judge interface
 
-    # There are more, but only these were seen on caos.ejudge.ru
+    # There are more, but only these were seen on caos server
 
-    _descriptions = {
-        COMPILING: 'Compiling',
-        COMPILED: 'Compiled',
-        RUNNING: 'Running',
-        OK: 'OK',
-        CE: 'Compilation error',
-        RE: 'Runtime error',
-        TL: 'Time limit exceeded',
-        PE: 'Presentation error',
-        WA: 'Wrong answer',
-        ML: 'Memory limit exceeded',
-        WT: 'Wall time-limit exceeded',
-        CHECK_FAILED: 'Check failed',
-        PARTIAL: 'Partial solution',
-        ACCEPTED: 'Accepted for testing',
-        IGNORED: 'Ignored',
-        DISQUALIFIED: 'Disqualified',
-        PENDING: 'Pending check',
-        SEC_ERR: 'Security violation',
-        STYLE_ERR: 'Coding style violation',
-        PENDING_REVIEW: 'Pending review',
-        REJECTED: 'Rejected',
-        SKIPPED: 'Skipped',
-        SYNC_ERR: 'Synchronization error',
-        SUMMONED: 'Summoned for defence',
-        FULL_REJUDGE: 'Full rejudge',
-        REJUDGE: 'Rejudge',
-        NO_CHANGE: 'No change',
-    }
 
-    @staticmethod
-    def get_description(status_code):
-        return RunStatus._descriptions.get(status_code, f'Unknown status {status_code}')
+class ExtendedRunStatus:
+    """Wrapper class for responses from "run-status-json" method"""
 
-    def __init__(self, run_status):
-        self.status = run_status['run']['status']
+    def __init__(self, run_status: dict):
+        self.status = RunStatus(run_status['run']['status'])
 
-        self.tests = []
-        if 'testing_report' in run_status and 'tests' in run_status['testing_report']:
-            self.tests = run_status['testing_report']['tests']
+        self.tests = run_status.get('testing_report', {}).get('tests', [])
 
         self.compiler_output = 'Compiler output is not available'
         if 'compiler_output' in run_status and 'content' in run_status['compiler_output']:
@@ -126,22 +107,28 @@ class RunStatus:
                 self.compiler_output = 'Cannot decode compiler output: {data}'
 
     def is_testing(self):
-        return self.status >= 95 and self.status <= 99
+        return self.status in [
+            RunStatus.REJUDGE,
+            RunStatus.FULL_REJUDGE,
+            RunStatus.COMPILING,
+            RunStatus.COMPILED,
+            RunStatus.RUNNING,
+        ]
 
     def __str__(self):
-        return self.get_description(self.status)
+        return self.status.description
 
     def with_tests(self, failed_only=False):
         if not self.tests:
             return str(self)
 
         def test_descr(test):
-            return f"{test['num']} - {self.get_description(test['status'])}"
+            return f"{test['num']} - {RunStatus(test['status']).description}"
 
         if failed_only:
             test_results = '\n'.join(
                 test_descr(test)
-                for test in self.tests if test['status'] not in [self.OK, self.SKIPPED]
+                for test in self.tests if RunStatus(test['status']) not in [RunStatus.OK, RunStatus.SKIPPED]
             )
         else:
             test_results = '\n'.join(map(test_descr, self.tests))

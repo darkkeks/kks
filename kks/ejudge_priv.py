@@ -9,6 +9,7 @@ from kks.ejudge import MSK_TZ, PROBLEM_INFO_VERSION, \
     _parse_field, _skip_field, get_server_tz
 # move parsers and fields into utils module?
 from kks.errors import EjudgeError
+from kks.util.ejudge import RunStatus
 from kks.util.storage import Cache, PickleStorage
 
 
@@ -37,9 +38,9 @@ class Submission(BaseSubmission):
         super().__post_init__()
         object.__setattr__(self, 'user', self.size_or_user)
 
-    def set_status(self, session, status: int):
+    def set_status(self, session, status: RunStatus):
         # how to check success?
-        session.post_page(Page.SET_RUN_STATUS, {'run_id': self.id, 'status': status})
+        session.post_page(Page.SET_RUN_STATUS, {'run_id': self.id, 'status': status.value})
 
     def set_lang(self, session, lang: Lang):
         # how to check success?
@@ -55,16 +56,15 @@ class Submission(BaseSubmission):
     def set_score_adj(self, session, score_adj: int):
         session.post_page(Page.CHANGE_RUN_SCORE_ADJ, {'run_id': self.id, 'param': score_adj})
 
-    def send_comment(self, session, comment: str, status: Optional[int] = None):
-        from kks.util.ejudge import RunStatus
+    def send_comment(self, session, comment: str, status: Optional[RunStatus] = None):
 
-        if status == RunStatus.IGNORED:
+        if status is RunStatus.IGNORED:
             page = Page.IGNORE_WITH_COMMENT
-        elif status == RunStatus.OK:
+        elif status is RunStatus.OK:
             page = Page.OK_WITH_COMMENT
-        elif status == RunStatus.REJECTED:
+        elif status is RunStatus.REJECTED:
             page = Page.REJECT_WITH_COMMENT
-        elif status == RunStatus.SUMMONED:
+        elif status is RunStatus.SUMMONED:
             page = Page.SUMMON_WITH_COMMENT
         elif status is None:
             page = Page.SEND_COMMENT
