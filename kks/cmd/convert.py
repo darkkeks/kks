@@ -2,8 +2,8 @@ from pathlib import Path
 
 import click
 
-from kks.ejudge import Links
 from kks.util.common import format_file
+from kks.util.ejudge import Links
 from kks.util.h2t import HTML2Text
 from kks.util.storage import Config
 

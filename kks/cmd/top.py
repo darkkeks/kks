@@ -9,7 +9,7 @@ from kks.ejudge import Status, ejudge_standings, get_group_id, get_contest_id, \
     update_cached_problems, PROBLEM_INFO_VERSION
 from kks.errors import AuthError, EjudgeUnavailableError
 from kks.util.fancytable import Column, StaticColumn, FancyTable
-from kks.util.ejudge import EjudgeSession, load_auth_data
+from kks.util.ejudge import AuthData, EjudgeSession
 from kks.util.stat import send_standings, get_global_standings
 from kks.util.storage import Cache, Config
 
@@ -75,7 +75,7 @@ def top(last, all_, contests, groups, max_, no_cache, global_, recalculate, glob
         click.secho(
             f'Cannot get standings from ejudge. Reason: {err.message}', fg='yellow', err=True
         )
-        if isinstance(err, AuthError) and load_auth_data() is not None:
+        if isinstance(err, AuthError) and AuthData.load_from_config() is not None:
             suggest_auth_reset(config)
         if max_:
             click.secho('Cannot estimate max scores (ejudge is not available)', fg='red', err=True)

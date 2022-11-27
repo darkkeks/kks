@@ -1,39 +1,179 @@
 import json
 from base64 import b64decode
+from dataclasses import asdict, dataclass
 from enum import Enum
+from os import environ
 from typing import Optional
-from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import click
 
 from kks import __version__
-from kks.ejudge import AuthData, Links, Page, get_contest_url
-from kks.errors import EjudgeUnavailableError, AuthError, APIError
+from kks.errors import EjudgeError, EjudgeUnavailableError, AuthError, APIError
+from kks.util.common import deprecated
 from kks.util.storage import Config, PickleStorage
 
 
+"""
+This module contains:
+- Core ejudge datatypes and enums (AuthData, Links, Lang, Page, RunStatus, ...)
+- Request wrappers (API, EjudgeSession)
+"""
+
+
+@deprecated(replacement='AuthData.load_from_config')
 def load_auth_data():
-    auth = Config().auth
-    if auth.login:
-        return AuthData(auth.login, auth.contest, auth.password)
-    return None
+    return AuthData.load_from_config()
 
 
+@deprecated(replacement='AuthData.save_to_config')
 def save_auth_data(auth_data, store_password=True):
-    config = Config()
-    config.auth.login = auth_data.login
-    config.auth.contest = auth_data.contest_id
-    if store_password and auth_data.password is not None:
-        config.auth.password = auth_data.password
-    else:
-        del config.auth.password
-    config.save()
+    return auth_data.save_to_config(store_password=store_password)
 
 
-def check_response(resp):
+def _check_response(resp):
     # will not raise on auth errors (ejudge does not change the status code)
     if not resp.ok:
         raise EjudgeUnavailableError
+
+
+@dataclass
+class AuthData:
+    login: str
+    password: Optional[str]
+    contest_id: int
+
+    @classmethod
+    def load_from_config(cls) -> Optional['AuthData']:
+        auth = Config().auth
+        if auth.login:
+            data = auth.asdict()
+            data['contest_id'] = data.pop('contest')  # for compatibility with master
+            return cls(**data)
+        return None
+
+    def save_to_config(self, store_password=True):
+        config = Config()
+        data = asdict(self)
+        data['contest'] = data.pop('contest_id')
+        config.auth.update(data)
+        if not store_password or self.password is None:
+            del config.auth.password
+        config.save()
+
+
+class Lang(Enum):
+    def __new__(cls, value, suf):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj.suf = suf
+        obj._realname = None
+        return obj
+
+    @property
+    def name(self):
+        if self._realname is None:
+            self._realname = self._name_.replace('xx', '++').replace('_', '-')
+        return self._realname
+
+    # NOTE compiler ids may change
+    gcc = 2, '.c'
+    gxx = 3, '.cpp'
+    python = 13, '.py'
+    perl = 14, '.pl'
+    ruby = 21, '.rb'
+    python3 = 23, '.py'
+    make = 25, '.tar'
+    gcc_vg = 28, '.c'
+    gxx_vg = 29, '.cpp'
+    clang = 51, '.c'
+    clangxx = 52, '.cpp'
+    make_vg = 54, '.tar'
+    gcc_32 = 57, '.c'
+    clang_32 = 61, '.c'
+    clangxx_32 = 62, '.cpp'
+    gas_32 = 66, '.S'
+    gas = 67, '.S'
+    rust = 70, '.rs'
+    gas_aarch64 = 101, '.S'
+    gas_armv7l = 102, '.S'
+
+
+class Links:
+    """
+    Ejudge links.
+
+    All methods accept base_url in "scheme://host[:port]" format.
+    Constants are formed using `KKS_CUSTOM_URL` envvar or the default base URL.
+    """
+
+    BASE_URL: str
+    HOST: str
+    CGI_BIN: str
+    WEB_CLIENT_ROOT: str
+
+    @classmethod
+    def host(cls, base_url):
+        return urlsplit(base_url).netloc
+
+    @classmethod
+    def cgi_bin(cls, base_url):
+        return f'{base_url}/cgi-bin'
+
+    @classmethod
+    def web_client_root(cls, base_url):
+        return f'{cls.cgi_bin(base_url)}/new-client'
+
+    @classmethod
+    def contest_root(cls, base_url=None):
+        # Used in kks-judge
+        if base_url is None:
+            base_url = cls.BASE_URL
+        return cls.web_client_root(base_url)
+
+    @classmethod
+    def contest_login(cls, auth_data, base_url=None, *, include_creds=False):
+        root = cls.contest_root(base_url)
+        params = cls._login_params(auth_data)
+        if include_creds and auth_data.login is not None and auth_data.password is not None:
+            params.update({'login': auth_data.login, 'password': auth_data.password})
+        return f'{root}?{urlencode(params)}'
+
+    @classmethod
+    def _get_base_url(cls):
+        url = environ.get('KKS_CUSTOM_URL')
+        if url is None:
+            return 'https://caos.myltsev.ru'
+        # Remove path and/or trailing slash(es) from envvar
+        return urlsplit(url)._replace(path='', query='', fragment='').geturl()
+
+    @classmethod
+    def _init_constants(cls):
+        cls.BASE_URL = cls._get_base_url()
+        for name in cls.__annotations__.keys():
+            if name != 'BASE_URL':
+                link_generator = getattr(cls, name.lower())
+                setattr(cls, name, link_generator(cls.BASE_URL))
+
+    @classmethod
+    def _login_params(cls, auth_data):
+        return {'contest_id': auth_data.contest_id}
+
+
+Links._init_constants()
+
+
+class Page(Enum):
+    # Values of NEW_SRV_ACTION_* in include/ejudge/new_server_proto.h
+    MAIN_PAGE = 2
+    VIEW_SOURCE = 36
+    DOWNLOAD_SOURCE = 91
+    USER_STANDINGS = 94
+    SUMMARY = 137
+    SUBMISSIONS = 140
+    SUBMIT_CLAR = 141
+    CLARS = 142
+    SETTINGS = 143
 
 
 class RunStatus(Enum):
@@ -53,36 +193,36 @@ class RunStatus(Enum):
 
     # from github.com/blackav/ejudge-fuse and ejudge source
     COMPILING = 98
-    COMPILED  = 97
-    RUNNING   = 96
+    COMPILED = 97
+    RUNNING = 96
 
     # this group is also used in test results
-    OK = (0, 'OK'                       )
-    CE = (1, 'Compilation error'        )
-    RE = (2, 'Runtime error'            )
-    TL = (3, 'Time limit exceeded'      )
-    PE = (4, 'Presentation error'       )
-    WA = (5, 'Wrong answer'             )
-    ML = (12, 'Memory limit exceeded'   )
-    WT = (15, 'Wall time-limit exceeded')
+    OK = 0, 'OK'
+    CE = 1, 'Compilation error'
+    RE = 2, 'Runtime error'
+    TL = 3, 'Time limit exceeded'
+    PE = 4, 'Presentation error'
+    WA = 5, 'Wrong answer'
+    ML = 12, 'Memory limit exceeded'
+    WT = 15, 'Wall time-limit exceeded'
 
-    CHECK_FAILED   = (6,                          )
-    PARTIAL        = (7, 'Partial solution'       )
-    ACCEPTED       = (8, 'Accepted for testing'   )
-    IGNORED        = (9,                          )
-    DISQUALIFIED   = (10,                         )
-    PENDING        = (11, 'Pending check'         )
-    SEC_ERR        = (13, 'Security violation'    )
-    STYLE_ERR      = (14, 'Coding style violation')
-    PENDING_REVIEW = (16,                         )
-    REJECTED       = (17,                         )
-    SKIPPED        = (18,                         )  # also used for tests
-    SYNC_ERR       = (19, 'Synchronization error' )
-    SUMMONED       = (23, 'Summoned for defence'  )
+    CHECK_FAILED = 6
+    PARTIAL = 7, 'Partial solution'
+    ACCEPTED = 8, 'Accepted for testing'
+    IGNORED = 9
+    DISQUALIFIED = 10
+    PENDING = 11, 'Pending check'
+    SEC_ERR = 13, 'Security violation'
+    STYLE_ERR = 14, 'Coding style violation'
+    PENDING_REVIEW = 16
+    REJECTED = 17
+    SKIPPED = 18  # also used for tests
+    SYNC_ERR = 19, 'Synchronization error'
+    SUMMONED = 23, 'Summoned for defence'
 
     FULL_REJUDGE = 95  # ?
-    REJUDGE      = 99
-    NO_CHANGE    = 100  # NOP? Seen only in status-edit window in judge interface
+    REJUDGE = 99
+    NO_CHANGE = 100  # NOP? Seen only in status-edit window in judge interface
 
     # There are more, but only these were seen on caos server
 
@@ -153,10 +293,10 @@ class API:
         CLIENT = 'new-client'
         REGISTER = 'register'
 
-    def __init__(self, sids=None):
+    def __init__(self, sids=None, base_url=Links.BASE_URL):
         import requests
 
-        self._prefix = Links.CGI_BIN+'/'
+        self._prefix = Links.cgi_bin(base_url) + '/'
         self._http = requests.Session()
         self._http.headers = {'User-Agent': f'kokos/{__version__}'}
 
@@ -165,7 +305,7 @@ class API:
     def _request(self, url, need_json, **kwargs):
         resp = self._http.post(url, **kwargs)  # all methods accept POST requests
         resp.encoding = 'utf-8'  # ejudge doesn't set encoding header
-        check_response(resp)
+        _check_response(resp)
         try:
             # all methods return errors in json
             data = json.loads(resp.content)
@@ -278,37 +418,47 @@ class API:
 
 
 class EjudgeSession:
-    def __init__(self, auth=True):
+    def __init__(
+            self, *,
+            auth: bool = True,
+            auth_data: Optional[AuthData] = None,
+            base_url: str = Links.BASE_URL,
+            storage_path: str = 'storage',
+    ):
+        """
+        Args:
+            auth: if True and stored auth state is not found, call auth() after initialization.
+            auth_data: Optional auth data. If not provided, auth data will be loaded from config.
+            base_url: Ejudge URL in "scheme://host[:port]" format.
+            storage_path: path to storage file for auth state.
+                Path should be relative to kks config dir or absolute.
+        """
         import requests
-        self.http = requests.session()
+        self.http = requests.Session()
 
-        self._storage = PickleStorage('storage')
-        self.sids = self._load_sids() or Sids(None, None)
+        self._auth_data = auth_data
+        self._base_url = base_url
+        self._storage = PickleStorage(storage_path)
+        self._load_auth_state()
 
         if self.sids.sid and self.sids.ejsid:
-            self.http.cookies.set('EJSID', self.sids.ejsid, domain=Links.DOMAIN)
+            self.http.cookies.set('EJSID', self.sids.ejsid, domain=urlsplit(self._base_url).netloc)
         elif auth:
             self.auth()
 
-    def auth(self, auth_data=None):
-        if auth_data is None:  # auto-auth
-            auth_data = load_auth_data()
-            if auth_data is None:
-                raise AuthError(
-                    'Auth data is not found, please use "kks auth" to log in', fg='yellow'
-                )
-
-            click.secho(
-                'Ejudge session is missing or invalid, trying to auth with saved data',
-                fg='yellow', err=True
-            )
-            if auth_data.password is None:
-                auth_data.password = click.prompt('Password', hide_input=True)
+    def auth(self, auth_data: Optional[AuthData] = None):
+        """
+        Args:
+            auth_data: Optional auth data. If present, must have password.
+                If None, the session will use auth_data from its constructor or from kks config.
+        """
+        if auth_data is None:  # auto-auth (on first init or when cookies expire)
+            auth_data = self._get_auth_data()
 
         import requests
 
         self.http.cookies.clear()
-        url = get_contest_url(auth_data)
+        url = Links.contest_login(auth_data, self._base_url)
         page = self.http.post(url, data={
             'login': auth_data.login,
             'password': auth_data.password
@@ -324,7 +474,8 @@ class EjudgeSession:
             raise AuthError('Permission denied (invalid username, password or contest id)')
 
         self._update_sids(page.url)
-        self._store_sids()
+        self._update_contest_root()
+        self._store_auth_state()
 
     def api(self):
         """
@@ -360,27 +511,51 @@ class EjudgeSession:
     def needs_auth(url):
         return 'SID' in parse_qs(urlsplit(url).query)
 
+    def _get_auth_data(self):
+        if self._auth_data is not None:
+            auth_data = self._auth_data
+        else:
+            auth_data = AuthData.load_from_config()
+            if auth_data is None:
+                raise AuthError(
+                    'Auth data is not found, please use "kks auth" to log in', fg='yellow'
+                )
+
+        click.secho(
+            'Ejudge session is missing or invalid, trying to auth with saved data',
+            fg='yellow', err=True
+        )
+        if auth_data.password is None:
+            auth_data.password = click.prompt('Password', hide_input=True)
+        return auth_data
+
     def _update_sids(self, url):
         self.sids.sid = parse_qs(urlsplit(url).query)['SID'][0]
         self.sids.ejsid = self.http.cookies['EJSID']
 
-    def _store_sids(self):
+    def _store_auth_state(self):
         with self._storage.load() as storage:
             storage.set('sids', self.sids)
 
-    def _load_sids(self):
+    def _load_auth_state(self):
         with self._storage.load() as storage:
-            return storage.get('sids')
+            self.sids = storage.get('sids') or Sids(None, None)
+        self._update_contest_root()
+
+    def _update_contest_root(self):
+        # Cache the url to avoid rebuilding it for each request
+        # Root url may depend on auth state (kks-judge)
+        self._contest_root = Links.contest_root(self._base_url)
 
     def _request(self, method, url, *args, **kwargs):
         # NOTE params should only be passed as a keyword argument
         params = kwargs.get('params', {}).copy()
-        # If SID is included in the url, move it to params
+        # If SID is included in the url, remove it to avoid conflict with session's SID in params
         parts = urlsplit(url)
         query = parse_qs(parts.query)
         if 'SID' in query:
-            params['SID'] = query.pop('SID')[0]
-            url = urlunsplit(parts._replace(query=urlencode(query, doseq=True)))
+            query.pop('SID')
+            url = parts._replace(query=urlencode(query, doseq=True)).geturl()
         params['SID'] = self.sids.sid
         page_id: Optional[Page] = kwargs.pop('page_id', None)
         if page_id is not None:
@@ -388,7 +563,7 @@ class EjudgeSession:
         kwargs['params'] = params
 
         response = method(url, *args, **kwargs)
-        check_response(response)
+        _check_response(response)
         # the requested page may contain binary data (e.g. problem attachments)
         if b'Invalid session' in response.content:
             self.auth()
@@ -406,7 +581,7 @@ class EjudgeSession:
         return self._request(self.http.post, url, *args, **kwargs)
 
     def get_page(self, page_id: Page, *args, **kwargs):
-        return self.get(Links.WEB_CLIENT_ROOT, *args, page_id=page_id, **kwargs)
+        return self.get(self._contest_root, *args, page_id=page_id, **kwargs)
 
     def post_page(self, page_id: Page, *args, **kwargs):
-        return self.post(Links.WEB_CLIENT_ROOT, *args, page_id=page_id, **kwargs)
+        return self.post(self._contest_root, *args, page_id=page_id, **kwargs)

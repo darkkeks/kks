@@ -1,7 +1,7 @@
 import click
 
 from kks.ejudge import Standings, TaskInfo, StandingsRow, TaskScore
-from kks.util.ejudge import load_auth_data
+from kks.util.ejudge import AuthData
 
 KKS_STAT_API = 'https://kks.darkkeks.me/api'
 KKS_STAT_TIMEOUT = 3  # seconds
@@ -11,7 +11,7 @@ def send_standings(standings):
     import requests
     from requests import RequestException
 
-    auth_data = load_auth_data()
+    auth_data = AuthData.load_from_config()
     if auth_data is None:
         return False
 
@@ -35,7 +35,7 @@ def get_global_standings(user, year):
         'year': year,
     }
 
-    auth_data = load_auth_data()
+    auth_data = AuthData.load_from_config()
     if auth_data is not None:
         parameters.update(auth_data_to_dict(auth_data))
 

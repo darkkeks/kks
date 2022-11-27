@@ -1,8 +1,10 @@
 import difflib
 import pickle
+import warnings
 from functools import wraps
 from pathlib import Path
 from time import time, sleep
+from typing import Callable, Optional, Union
 
 import click
 
@@ -203,13 +205,13 @@ def find_problem_rootdir():
     return rootdir / parts[0] / parts[1]
 
 
-def with_retries(delay=0.5, multiplier=1.5, step=1, timeout=10):
+def with_retries(func=None, *, delay=0.5, multiplier=1.5, step=1, timeout=10):
+
     def decorator(func):
-        initial_delay = delay
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            delay = initial_delay
+            current_delay = delay
             overall_start = time()
             iteration = 1
             while True:
@@ -222,11 +224,45 @@ def with_retries(delay=0.5, multiplier=1.5, step=1, timeout=10):
                 if time() - overall_start > timeout:
                     return None
 
-                sleep(max(0, delay - elapsed))
+                sleep(max(0, current_delay - elapsed))
                 if iteration % step == 0:
-                    delay *= multiplier
+                    current_delay *= multiplier
                 iteration += 1
 
         return wrapper
 
+    if func is not None:  # No args
+        return decorator(func)
+    return decorator
+
+
+def deprecated(
+        func=None, *,
+        reason: Optional[str] = None,
+        replacement: Optional[Union[str, Callable]] = None
+):
+    additional_info = ''
+    if replacement:
+        if callable(replacement):
+            replacement = replacement.__qualname__
+        additional_info = f'\nUse {replacement} instead.'
+    elif reason:
+        additional_info = '\n' + reason
+
+    def decorator(func):
+
+        @wraps(func)
+        def new_func(*args, **kwargs):
+            with warnings.catch_warnings():
+                # Temporarily turn off the filter
+                warnings.simplefilter('always', DeprecationWarning)
+                warnings.warn(f'`{func.__qualname__}` is deprecated.{additional_info}',
+                              category=DeprecationWarning,
+                              stacklevel=2)
+            return func(*args, **kwargs)
+
+        return new_func
+
+    if func is not None:
+        return decorator(func)
     return decorator
