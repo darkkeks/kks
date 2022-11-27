@@ -12,8 +12,9 @@ requests = "*"
 colorama = "*"
 configparser = "*"
 beautifulsoup4 = "*"
+pyyaml = "*"
 tqdm = "*"
 html2text = "2020.1.16"
 
 [requires]
-python_version = "3.9"
+python_version = "3.10"
