@@ -14,7 +14,7 @@ Uses (EJ)SID received from `login-json`
 {"SID": ..., "EJSID": ...}
 ```
 
-## EJ\_PREFIX/client
+## EJ\_PREFIX/new-client
 
 ### contest-status-json
 ```
@@ -67,7 +67,9 @@ Returns the statement in HTML format
 ```
 newest first, if no prob\_id is passed then all runs are returned
 
-Also can be retrieved by a regular session on a page with action id 301 (`NEW_SRV_ACTION_LIST_RUNS_JSON`)
+~~Also can be retrieved by a regular session on a page with action id 301 (`NEW_SRV_ACTION_LIST_RUNS_JSON`)~~
+list-runs-json is mapped to id 301. Requests from session and API are almost the same,
+only auth method differs (EJSID in cookie or in query).
 
 ### run-status-json
 **parameters**: `run_id` (int)
@@ -98,12 +100,12 @@ OK:
 }
 ```
 
-Also can be retrieved by a regular session on a page with action id 302 (`NEW_SRV_ACTION_RUN_STATUS_JSON`)
-
 ### download-run
 **parameters**: `run_id` (int)
 
 Returns source file
+
+Action id is 91. `submission_source` parser in `kks.ejudge` uses the same id.
 
 ### run-messages-json
 **parameters**: `run_id` (int)
