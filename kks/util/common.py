@@ -205,6 +205,13 @@ def find_problem_rootdir():
     return rootdir / parts[0] / parts[1]
 
 
+def parse_content_type(content_type):
+    from email.message import EmailMessage
+    msg = EmailMessage()
+    msg['content-type'] = content_type
+    return msg.get_content_type(), msg['content-type'].params
+
+
 def with_retries(func=None, *, delay=0.5, multiplier=1.5, step=1, timeout=10):
 
     def decorator(func):
