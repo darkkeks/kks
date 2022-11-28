@@ -14,7 +14,7 @@ Uses (EJ)SID received from `login-json`
 {"SID": ..., "EJSID": ...}
 ```
 
-## EJ\_PREFIX/client
+## EJ\_PREFIX/new-client
 
 ### contest-status-json
 ```
@@ -121,3 +121,82 @@ test inputs/outputs?
 ```
 {"run_id": 123, "run_uuid": "..."}
 ```
+
+## EJ\_PREFIX/new-judge
+
+### list-runs-json
+**parameters**:
+- `filter_expr` (str, optional): filter
+- `first_run` (int, optional): index of first run after filtering. Default: -1
+- `last_run` (int, optional): index of last run. Default: `max(first_run - 20 + 1, 0)`.
+   See `ejudge_submissions` docstring for more details.
+- `field_mask` (int, optional): bitwise OR of field flags (enum will be added to `ejudge_priv.py`).
+
+```
+Without params:
+{
+    "total_runs": 267,
+    "filtered_runs": 267,
+    "listed_runs": 20,
+    "transient_runs": 0,  // compiling + running
+    "first_run": 266,  // id, not index after filtering
+    "last_run": 247,  // same
+    "field_mask": 365829,  // from request or default value
+    "runs": [
+        {
+            "run_id": 266,
+            "status": 0,
+            "status_str": "OK",
+            "run_time": <int>,  // timestamp
+            "run_time_us": <int>,
+            "user_name": "...",  // if name is not set, the table shows user's login. Here name will be absent
+            "prob_name": "sm01-1",
+            "lang_name": "gas-32",
+            "raw_test": 1,
+            "passed_mode": 1,  // ?
+            "tests_passed": 1,  // diff with raw_test?
+            "raw_score": 100,
+            "score": 50,
+            "score_str": "50=100-50"
+        },
+        ...
+    ],
+    "displayed_size": 5,  // run_mask_size?
+    "displayed_mask": "8,CAAAAAAAAgP__BwAAAAAAAA"  // ???
+}
+```
+
+### run-status-json
+**parameters**: `run_id` (int), ???
+```
+OK:
+{
+    "run": {
+        "run_id": 266,
+        "run_uuid": "...",
+        "status": 0,
+        "status_str": "OK",
+        "run_time": <int>,  // timestamp
+        "nsec": <int>,
+        "run_time_us": <run_time+nsec/1000>,
+        "duration": 1927450,  // ?
+        "user_id": 123,
+        "user_login": "theusee",
+        "prob_id": 1,
+        "prob_name": "sm01-1",
+        "lang_id": 66,
+        "lang_name": "gas-32",
+        "ip": "127.0.0.1",
+        "ssl_flag": true,
+        "sha1": "...",
+        "size": 123,
+        "store_flags": 1,  // ?
+        "passed_mode": 1,  // ?
+        "raw_score": 100,
+        "raw_test": 1
+    }
+}
+```
+
+### run-messages-json
+**Doesn't work in ejudge 3.9.1**

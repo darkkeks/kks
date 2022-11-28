@@ -116,7 +116,7 @@ class User:
     serial: int = _dict_skip_field()  # row number in the rendered table (?)
     id: int = _dict_parse_field('user_id')
     login: str = _dict_parse_field('user_login')
-    name: str = _dict_parse_field('user_name', _FieldParsers.parse_bad_encoding)
+    name: str = _dict_parse_field('user_name')
     is_banned: bool
     is_invisible: bool
     is_locked: bool  # ?
@@ -256,8 +256,7 @@ def ejudge_submissions(session, filter_=None, first_run=None, last_run=None):
     (lib/new_server_html_2.c:257-293 (at 773a153b1))
     """
     # TODO use JSON?
-    # ejudge has a `priv_list_runs_json` method (action id 301, same as for unprivileged users).
-    # If this page is requested from a regular session, main page is returned for some reason.
+    # ejudge has a `priv_list_runs_json` method (action id 301, same as for unprivileged users (API.list_runs)).
     from bs4 import BeautifulSoup
 
     filter_status = (bool(filter_), first_run is not None, last_run is not None)
@@ -370,7 +369,9 @@ def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=F
         'show_invisible': show_invisible,
         'show_banned': show_banned,
         'show_only_pending': show_only_pending,
-    }).json()
+    })
+    resp.encoding = 'utf-8'  # see kks.util.ejudge.API
+    resp = resp.json()
     if 'data' not in resp:
         return []  # TODO handle errors?
     return [User.parse(user) for user in resp['data']]

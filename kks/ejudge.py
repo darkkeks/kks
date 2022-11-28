@@ -237,15 +237,6 @@ class _FieldParsers:
             return None
         return datetime.strptime(value, TIME_FORMAT)
 
-    @staticmethod
-    def parse_bad_encoding(value: Optional[str]):
-        if not value:
-            return value
-        # Weird byte-wise unicode escaping in JSON.
-        # Used by ejudge: 'ы' -> '"\\xd1\\x8b"'
-        # json.dumps: 'ы' -> '"\\u044b"'
-        return value.encode('latin-1').decode('utf-8')
-
 
 class _CellParsers:
     """Common parsers for table cells."""
