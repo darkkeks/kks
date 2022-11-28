@@ -2,10 +2,9 @@ from pathlib import Path
 
 import click
 
-from kks.ejudge import Links, Page
 from kks.util.click import ArgNotRequiredIf, RequiredIf
 from kks.util.common import format_file
-from kks.util.ejudge import EjudgeSession
+from kks.util.ejudge import EjudgeSession, Links, Page
 from urllib.parse import parse_qs, urlsplit
 
 
@@ -23,7 +22,7 @@ def get(output, force, run_id, url):
     """Download a file from ejudge"""
     if run_id is None:
         parts = urlsplit(url)
-        if parts.netloc != Links.DOMAIN:
+        if parts.netloc != Links.HOST:
             click.secho(
                 f'Not an ejudge URL. Use wget/curl instead.',
                 fg='red', err=True
