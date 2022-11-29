@@ -212,10 +212,8 @@ kks run -T debug
 Например, чтобы скачать свои прошлогодние посылки (при условии, что сервер` ещё работает).
 
 ```shell script
-export KKS_CUSTOM_DOMAIN=caos-alt.somedomain.ru
+export KKS_CUSTOM_URL=https://caos-alt.somedomain.ru
 
 kks sync --code=all
 # ...
 ```
-
-Также можно определить переменную `KKS_CUSTOM_SCHEME=http`, чтобы использовать http вместо https.

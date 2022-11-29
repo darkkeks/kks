@@ -1,7 +1,7 @@
 import click
 
-from kks.ejudge import AuthData, get_contest_id
-from kks.util.ejudge import EjudgeSession, save_auth_data
+from kks.ejudge import get_contest_id
+from kks.util.ejudge import AuthData, EjudgeSession
 
 
 GROUP_ID_HINT = "2022 group id (e.g. 214, 2110)"
@@ -49,7 +49,7 @@ def auth(login, password, group_id, contest_id, store_password, judge):
     auth_data = AuthData(login, password, contest_id, judge)
 
     session.auth(auth_data)
-    save_auth_data(auth_data, store_password)
+    auth_data.save_to_config(store_password)
 
     click.secho('Successfully logged in', fg='green')
     click.secho('Successfully saved auth data', fg='green', err=True)
