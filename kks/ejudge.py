@@ -2,11 +2,9 @@ import re
 from copy import copy
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from itertools import groupby
-from os import environ
 from typing import Optional
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 # import requests  # we use lazy imports to improve load time for local commands
 # from bs4 import BeautifulSoup
@@ -15,8 +13,15 @@ import click
 from tqdm import tqdm
 
 from kks.errors import APIError, ParseError
+from kks.util.common import deprecated
+from kks.util.ejudge import Lang, Links, Page
 from kks.util.h2t import HTML2Text
 from kks.util.storage import Cache
+
+
+"""
+This module contains parsers for ejudge pages anc (mostly) CLI-app-specific classes.
+"""
 
 
 CONTEST_ID_BY_GROUP = {}
@@ -39,52 +44,10 @@ TIME_FORMAT = '%Y/%m/%d %H:%M:%S'
 MSK_TZ = timezone(timedelta(hours=3))
 
 
-class Links:
-    SCHEME = environ.get('KKS_CUSTOM_SCHEME', 'https')
-    DOMAIN = environ.get('KKS_CUSTOM_DOMAIN', 'caos.myltsev.ru')
-    CGI_BIN = f'{SCHEME}://{DOMAIN}/cgi-bin'
-    WEB_CLIENT_ROOT = f'{CGI_BIN}/new-client'
-    JUDGE_ROOT = f'{CGI_BIN}/new-judge'
-
-
-class Page(Enum):
-    # Values of NEW_SRV_ACTION_* in include/ejudge/new_server_proto.h
-    MAIN_PAGE = 2
-    VIEW_SOURCE = 36
-    SEND_COMMENT = 64
-    SET_RUN_STATUS = 67
-
-    REJUDGE_DISPLAYED_CONFIRM = 70
-    # No links from other pages. Legacy endpoints, replaced by EDIT_RUN?
-    # there are more CHANGE_* actions (user/problem/flags...)
-    CHANGE_RUN_PROB_ID = 77
-    CHANGE_RUN_LANGUAGE = 79
-    CHANGE_RUN_SCORE = 88  # Changes score in VIEW_SOURCE, but not in standings or main page
-    CHANGE_RUN_SCORE_ADJ = 89
-    REJUDGE_PROBLEM_CONFIRM = 95
-
-    DOWNLOAD_SOURCE = 91
-    USER_STANDINGS = 94
-    # Bulk rejudge requires some capability from MASTER_SET (REJUDGE_RUN?). TODO check
-    REJUDGE_DISPLAYED = 102
-    REJUDGE_PROBLEM = 104  # Not implemented (yet?)
-    SUMMARY = 137
-    SUBMISSIONS = 140
-    SUBMIT_CLAR = 141
-    CLARS = 142
-    SETTINGS = 143
-    DOWNLOAD_ARCHIVE_FORM = 148
-    DOWNLOAD_ARCHIVE = 149
-    IGNORE_WITH_COMMENT = 233
-    OK_WITH_COMMENT = 237
-    REJECT_WITH_COMMENT = 238
-    SUMMON_WITH_COMMENT = 239
-    EDIT_RUN_FORM = 267  # Shows the form with run details. Requires EDIT_RUN capability.
-    EDIT_RUN = 268  # Actual "edit" action.
-    USERS_AJAX = 278
-
-
 class Status:
+    """Text-only statuses."""
+
+    # TODO Add text status parsing to RunStatus and remove this class?
     OK = 'OK'
     OK_AUTO = 'OK (auto)'  # only in summary
     REVIEW = 'Pending review'
@@ -96,51 +59,6 @@ class Status:
     DISQUALIFIED = 'Disqualified'
     CHECK_FAILED = 'Check failed'
     NOT_SUBMITTED = 'Not submitted'
-
-
-class Lang(Enum):
-    def __new__(cls, value, suf, realname=None):
-        obj = object.__new__(cls)
-        obj._value_ = value
-        obj.realname = realname
-        obj.suf = suf
-        return obj
-
-    @property
-    def name(self):
-        if self.realname is not None:
-            return self.realname
-        return self._name_
-
-    # NOTE compiler ids may change
-    gcc = (2, '.c')
-    gxx = (3, '.cpp', 'g++')
-    python = (13, '.py')
-    perl = (14, '.pl')
-    ruby = (21, '.rb')
-    python3 = (23, '.py')
-    make = (25, '.tar')
-    gcc_vg = (28, '.c', 'gcc-vg')
-    gxx_vg = (29, '.cpp', 'g++-vg')
-    clang = (51, '.c')
-    clangxx = (52, '.cpp', 'clang++')
-    make_vg = (54, '.tar', 'make-vg')
-    gcc_32 = (57, '.c', 'gcc-32')
-    clang_32 = (61, '.c', 'clang-32')
-    clangxx_32 = (62, '.cpp', 'clang++-32')
-    gas_32 = (66, '.S', 'gas-32')
-    gas = (67, '.S')
-    rust = (70, '.rs')
-    gas_aarch64 = (101, '.S', 'gas-aarch64')
-    gas_armv7l = (102, '.S', 'gas-armv7l')
-
-
-@dataclass
-class AuthData:
-    login: str
-    password: Optional[str]
-    contest_id: int
-    judge: bool
 
 
 class BaseProblem:
@@ -774,7 +692,7 @@ class FullProblem(SummaryProblem):
         for tag in self._html.find_all(['a', 'img']):
             url = tag['href'] if tag.name == 'a' else tag['src']
             parts = urlsplit(url)
-            if parts.netloc != Links.DOMAIN:
+            if parts.netloc != Links.HOST:
                 continue
             query = parse_qs(parts.query)
             if 'file' in query:
@@ -790,31 +708,19 @@ def get_group_id(contest_id: int) -> str:
     return GROUP_ID_BY_CONTEST.get(contest_id, None)
 
 
+@deprecated(replacement=Links.contest_root)
 def contest_root_url(is_judge):
-    if is_judge:
-        return Links.JUDGE_ROOT
-    return Links.WEB_CLIENT_ROOT
+    return Links.contest_root(judge=is_judge)
 
 
-def _contest_url_params(auth_data):
-    params = {'contest_id': auth_data.contest_id}
-    if auth_data.judge:
-        params.update({'role': 5})
-    return params
-
-
+@deprecated(replacement=Links.contest_login)
 def get_contest_url(auth_data):
-    root = contest_root_url(auth_data.judge)
-    params = _contest_url_params(auth_data)
-    return f'{root}?{urlencode(params)}'
+    return Links.contest_login(auth_data)
 
 
+@deprecated(reason='Use Links.contest_login(include_creds=True) insted.')
 def get_contest_url_with_creds(auth_data):
-    root = contest_root_url(auth_data.judge)
-    params = _contest_url_params(auth_data)
-    if auth_data.login is not None and auth_data.password is not None:
-        params.update({'login': auth_data.login, 'password': auth_data.password})
-    return f'{root}?{urlencode(params)}'
+    return Links.contest_login(auth_data, include_creds=True)
 
 
 # NOTE all "ejudge_xxx" methods may raise kks.errors.AuthError

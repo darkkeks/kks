@@ -6,7 +6,7 @@ import click
 
 from kks.ejudge import Status, ejudge_summary, ejudge_submissions, ejudge_report
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
-from kks.util.common import find_workspace, get_task_dir, write_contests
+from kks.util.common import find_workspace, get_task_dir, write_contests, parse_content_type
 from kks.util.ejudge import EjudgeSession
 from kks.util.storage import Config
 
@@ -24,9 +24,7 @@ def save_needed(problem, submissions, sub_dir, session, mode: CodeSync):
         return f'{prefix(submission)}-{submission.short_status()}'
 
     def get_extension(submission, resp):
-        from cgi import parse_header
-
-        mimetype, _ = parse_header(resp.headers.get('Content-Type', ''))
+        mimetype, _ = parse_content_type(resp.headers.get('Content-Type', ''))
         mimetype = mimetype.lower()
         if mimetype == 'text/plain':
             return submission.suffix()

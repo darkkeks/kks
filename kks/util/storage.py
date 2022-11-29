@@ -117,10 +117,6 @@ class Config(metaclass=Singleton):
         self._config = ConfigParser()
         if self._file.is_file():
             self._config.read(self._file)
-        # delete legacy section
-        if self._config.has_section('Links'):
-            self._config.remove_section('Links')
-            self.save()
 
     def save(self):
         with self._file.open('w') as f:

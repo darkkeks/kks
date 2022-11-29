@@ -2,15 +2,14 @@ import webbrowser
 
 import click
 
-from kks.ejudge import get_contest_url_with_creds
-from kks.util.ejudge import load_auth_data
+from kks.util.ejudge import AuthData, Links
 
 
 @click.command(name='open')
 def open_():
     """Open logged in ejudge session in browser"""
 
-    auth_data = load_auth_data()
+    auth_data = AuthData.load_from_config()
     if auth_data is None:
         click.secho(
             'No auth data found, use "kks auth" to login and save contest id',
@@ -24,7 +23,7 @@ def open_():
             fg='yellow', err=True
         )
 
-    url = get_contest_url_with_creds(auth_data)
+    url = Links.contest_login(auth_data, include_creds=True)
     click.secho('Opening... ', nl=False)
     success = webbrowser.open_new_tab(url)
     if success:

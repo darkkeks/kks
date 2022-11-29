@@ -5,11 +5,11 @@ from functools import wraps
 from typing import BinaryIO, Iterable, Optional
 
 from kks.ejudge import MSK_TZ, PROBLEM_INFO_VERSION, \
-    BaseSubmission, Lang, Page, ParsedRow, _CellParsers, _FieldParsers, \
+    BaseSubmission, ParsedRow, _CellParsers, _FieldParsers, \
     _parse_field, _skip_field, get_server_tz
 # move parsers and fields into utils module?
 from kks.errors import EjudgeError
-from kks.util.ejudge import RunStatus
+from kks.util.ejudge import Lang, Page, RunStatus
 from kks.util.storage import Cache, PickleStorage
 
 
@@ -196,7 +196,7 @@ class ArchiveSettings:
                                 | FilePattern.USER_NAME | FilePattern.SUBMIT_TIME
                                 | FilePattern.LANG_SUFFIX)
     dir_struct: DirStruct = DirStruct.PROBLEM
-    use_problem_extid: bool = False # Use 'extid' as problem name (extid is some kind of id for ej-batch)
+    use_problem_extid: bool = False  # Use 'extid' as problem name (extid is some kind of id for ej-batch)
     use_problem_dir: bool = False  # Use 'problem_dir' as problem name (ejudge uses true by default)
     problem_dir_prefix: str = ''  # Common prefix to remove
     runs_or_ids: Iterable = ()  # used only if run_selection is SELECTED
@@ -261,6 +261,8 @@ def ejudge_submissions(session, filter_=None, first_run=None, last_run=None):
     from bs4 import BeautifulSoup
 
     filter_status = (bool(filter_), first_run is not None, last_run is not None)
+    # FIXME filter status should be invalidated on session reauth
+    # priv_list_runs_json is stateless
     storage = PickleStorage('storage')
     with storage.load():
         old_filter_status = storage.get('last_filter_status', (False, False, False))
