@@ -170,10 +170,10 @@ test inputs/outputs?
 - `first_run` (int, optional): index of first run after filtering. Default: -1
 - `last_run` (int, optional): index of last run. Default: `max(first_run - 20 + 1, 0)`.
    See `ejudge_submissions` docstring for more details.
-- `field_mask` (int, optional): bitwise OR of field flags (enum will be added to `ejudge_priv.py`).
+- `field_mask` (int, optional): bitwise OR of field flags (see `RunView` in `ejudge_priv.py`).
 
 ```
-Without params:
+With all fields (empty fields will be absent):
 {
     "total_runs": 267,
     "filtered_runs": 267,
@@ -185,55 +185,71 @@ Without params:
     "runs": [
         {
             "run_id": 266,
+            "run_uuid": "...",
+            "sha1": "...",
             "status": 0,
             "status_str": "OK",
             "run_time": <int>,  // timestamp
-            "run_time_us": <int>,
-            "user_name": "...",  // if name is not set, the table shows user's login. Here name will be absent
+            "nsec": <int>,
+            "run_time_us": <run_time+nsec/1000>,
+            "duration": 1927450,  // ?
+            "eoln_type": 0,
+            "user_name": "...",  // if name is not set, the table shows user's login instead. Here name will be absent
+            "user_id": 123,
+            "user_login": "...",
+            "prob_id": 1,
             "prob_name": "sm01-1",
+            "lang_id": 66,
             "lang_name": "gas-32",
+            "ip": "127.0.0.1",
+            "ssl_flag": true,
+            "size": 123,
+            "store_flags": 1,  // ?
             "raw_test": 1,
             "passed_mode": 1,  // ?
             "tests_passed": 1,  // diff with raw_test?
             "raw_score": 100,
-            "score": 50,
+            "score": 50,  // with penalties
             "score_str": "50=100-50"
         },
         ...
     ],
-    "displayed_size": 5,  // run_mask_size?
+    "displayed_size": 5,  // size of mask (>= 1)
     "displayed_mask": "8,CAAAAAAAAgP__BwAAAAAAAA"  // ???
 }
 ```
 
 ### run-status-json
-**parameters**: `run_id` (int), ???
+**parameters**: `run_id` (int) / `run_uuid` (str)
+
+Returns only a subset of fields available in list-runs-json
+
 ```
 OK:
 {
     "run": {
-        "run_id": 266,
+        "run_id": ...,
         "run_uuid": "...",
-        "status": 0,
-        "status_str": "OK",
-        "run_time": <int>,  // timestamp
-        "nsec": <int>,
-        "run_time_us": <run_time+nsec/1000>,
-        "duration": 1927450,  // ?
-        "user_id": 123,
-        "user_login": "theusee",
-        "prob_id": 1,
-        "prob_name": "sm01-1",
-        "lang_id": 66,
-        "lang_name": "gas-32",
-        "ip": "127.0.0.1",
-        "ssl_flag": true,
+        "status": ...,
+        "status_str": "...",
+        "run_time": ...,
+        "nsec": ...,
+        "run_time_us": ...,
+        "duration": ...,
+        "user_id": ...,
+        "user_login": "...",
+        "prob_id": ...,
+        "prob_name": "...",
+        "lang_id": ...,
+        "lang_name": "...",
+        "ip": "...",
+        "ssl_flag": ...,
         "sha1": "...",
-        "size": 123,
-        "store_flags": 1,  // ?
-        "passed_mode": 1,  // ?
-        "raw_score": 100,
-        "raw_test": 1
+        "size": ...,
+        "store_flags": ...,
+        "passed_mode": ...,
+        "raw_score": ...,
+        "raw_test": ...
     }
 }
 ```

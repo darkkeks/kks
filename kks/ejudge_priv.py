@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
-from enum import Enum, Flag
+from enum import Enum, Flag, auto
 from functools import wraps
 from typing import BinaryIO, Iterable, Optional
 
@@ -200,6 +200,39 @@ class ArchiveSettings:
     use_problem_dir: bool = False  # Use 'problem_dir' as problem name (ejudge uses true by default)
     problem_dir_prefix: str = ''  # Common prefix to remove
     runs_or_ids: Iterable = ()  # used only if run_selection is SELECTED
+
+
+class RunView(Flag):
+    RUN_ID = auto()
+    SIZE = auto()
+    TIME = auto()
+    ABS_TIME = auto()
+    REL_TIME = auto()
+    NSEC = auto()
+    USER_ID = auto()
+    USER_LOGIN = auto()
+    USER_NAME = auto()
+    PROB_ID = auto()
+    PROB_NAME = auto()
+    LANG_ID = auto()
+    LANG_NAME = auto()
+    IP = auto()
+    SHA1 = auto()
+    SCORE = auto()
+    TEST = auto()
+    SCORE_ADJ = auto()
+    STATUS = auto()
+    VARIANT = auto()
+    MIME_TYPE = auto()
+    SAVED_SCORE = auto()
+    SAVED_TEST = auto()
+    SAVED_STATUS = auto()
+    RUN_UUID = auto()
+    EOLN_TYPE = auto()
+    STORE_FLAGS = auto()
+    TOKENS = auto()
+
+    DEFAULT = RUN_ID | TIME | USER_NAME | PROB_NAME | LANG_NAME | STATUS | TEST | SCORE
 
 
 def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Iterable[bool]):
