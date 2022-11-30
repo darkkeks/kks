@@ -26,6 +26,12 @@ Uses (EJ)SID received from `login-json`
 }
 ```
 
+### contest-info-json
+**Doesn't work with kks auth methods.** Only token auth supported?
+
+### session-info-json
+**Doesn't work with kks auth methods.** Only token auth supported?
+
 ### problem-status-json
 **parameters**: `problem` (problem ID, int)
 ```
@@ -63,7 +69,19 @@ Returns the statement in HTML format
 ### list-runs-json
 **parameters**: `prob_id` (int, optional)
 ```
-[{'run_id': 111, 'prob_id': 30, 'run_time': 1607083000, 'status': 16, 'passed_tests': 16, 'score': 90}, ...]
+{
+    'runs': [
+        {
+            'run_id': 111,
+            'prob_id': 30,
+            'run_time': 1607083000,
+            'status': 16,
+            'passed_tests': 16,
+            'score': 90
+        },
+        ...
+    ]
+}
 ```
 newest first, if no prob\_id is passed then all runs are returned
 
@@ -111,6 +129,26 @@ Action id is 91. `submission_source` parser in `kks.ejudge` uses the same id.
 **parameters**: `run_id` (int)
 
 Comments
+
+```
+{
+    'messages': [
+        {
+            'clar_id': 92,
+            'size': 32,
+            'time_us': 123456,
+            'from': 0,  // judge id? 0 - hidden
+            'to': 123, // user id
+            'subject': '123 is commented',
+            'content': {
+                'method': 1, // From ejudge source: "FIXME: hard-coded base64"
+                'size': 32,
+                'data': 'U3ViamVjdDogMjY2IGlzIGNvbW1lbnRlZAoKdGVzdAo='  // "Subject: 123 is commented\n\ntest\n"
+            }
+        }
+    ]
+}
+```
 
 ### run-test-json (not implemented)
 **parameters**: `run_id`, `num`(?), `index`(?)
