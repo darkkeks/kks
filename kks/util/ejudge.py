@@ -8,12 +8,11 @@ from os import environ
 from pathlib import Path
 from typing import BinaryIO, Optional, Sequence, Tuple, Union
 from urllib.parse import parse_qs, urlencode, urlsplit
-from xmlrpc.client import _Method
 
 import click
 
 from kks import __version__
-from kks.errors import EjudgeUnavailableError, AuthError, APIError
+from kks.errors import EjudgeError, EjudgeUnavailableError, AuthError, APIError
 from kks.util.common import deprecated
 from kks.util.storage import Config, PickleStorage
 
@@ -343,12 +342,16 @@ class API:
         FROM_ARG = auto()
         NONE = auto()  # Don't use sids.
 
-    def __init__(self, sids=None, base_url=Links.BASE_URL):
+    def __init__(self, sids=None, base_url=Links.BASE_URL, judge=False):
         import requests
 
+        self._sids = sids
+        self._judge = judge
+
+        self._base_url = base_url
         self._urls = {
             API._MethodGroup.REGISTER: Links.cgi_bin(base_url) + '/register',
-            API._MethodGroup.CLIENT: Links.contest_root(base_url),
+            API._MethodGroup.CLIENT: Links.contest_root(base_url, judge=judge),
         }
 
         self._http = requests.Session()
@@ -358,8 +361,6 @@ class API:
         self._params = {}
         self._data = {}
         self._files = {}
-
-        self._sids = sids
 
     def _request(self, method, url, need_json, **kwargs):
         resp = method(url, **kwargs)
@@ -472,10 +473,13 @@ class API:
 
         return decorator
 
-    @_api_method(_Http.POST, _MethodGroup.REGISTER, 'login-json', sids=_Sids.NONE)
-    def login(self, login: str, password: str):
+    @_api_method(_Http.POST, _MethodGroup.REGISTER, 'login-json', sids=_Sids.NONE, ignore=['judge'])
+    def login(self, login: str, password: str, judge=False):
         """get sids for enter_contest method"""
-        pass
+        # NOTE overwrites self._judge and client url even if login fails.
+        # Use generators like in pytest fixtures? preprocess -> yield -> postprocess
+        self._judge = judge
+        self._urls[API._MethodGroup.CLIENT] = Links.contest_root(self._base_url, judge=judge)
 
     @_api_method(_Http.POST, _MethodGroup.REGISTER, 'enter-contest-json', sids=_Sids.FROM_ARG)
     def enter_contest(self, sids: Sids, contest_id: int):
@@ -638,7 +642,7 @@ class EjudgeSession:
         >>> ...
         >>> info = api.contest_status()  # cookies are up to date
         """
-        return API(self.sids, base_url=self._base_url)
+        return API(self.sids, base_url=self._base_url, judge=self.judge)
 
     def with_auth(self, api_method, *args, **kwargs):
         """Calls the API method, updates auth data if needed.
