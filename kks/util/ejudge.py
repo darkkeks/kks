@@ -345,7 +345,6 @@ class API:
             raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
         return data['result']
 
-    @staticmethod
     def _api_method(
             http_method: _Http,
             method_group: _MethodGroup,
