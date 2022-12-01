@@ -537,7 +537,7 @@ class API:
     def auth(self, creds: AuthData):
         """get new sids"""
         # NOTE is 1step auth possible?
-        top_level_sids = Sids.from_dict(self.login(creds.login, creds.password))
+        top_level_sids = Sids.from_dict(self.login(creds.login, creds.password, creds.judge))
         self._sids = Sids.from_dict(self.enter_contest(top_level_sids, creds.contest_id))
 
 
