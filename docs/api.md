@@ -164,6 +164,20 @@ test inputs/outputs?
 
 ## EJ\_PREFIX/new-judge
 
+### contest-status-json
+```
+{
+     "contest": {...},
+     "online": {...}
+}
+```
+
+## problem-status-json
+**Doesn't work, redirects to main page** (ejudge 3.9.1)
+
+## problem-statement-json
+**Doesn't work, redirects to main page** (ejudge 3.9.1)
+
 ### list-runs-json
 **parameters**:
 - `filter_expr` (str, optional): filter
@@ -254,5 +268,32 @@ OK:
 }
 ```
 
+### download-run
+**parameters**: `run_id` (int)
+
+Run source is returned with headers in body. Bug?
+
+```
+Content-type: text/plain
+Content-Disposition: attachment; filename="000123.S"
+
+code...
+```
+
 ### run-messages-json
-**Doesn't work in ejudge 3.9.1**
+**Doesn't work, redirects to main page** (ejudge 3.9.1)
+
+### submit-run (not implemented)
+Mostly similar to https://ejudge.ru/wiki/index.php/API:priv:submit-run-input.
+Uses `problem`, `problem_name` or `problem_uuid` instead of `prob_id`.
+Allows to submit runs with changed login, user id or IP.
+
+### raw-audit-log (not implemented)
+**parameters**: `run_id` (int) / `run_uuid` (str)
+
+Returns audit log in text format.
+
+### raw-report (not implemented)
+**parameters**: `run_id` (int) / `run_uuid` (str)
+
+Returns report in XML format (ejudge 3.9.1).

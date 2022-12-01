@@ -435,7 +435,7 @@ class API:
                 for name in ignore:
                     method_args.pop(name)
 
-                data = {'action': action, 'json': 1}
+                data = {'action': action, 'json': 1}  # need json reply where it's supported.
                 req_sids = None
                 if sids is API._Sids.FROM_SELF:
                     req_sids = self._sids
