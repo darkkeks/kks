@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from os import environ
 from time import time
+from typing import Optional, Union
 
 import click
 
@@ -154,7 +155,7 @@ class CompatUnpickler(pickle.Unpickler):
 class PickleStorage:
     _service_keys = ('__version__',)
 
-    def __init__(self, name, compress=False, version=1):
+    def __init__(self, name, *, compress=False, version=1):
         self.name = name
         self.compress = compress
 
@@ -247,10 +248,15 @@ class PickleStorage:
             if self.compress:
                 data = gzip.compress(data)
             f.write(data)
+            self._clean = True
+
+    def __del__(self):
+        self.save()
 
 
 class Cache(PickleStorage):
     """Storage for data with expiration times"""
+
     def get(self, key, default=None):
         # default is returned if value is not found or outdated
         value, exp_time = super().get(key, (None, -1))
@@ -261,10 +267,11 @@ class Cache(PickleStorage):
             return default
         return value
 
-    def set(self, key, value, expiration=None):
-        """
-        expiration may be None, datetime or timedelta
-        If expiration is None, value will never become outdated
+    def set(self, key, value, expiration: Optional[Union[datetime, timedelta]] = None):
+        """Set a value with optional expiration.
+
+        Args:
+            expiration: datetime = deadline, timedelta = TTL, None = value will never expire.
         """
         if expiration is None:
             exp_time = None
@@ -276,4 +283,3 @@ class Cache(PickleStorage):
             raise TypeError('Invalid argument type')
 
         super().set(key, (value, exp_time))
-        self._clean = False
