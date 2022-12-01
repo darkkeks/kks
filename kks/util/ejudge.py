@@ -8,7 +8,6 @@ from os import environ
 from pathlib import Path
 from typing import BinaryIO, Optional, Sequence, Tuple, Union
 from urllib.parse import parse_qs, urlencode, urlsplit
-from xmlrpc.client import _Method
 
 import click
 
