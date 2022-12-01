@@ -45,8 +45,9 @@ def auth(login, password, group_id, contest_id, store_password):
             return
 
     auth_data = AuthData(login, password, contest_id)
-    # Auth even if there are saved sids
+    # Use new auth data instead of saved
     session = EjudgeSession(auth_data=auth_data, auth=False)
+    # (re)auth even if there is a saved session state
     session.auth()
 
     auth_data.save_to_config(store_password)
