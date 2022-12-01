@@ -1,15 +1,19 @@
+import inspect
 import json
 from base64 import b64decode
 from dataclasses import asdict, dataclass
-from enum import Enum
+from enum import Enum, auto
+from functools import wraps
 from os import environ
-from typing import Optional
+from pathlib import Path
+from typing import BinaryIO, Optional, Sequence, Tuple, Union
 from urllib.parse import parse_qs, urlencode, urlsplit
+from xmlrpc.client import _Method
 
 import click
 
 from kks import __version__
-from kks.errors import EjudgeError, EjudgeUnavailableError, AuthError, APIError
+from kks.errors import EjudgeUnavailableError, AuthError, APIError
 from kks.util.common import deprecated
 from kks.util.storage import Config, PickleStorage
 
@@ -324,21 +328,41 @@ class Sids:
 
 
 class API:
-    class MethodGroup:
-        CLIENT = 'new-client'
-        REGISTER = 'register'
+    """Ejudge API wrapper. Not thread-safe."""
+
+    class _Http(Enum):
+        GET = auto()
+        POST = auto()
+
+    class _MethodGroup(Enum):
+        CLIENT = auto()
+        REGISTER = auto()
+
+    class _Sids(Enum):
+        FROM_SELF = auto()
+        FROM_ARG = auto()
+        NONE = auto()  # Don't use sids.
 
     def __init__(self, sids=None, base_url=Links.BASE_URL):
         import requests
 
-        self._prefix = Links.cgi_bin(base_url) + '/'
+        self._urls = {
+            API._MethodGroup.REGISTER: Links.cgi_bin(base_url) + '/register',
+            API._MethodGroup.CLIENT: Links.contest_root(base_url),
+        }
+
         self._http = requests.Session()
         self._http.headers = {'User-Agent': f'kokos/{__version__}'}
 
+        # For @_api_method's
+        self._params = {}
+        self._data = {}
+        self._files = {}
+
         self._sids = sids
 
-    def _request(self, url, need_json, **kwargs):
-        resp = self._http.post(url, **kwargs)  # all methods accept POST requests
+    def _request(self, method, url, need_json, **kwargs):
+        resp = method(url, **kwargs)
         resp.encoding = 'utf-8'  # ejudge doesn't set encoding header
         _check_response(resp)
         try:
@@ -357,99 +381,160 @@ class API:
             raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
         return data['result']
 
-    def _api_method(self, path, action, sids=None, need_json=True, use_sids=True, **kwargs):
+    @staticmethod
+    def _api_method(
+            http_method: _Http,
+            method_group: _MethodGroup,
+            action: str,
+            *,
+            sids: _Sids = _Sids.FROM_SELF,
+            need_json: bool = True,
+            files: Sequence[str] = (),
+            ignore: Sequence[str] = (),
+        ):
+        """Wrapper for API methods.
+
+        Args:
+            http_method: GET/POST.
+            method_group: Determines URL for the request.
+            action: Action name, passed in 'action' parameter of URL.
+            sids: Which sids to use for auth:
+            need_json: Whether to parse the response or not. Errors are always parsed.
+            files: Names of args which will be passed as files to requests.post.
+                Must be used only for POST methods.
+                Must not intersect with `ignore` or contain 'sids'.
+            ignore: Names of args which shouldn't be added to _params or _data.
+                Must not intersect with `files` or contain 'sids'.
+
+        API methods should be declared like this:
+        @_api_method(...)
+        def method_name(self, ...):
+            ...  # Change _params, _data and _files, if needed.
+
+        For GET methods, all args are passed in params.
+        For POST methods, all args are passed in request body.
+        You can (but probably shouldn't) move some args from params (self._params)
+        to body (self._data), or vice versa, for POST requests.
         """
-        if sids is None and use_sids is True, will use self._sids
-        """
 
-        url = self._prefix + path
+        def decorator(method):
 
-        data = kwargs.setdefault('data', {})
-        data.update({'action': action, 'json': 1})
-        if use_sids:
-            if sids is None:
-                sids = self._sids
-            data.update(sids.as_dict())
+            @wraps(method)
+            def wrapper(*args, **kwargs):
+                # Get actual args for method call.
+                self: API = args[0]
+                bound_arguments = inspect.signature(method).bind(*args, **kwargs)
+                bound_arguments.apply_defaults()
+                method_args = bound_arguments.arguments
+                original_args = method_args.copy()
+                method_args.pop('self')
 
-        return self._request(url, need_json, **kwargs)
+                self._files.clear()
+                for name in files:
+                    self._files[name] = method_args.pop(name)
+                for name in ignore:
+                    method_args.pop(name)
+
+                data = {'action': action, 'json': 1}
+                req_sids = None
+                if sids is API._Sids.FROM_SELF:
+                    req_sids = self._sids
+                elif sids is API._Sids.FROM_ARG:
+                    req_sids = method_args.pop('sids')
+                if req_sids is not None:
+                    data.update(req_sids.as_dict())
+                data.update(method_args)
+
+                if http_method is API._Http.GET:
+                    self._params = data
+                    # _data shouldn't be used
+                elif http_method is API._Http.POST:
+                    self._params.clear()  # method may modify _params.
+                    self._data = data
+                else:
+                    assert False
+
+                # Modify _params/_data/_files if needed.
+                method(**original_args)
+
+                url = self._urls[method_group]
+                if http_method is API._Http.GET:
+                    return self._request(self._http.get, url, need_json, params=self._params)
+                elif http_method is API._Http.POST:
+                    return self._request(
+                        self._http.post, url, need_json,
+                        params=self._params, data=self._data, files=self._files
+                    )
+                else:
+                    assert False
+
+            return wrapper
+
+        return decorator
+
+    @_api_method(_Http.POST, _MethodGroup.REGISTER, 'login-json', sids=_Sids.NONE)
+    def login(self, login: str, password: str):
+        """get sids for enter_contest method"""
+        pass
+
+    @_api_method(_Http.POST, _MethodGroup.REGISTER, 'enter-contest-json', sids=_Sids.FROM_ARG)
+    def enter_contest(self, sids: Sids, contest_id: int):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'contest-status-json')
+    def contest_status(self):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'problem-status-json')
+    def problem_status(self, problem: int):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'problem-statement-json', need_json=False)
+    def problem_statement(self, problem: int):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'list-runs-json')
+    def list_runs(self, prob_id: Optional[int] = None):
+        # newest runs go first
+        # If prob_id is None, then all runs are returned (useful for sync?)
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'run-status-json')
+    def run_status(self, run_id: int):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'download-run', need_json=False)
+    def download_run(self, run_id: int):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'run-messages-json')
+    def run_messages(self, run_id: int):
+        pass
+
+    # run-test-json - test results? unknown params
+
+    @_api_method(_Http.POST, _MethodGroup.CLIENT, 'submit-run', files=['file'], ignore=['lang'])
+    def submit(
+            self,
+            prob_id: int,
+            file: Union[Path, Tuple[str, BinaryIO]],
+            lang: Union[Lang, int, None],
+    ):
+        # NOTE if lang is not None, this method may possibly break on output-only problems
+        #      (see sm01-3 from 2020-2021)
+        if isinstance(lang, Lang):
+            self._data['lang_id'] = lang.value
+        elif isinstance(lang, int):
+            self._data['lang_id'] = lang
+        # None will be ignored by requests
+        if isinstance(file, Path):
+            self._files['file'] = (file.name, open(file, 'rb'))
 
     def auth(self, creds: AuthData):
         """get new sids"""
         # NOTE is 1step auth possible?
-
         top_level_sids = Sids.from_dict(self.login(creds.login, creds.password))
         self._sids = Sids.from_dict(self.enter_contest(top_level_sids, creds.contest_id))
-
-    def login(self, login, password):
-        """get sids for enter_contest method"""
-        data = {
-            'login': login,
-            'password': password,
-        }
-        return self._api_method(self.MethodGroup.REGISTER, 'login-json', data=data, use_sids=False)
-
-    def enter_contest(self, sids, contest_id):
-        data = {
-            'contest_id': contest_id
-        }
-        return self._api_method(self.MethodGroup.REGISTER, 'enter-contest-json', sids, data=data)
-
-    def contest_status(self):
-        return self._api_method(self.MethodGroup.CLIENT, 'contest-status-json')
-
-    def problem_status(self, prob_id):
-        data = {
-            'problem': int(prob_id)
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'problem-status-json', data=data)
-
-    def problem_statement(self, prob_id):
-        data = {
-            'problem': int(prob_id)
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'problem-statement-json', data=data, need_json=False)
-
-    def list_runs(self, prob_id=None):
-        # newest runs go first
-        # if no prob_id is passed then all runs are returned (useful for sync?)
-        if prob_id is None:
-            return self._api_method(self.MethodGroup.CLIENT, 'list-runs-json')['runs']
-        data = {
-            'prob_id': int(prob_id)
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'list-runs-json', data=data)['runs']
-
-    def run_status(self, run_id):
-        data = {
-            'run_id': int(run_id)
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'run-status-json', data=data)
-
-    def download_run(self, run_id):
-        data = {
-            'run_id': int(run_id)
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'download-run', data=data, need_json=False)
-
-    def run_messages(self, run_id):
-        data = {
-            'run_id': int(run_id)
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'run-messages-json', data=data)
-
-    # run-test-json - test results? unknown params
-
-    def submit(self, prob_id, file, lang):
-        data = {
-            'prob_id': int(prob_id),
-        }
-        if lang is not None:  # NOTE may possibly break on problems without lang (see sm01-3)
-            data['lang_id'] = int(lang)
-
-        files = {
-            'file': (file.name, open(file, 'rb'))
-        }
-        return self._api_method(self.MethodGroup.CLIENT, 'submit-run', data=data, files=files)
 
 
 # TODO add params to Page members? PAGE_NAME = (page_id, avail_for_regular_users, avail_for_judges)
