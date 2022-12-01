@@ -44,10 +44,11 @@ def auth(login, password, group_id, contest_id, store_password):
             )
             return
 
-    session = EjudgeSession(auth=False)
     auth_data = AuthData(login, password, contest_id)
+    # Auth even if there are saved sids
+    session = EjudgeSession(auth_data=auth_data, auth=False)
+    session.auth()
 
-    session.auth(auth_data)
     auth_data.save_to_config(store_password)
 
     click.secho('Successfully logged in', fg='green')

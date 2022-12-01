@@ -1,5 +1,6 @@
 import inspect
 import json
+import warnings
 from base64 import b64decode
 from dataclasses import asdict, dataclass
 from enum import Enum, auto
@@ -354,7 +355,7 @@ class API:
             need_json: bool = True,
             files: Sequence[str] = (),
             ignore: Sequence[str] = (),
-        ):
+    ):
         """Wrapper for API methods.
 
         Args:
@@ -532,11 +533,20 @@ class EjudgeSession:
     def auth(self, auth_data: Optional[AuthData] = None):
         """
         Args:
-            auth_data: Optional auth data. If present, must have password.
-                If None, the session will use auth_data from its constructor or from kks config.
+            auth_data: [Deprecated] Optional auth data. If present, must have password.
+
+        By default, the session uses auth_data from its constructor or from kks config.
         """
         if auth_data is None:  # auto-auth (on first init or when cookies expire)
             auth_data = self._get_auth_data()
+        else:
+            with warnings.catch_warnings():
+                # Temporarily turn off the filter
+                warnings.simplefilter('always', DeprecationWarning)
+                warnings.warn('EjudgeSession.aith(auth_data) is deprecated. '
+                              'If you want to use other auth data, create a new session',
+                              category=DeprecationWarning,
+                              stacklevel=2)
 
         import requests
 
@@ -594,7 +604,7 @@ class EjudgeSession:
     def needs_auth(url):
         return 'SID' in parse_qs(urlsplit(url).query)
 
-    def _get_auth_data(self):
+    def _get_auth_data(self) -> AuthData:
         if self._auth_data is not None:
             auth_data = self._auth_data
         else:
