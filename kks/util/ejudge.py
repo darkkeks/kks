@@ -638,7 +638,7 @@ class EjudgeSession:
         >>> ...
         >>> info = api.contest_status()  # cookies are up to date
         """
-        return API(self.sids)
+        return API(self.sids, base_url=self._base_url)
 
     def with_auth(self, api_method, *args, **kwargs):
         """Calls the API method, updates auth data if needed.
