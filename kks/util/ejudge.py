@@ -702,6 +702,7 @@ class EjudgeSession:
             auth_data: Optional[AuthData] = None,
             base_url: str = Links.BASE_URL,
             storage_path: str = 'sessions-judge',
+            quiet: bool = False,
     ):
         """
         Args:
@@ -712,9 +713,12 @@ class EjudgeSession:
             base_url: Ejudge URL in "scheme://host[:port]" format.
             storage_path: path to storage file for auth state.
                 Path should be relative to kks config dir or absolute.
+            quiet: If True, don't show internal (re)auth attempts. Useful for scripts.
         """
         import requests
         self._http = requests.Session()
+
+        self.quiet = quiet
 
         if auth_data is not None:
             self._auth_data = copy(auth_data)
@@ -741,7 +745,7 @@ class EjudgeSession:
         self._auth(auth_data, internal=False)
 
     def _auth(self, auth_data: Optional[AuthData] = None, internal: bool = True):
-        if internal:
+        if internal and not self.quiet:
             click.secho(
                 'Ejudge session is missing or invalid, trying to auth with saved data',
                 fg='yellow', err=True
