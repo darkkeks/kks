@@ -1,1 +1,1 @@
-__version__ = '1.16.6+judge.6'
+__version__ = '1.16.6+judge.7'

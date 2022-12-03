@@ -247,6 +247,7 @@ class RunField(Flag):
     STORE_FLAGS = auto()
     TOKENS = auto()
 
+    USER = USER_NAME | USER_LOGIN
     DEFAULT = ID | TIME | USER_NAME | PROB_NAME | LANG_NAME | STATUS | TEST | SCORE
 
 

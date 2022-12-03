@@ -342,7 +342,7 @@ def ejudge_submissions(
         filter_: Optional[str] = None,
         first_run: Optional[int] = None,
         last_run: Optional[int] = None,
-        field_mask: RunField = RunField.DEFAULT,
+        field_mask: RunField = RunField.DEFAULT | RunField.USER_LOGIN,  # always non-empty .user
     ):
     """Parses (filtered) submissions table.
 

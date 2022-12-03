@@ -79,8 +79,7 @@ class Bot:
             RunField.ID |
             RunField.TIME |
             RunField.USER_ID |
-            RunField.USER_LOGIN |
-            RunField.USER_NAME |
+            RunField.USER |
             RunField.PROB_NAME |
             RunField.LANG_NAME |
             RunField.STATUS |
