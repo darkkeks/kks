@@ -115,7 +115,7 @@ class BotDB:
 
     @db_method
     def add_submission(self, sub: Submission, *, commit=False):
-        self.add_ej_user(sub.user_id, sub.user or sub.user_login)
+        self.add_ej_user(sub.user_id, sub.user)
         self._conn.execute('INSERT OR IGNORE INTO submissions(id, user, problem) VALUES (?, ?, ?)', (sub.id, sub.user_id, sub.problem))
 
     @db_method

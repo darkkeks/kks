@@ -324,8 +324,7 @@ class Bot:
             buttons = []
             for sub in pending[i:i+batch_size]:
                 time_str = sub.time.strftime('%d.%m %H:%M:%S')
-                user_name = sub.user or sub.user_login
-                line = f'[{time_str}] {sub.id} - {user_name} - {sub.problem} ({sub.score})'
+                line = f'[{time_str}] {sub.id} - {sub.user} - {sub.problem} ({sub.score})'
                 reviewer = self.db.get_previous_reviewer(sub)
                 if reviewer:
                     _, first_name, last_name = reviewer

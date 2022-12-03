@@ -112,7 +112,7 @@ class Submission(JSONDataclass, BaseSubmission):
 
     eoln_type: Optional[int] = None  # Some enum
 
-    user: Optional[str] = _optional_field(key='user_name')
+    user_name: Optional[str] = None
     user_id: Optional[int] = None
     user_login: Optional[str] = None
 
@@ -198,6 +198,10 @@ class Submission(JSONDataclass, BaseSubmission):
         if self.status is not RunStatus.IGNORED:
             # Ejudge keeps reports for ignored runs, but doesn't allow to see them
             self._set_link('report', Page.VIEW_REPORT)
+
+    @property
+    def user(self):
+        return self.user_name or self.user_login
 
 
 @dataclass(frozen=True)
