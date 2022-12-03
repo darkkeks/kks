@@ -361,13 +361,7 @@ def ejudge_submissions(
     """
 
     api: JudgeAPI = session.api()
-    submissions = session.with_auth(
-        api.list_runs,
-        filter_=filter_,
-        first_run=first_run,
-        last_run=last_run,
-        field_mask=field_mask
-    )['runs']
+    submissions = session.with_auth(api.list_runs, filter_, first_run, last_run, field_mask)['runs']
     return [Submission.parse(sub, session.base_url) for sub in submissions]
 
 

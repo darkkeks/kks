@@ -608,7 +608,7 @@ class JudgeAPI(BaseAPI):
     @_api_method(_Http.GET, _MethodGroup.CLIENT, 'list-runs-json')
     def list_runs(
             self,
-            filter_: Optional[str] = None,
+            filter_expr: Optional[str] = None,
             first_run: Optional[int] = None,
             last_run: Optional[int] = None,
             field_mask: RunField = RunField.DEFAULT,
@@ -620,7 +620,7 @@ class JudgeAPI(BaseAPI):
 
         Args:
             session: Ejudge session.
-            filter_: Optional submission filter.
+            filter_expr: Optional submission filter.
             first_run: First index of the slice.
             last_run: Last index of the slice (inclusive).
             field_mask: Which fields to include in the response. run_id is always present.
