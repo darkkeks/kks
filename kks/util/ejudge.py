@@ -821,6 +821,8 @@ class EjudgeSession:
 
     @property
     def judge(self):
+        if self._auth_data is None:
+            return False  # No saved auth data
         return self._auth_data.judge
 
     def _update_sids(self, url):
