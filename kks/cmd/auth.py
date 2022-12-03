@@ -45,10 +45,12 @@ def auth(login, password, group_id, contest_id, store_password, judge):
             )
             return
 
-    session = EjudgeSession(auth=False)
     auth_data = AuthData(login, password, contest_id, judge)
+    # Use new auth data instead of saved
+    session = EjudgeSession(auth_data=auth_data, auth=False)
+    # (re)auth even if there is a saved session state
+    session.auth()
 
-    session.auth(auth_data)
     auth_data.save_to_config(store_password)
 
     click.secho('Successfully logged in', fg='green')
