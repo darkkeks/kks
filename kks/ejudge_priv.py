@@ -103,7 +103,7 @@ class Submission(JSONDataclass, BaseSubmission):
     sha1: Optional[str] = None
 
     status: Optional[RunStatus] = None
-    status_str: Optional[str] = None
+    status_str: Optional[str] = None  # 2-letter status, like in filter
 
     time: Optional[datetime] = _optional_field(key='run_time', parser=datetime.fromtimestamp)
     nsec: Optional[int] = None  # Nanoseconds part of `time`

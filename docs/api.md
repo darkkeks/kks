@@ -202,7 +202,7 @@ With all fields (empty fields will be absent):
             "run_uuid": "...",
             "sha1": "...",
             "status": 0,
-            "status_str": "OK",
+            "status_str": "OK",  // 2-letter short status
             "run_time": <int>,  // timestamp
             "nsec": <int>,
             "run_time_us": <run_time+nsec/1000>,
