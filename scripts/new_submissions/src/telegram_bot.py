@@ -17,11 +17,10 @@ from telegram.error import BadRequest, RetryAfter, TelegramError
 from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, Filters, Updater
 from telegram.utils.helpers import escape_markdown
 
-from kks.ejudge import Status
 from kks.ejudge_priv import Submission, ejudge_submissions, ejudge_users
-from kks.util.ejudge import EjudgeSession
+from kks.util.ejudge import EjudgeSession, RunField, RunStatus
 from utils.submissions import new_submissions
-from utils.db import BotDB, UnknownUser, import_ej_users
+from utils.db import BotDB
 
 
 logging.basicConfig(
@@ -76,12 +75,23 @@ class Bot:
         self.updater = Updater(token)
         self.chat_id = chat_id
         self.db = BotDB(db_path)
+        self._field_mask = (
+            RunField.ID |
+            RunField.TIME |
+            RunField.USER_ID |
+            RunField.USER_LOGIN |
+            RunField.USER_NAME |
+            RunField.PROB_NAME |
+            RunField.LANG_NAME |
+            RunField.STATUS |
+            RunField.SCORE
+        )
         # TODO add session lock?
         self.session = EjudgeSession()
 
         self.updater.dispatcher.add_handler(CallbackQueryHandler(
             self.handle_query,
-            pattern=re.compile(r'^(\d+)_\d+(?:_(\d+))?$')
+            pattern=re.compile(r'^(\d+)_\d+_(\d+)$')
         ))
         self.updater.dispatcher.add_handler(CommandHandler('get', self.get_reviewer, Filters.chat_type.private))
         self.updater.dispatcher.add_handler(CommandHandler('take', self.take_run, Filters.chat_type.private))
@@ -93,7 +103,10 @@ class Bot:
         if not self.db.has_ej_users():
             # Add invisible/banned/not-ok users to avoid unnecessary updates on submissions from these users.
             users = ejudge_users(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
-            import_ej_users(self.db, users)
+            with self.db.lock:
+                for user in users:
+                    self.db.add_ej_user(user.id, user.name or user.login)
+                self.db.commit()
         self.updater.job_queue.run_custom(self.check_updates, {'trigger': 'cron', 'minute': 0})
         self.updater.start_polling()
         self.updater.idle()
@@ -103,8 +116,7 @@ class Bot:
             return
 
         # Handler is synchronous => no need for additional locks
-        idx, sub_id = context.match.groups()
-        choice_index = int(idx)
+        choice_index, sub_id = map(int, context.match.groups())
         query = update.callback_query
         message = query.message
         user = query.from_user
@@ -113,31 +125,20 @@ class Bot:
         lines = message.text_markdown_v2.split('\n')
         line = lines[choice_index]
 
-        if sub_id is None:
-            # Message from V1
-            # Text is escaped markdown, so we need more backslashes.
-            match = re.match(r'\\\[[^\]]+\\\] (\d+)', line)
-            if match is not None:
-                sub_id = match.group(1)
-            else:
-                logger.error(f'Cannot parse run id from line "{line}"')
-
-        if sub_id is not None:
-            sub_id = int(sub_id)
-            old_uid = None
-            sub = self.db.get_submission(sub_id)
-            if sub is not None:
-                # NOTE A version conflict is possible.
-                # Case 1:
-                # A message contains runs 1 and 2.
-                # The bot receives 2 queries, they are processed synchronously:
-                # - User A: remove run 1 from (1, 2). Response: (2); run 1 is stored in db.
-                # - User B: remove run 2 from (1, 2). Response: (1); run 2 is stored in db.
-                # The final message contains run 1, which was previously removed.
-                # In this case, the user will likely retry the request. Then versions will be merged.
-                # Case 2:
-                # Two users take the same run. The second query should be ignored.
-                old_uid = sub[1]
+        old_uid = None
+        sub = self.db.get_submission(sub_id)
+        if sub is not None:
+            # NOTE A version conflict is possible.
+            # Case 1:
+            # A message contains runs 1 and 2.
+            # The bot receives 2 queries, they are processed synchronously:
+            # - User A: remove run 1 from (1, 2). Response: (2); run 1 is stored in db.
+            # - User B: remove run 2 from (1, 2). Response: (1); run 2 is stored in db.
+            # The final message contains run 1, which was previously removed.
+            # In this case, the user will likely retry the request. Then versions will be merged.
+            # Case 2:
+            # Two users take the same run. The second query should be ignored.
+            old_uid = sub[1]
 
         keyboard = message.reply_markup.inline_keyboard
         keyboard = [row for row in keyboard if row[0].callback_data != query.data]
@@ -161,6 +162,9 @@ class Bot:
         try:  # Generic telegram error handling
             try:  # Filter BadRequest's. If we can't delete an old message, just edit it.
                 with AllowDuplicateRequests():
+                    if old_uid is not None and old_uid != user.id:
+                        # Need to answer the query while the message still exists
+                        update.callback_query.answer('This run is taken by another user')
                     if not_empty:
                         message.edit_text(
                             '\n'.join(lines),
@@ -168,9 +172,6 @@ class Bot:
                             parse_mode='MarkdownV2'
                         )
                     else:
-                        if old_uid is not None and old_uid != user.id:
-                            # Need to answer the query while the message still exists
-                            update.callback_query.answer('This run is taken by another user')
                         message.delete()
             except BadRequest as e:
                 if str(e).startswith('Message can\'t be deleted'):
@@ -245,7 +246,7 @@ class Bot:
         if sub is not None:
             context.bot.send_message(cid, 'Submission is already in the database')
             return
-        res = ejudge_submissions(self.session, f'id == {run_id}')
+        res = ejudge_submissions(self.session, f'id == {run_id}', field_mask=self._field_mask)
         if not res:
             context.bot.send_message(cid, 'Submission does not exist')
             return
@@ -284,7 +285,7 @@ class Bot:
     def check_updates(self, context: CallbackContext):
         # TODO check clars to add commented runs which have already been reviewed
         try:
-            submissions = new_submissions(self.session, self.db.get_last_run_id())
+            submissions = new_submissions(self.session, self.db.get_last_run_id(), self._field_mask)
         except Exception:
             logger.error('Cannot get new submissions. Error:')
             logger.error(format_exc())
@@ -295,7 +296,7 @@ class Bot:
 
         pending = []
         for sub in submissions:
-            if sub.status == Status.REVIEW:
+            if sub.status == RunStatus.PENDING_REVIEW:
                 pending.append(sub)
         if pending:
             with self.db.lock:
@@ -323,23 +324,9 @@ class Bot:
             buttons = []
             for sub in pending[i:i+batch_size]:
                 time_str = sub.time.strftime('%d.%m %H:%M:%S')
-                line = f'[{time_str}] {sub.id} - {sub.user} - {sub.problem} ({sub.score})'
-                try:
-                    reviewer = self.db.get_previous_reviewer(sub)
-                except UnknownUser:
-                    logger.warning(f'Cannot find user: {sub.user}, trying to update DB...')
-                    users = ejudge_users(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
-                    for user in users:
-                        if user.name == sub.user:
-                            self.db.add_ej_user(user.id, user.name, commit=True)
-                            break
-                    else:
-                        logger.warning(f'User {sub.user} is not in user list, random uid will be used')
-                        # Assign a random uid to avoid updates on new submissions from this user.
-                        # This shouldn't happen often, if it is possible at all.
-                        # (user was added, then removed?)
-                        self.db.add_ej_user(randint(1000000, 9999999), sub.user, commit=True)
-                    reviewer = self.db.get_previous_reviewer(sub)
+                user_name = sub.user or sub.user_login
+                line = f'[{time_str}] {sub.id} - {user_name} - {sub.problem} ({sub.score})'
+                reviewer = self.db.get_previous_reviewer(sub)
                 if reviewer:
                     _, first_name, last_name = reviewer
                     line += f' [Prev: {abbrev_name(first_name, last_name)}]'

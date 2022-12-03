@@ -5,12 +5,10 @@ from functools import wraps
 from threading import RLock
 from typing import Optional
 
+from kks.ejudge_priv import Submission
+
 
 __version__ = '0.2.0'
-
-
-class UnknownUser(Exception):
-    pass
 
 
 def db_method(method):
@@ -28,13 +26,6 @@ def db_method(method):
         return result
 
     return wrapper
-
-
-def import_ej_users(db, users):
-    with db.lock:
-        for user in users:
-            db.add_ej_user(user.id, user.name or user.login)
-        db.commit()
 
 
 class BotDB:
@@ -123,10 +114,9 @@ class BotDB:
         return self._conn.execute('SELECT * FROM submissions WHERE id = ?', (sub_id,)).fetchone()
 
     @db_method
-    def add_submission(self, sub, *, commit=False):
-        user = self.find_ej_user(sub.user)
-        user_id = user[0] if user else None
-        self._conn.execute('INSERT OR IGNORE INTO submissions(id, user, problem) VALUES (?, ?, ?)', (sub.id, user_id, sub.problem))
+    def add_submission(self, sub: Submission, *, commit=False):
+        self.add_ej_user(sub.user_id, sub.user or sub.user_login)
+        self._conn.execute('INSERT OR IGNORE INTO submissions(id, user, problem) VALUES (?, ?, ?)', (sub.id, sub.user_id, sub.problem))
 
     @db_method
     def assign_submission(self, sub_id, reviewer_id, *, commit=False):
@@ -136,12 +126,13 @@ class BotDB:
         self._conn.execute('UPDATE submissions SET reviewer = ? WHERE id = ? AND reviewer IS NULL', (reviewer_id, sub_id))
 
     @db_method
-    def get_previous_reviewer(self, sub):
-        user = self.find_ej_user(sub.user)
-        if user is None:  # new user?
-            raise UnknownUser()
-        user_id = user[0]
-        row = self._conn.execute('SELECT reviewer FROM submissions WHERE (user, problem) = (?, ?) AND id < ? AND reviewer IS NOT NULL ORDER BY id DESC LIMIT 1', (user_id, sub.problem, sub.id)).fetchone()
+    def get_previous_reviewer(self, sub: Submission):
+        row = self._conn.execute(
+            'SELECT reviewer FROM submissions '
+            'WHERE (user, problem) = (?, ?) AND id < ? AND reviewer IS NOT NULL '
+            'ORDER BY id DESC LIMIT 1',
+            (sub.user_id, sub.problem, sub.id)
+        ).fetchone()
         if row is not None:
             return self.get_user(row[0])
         return None
