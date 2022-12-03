@@ -90,7 +90,7 @@ class AuthSection(Section):
     login: str
     password: str
     contest: int
-    judge: bool
+    judge: bool = False
 
 
 class OptionsSection(EnvSection):

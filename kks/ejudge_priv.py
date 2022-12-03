@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
-from enum import Enum, Flag, auto
+from enum import Enum, Flag
 from functools import wraps
 from typing import BinaryIO, Iterable, Optional
 
@@ -9,7 +9,7 @@ from kks.ejudge import MSK_TZ, PROBLEM_INFO_VERSION, \
     _parse_field, _skip_field, get_server_tz
 # move parsers and fields into utils module?
 from kks.errors import EjudgeError
-from kks.util.ejudge import Lang, Page, RunStatus
+from kks.util.ejudge import EjudgeSession, Lang, Page, RunField, RunStatus
 from kks.util.storage import Cache, PickleStorage
 
 
@@ -202,39 +202,6 @@ class ArchiveSettings:
     runs_or_ids: Iterable = ()  # used only if run_selection is SELECTED
 
 
-class RunView(Flag):
-    RUN_ID = auto()
-    SIZE = auto()
-    TIME = auto()
-    ABS_TIME = auto()
-    REL_TIME = auto()
-    NSEC = auto()
-    USER_ID = auto()
-    USER_LOGIN = auto()
-    USER_NAME = auto()
-    PROB_ID = auto()
-    PROB_NAME = auto()
-    LANG_ID = auto()
-    LANG_NAME = auto()
-    IP = auto()
-    SHA1 = auto()
-    SCORE = auto()
-    TEST = auto()
-    SCORE_ADJ = auto()
-    STATUS = auto()
-    VARIANT = auto()
-    MIME_TYPE = auto()
-    SAVED_SCORE = auto()
-    SAVED_TEST = auto()
-    SAVED_STATUS = auto()
-    RUN_UUID = auto()
-    EOLN_TYPE = auto()
-    STORE_FLAGS = auto()
-    TOKENS = auto()
-
-    DEFAULT = RUN_ID | TIME | USER_NAME | PROB_NAME | LANG_NAME | STATUS | TEST | SCORE
-
-
 def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Iterable[bool]):
     # filter status[i] = ith component is not empty
     return any(
@@ -260,7 +227,13 @@ def _run_mask(runs_or_ids: Optional[Iterable]):
 
 
 @requires_judge
-def ejudge_submissions(session, filter_=None, first_run=None, last_run=None):
+def ejudge_submissions(
+        session: EjudgeSession,
+        filter_: Optional[str] = None,
+        first_run: Optional[int] = None,
+        last_run: Optional[int] = None,
+        field_mask: RunField = RunField.DEFAULT,
+    ):
     """Parses (filtered) submissions table.
 
     The list of submissions is filtered,
@@ -272,24 +245,10 @@ def ejudge_submissions(session, filter_=None, first_run=None, last_run=None):
         filter_: Optional submission filter.
         first_run: First index of the slice.
         last_run: Last index of the slice (inclusive).
+        field_mask: Which fields to include in the response. run_id is always present.
 
-    Some notes on slice indices:
-    - The slice is applied AFTER the filter.
-    - If the first index is higher than the second,
-      runs are returned in reverse chronological order.
-    - Indices may be negative (like in Python)
-    - If the first index is not specified, -1 is used
-    - If the last index is not specified, at most 20 runs are returned
-      (`first_run` is treated as the last index,
-      runs are returned in reverse chronological order).
-      If `first_run` is greater than the number of matches,
-      ejudge will return less than 20 runs (bug/feature?).
-    - If both indices are not set, last 20 runs are returned.
-    For more details, see ejudge source code
-    (lib/new_server_html_2.c:257-293 (at 773a153b1))
+    See JudgeAPI.list_runs for more details.
     """
-    # TODO use JSON?
-    # ejudge has a `priv_list_runs_json` method (action id 301, same as for unprivileged users (API.list_runs)).
     from bs4 import BeautifulSoup
 
     filter_status = (bool(filter_), first_run is not None, last_run is not None)

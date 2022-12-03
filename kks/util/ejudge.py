@@ -3,7 +3,7 @@ import json
 from base64 import b64decode
 from copy import copy
 from dataclasses import asdict, dataclass
-from enum import Enum, auto
+from enum import Enum, Flag, auto
 from functools import wraps
 from os import environ
 from pathlib import Path
@@ -215,6 +215,40 @@ class Page(Enum):
     USERS_AJAX = 278
 
 
+class RunField(Flag):
+    """Field filters for JudgeAPI.list_runs."""
+    RUN_ID = auto()
+    SIZE = auto()
+    TIME = auto()
+    ABS_TIME = auto()
+    REL_TIME = auto()
+    NSEC = auto()
+    USER_ID = auto()
+    USER_LOGIN = auto()
+    USER_NAME = auto()
+    PROB_ID = auto()
+    PROB_NAME = auto()
+    LANG_ID = auto()
+    LANG_NAME = auto()
+    IP = auto()
+    SHA1 = auto()
+    SCORE = auto()
+    TEST = auto()
+    SCORE_ADJ = auto()
+    STATUS = auto()
+    VARIANT = auto()
+    MIME_TYPE = auto()
+    SAVED_SCORE = auto()
+    SAVED_TEST = auto()
+    SAVED_STATUS = auto()
+    RUN_UUID = auto()
+    EOLN_TYPE = auto()
+    STORE_FLAGS = auto()
+    TOKENS = auto()
+
+    DEFAULT = RUN_ID | TIME | USER_NAME | PROB_NAME | LANG_NAME | STATUS | TEST | SCORE
+
+
 class RunStatus(Enum):
     """Numerical run status. Returned by "run-status-json" API method and used by privileged methods."""
 
@@ -327,7 +361,7 @@ class Sids:
         return {'SID': self.sid, 'EJSID': self.ejsid}
 
 
-class API:
+class BaseAPI:
     """Ejudge API wrapper. Not thread-safe."""
 
     class _Http(Enum):
@@ -343,16 +377,12 @@ class API:
         FROM_ARG = auto()
         NONE = auto()  # Don't use sids.
 
-    def __init__(self, sids=None, base_url=Links.BASE_URL, judge=False):
+    def __init__(self, sids=None, base_url=Links.BASE_URL):
         import requests
 
-        self._sids = sids
-        self._judge = judge
-
-        self._base_url = base_url
         self._urls = {
-            API._MethodGroup.REGISTER: Links.cgi_bin(base_url) + '/register',
-            API._MethodGroup.CLIENT: Links.contest_root(base_url, judge=judge),
+            self._MethodGroup.REGISTER: Links.cgi_bin(base_url) + '/register',
+            self._MethodGroup.CLIENT: Links.contest_root(base_url),
         }
 
         self._http = requests.Session()
@@ -362,6 +392,8 @@ class API:
         self._params = {}
         self._data = {}
         self._files = {}
+
+        self._sids = sids
 
     def _request(self, method, url, need_json, **kwargs):
         resp = method(url, **kwargs)
@@ -383,6 +415,7 @@ class API:
             raise APIError(err.get('message', 'Unknown error'), err.get('num', APIError.UNKNOWN))
         return data['result']
 
+    # @staticmethod  # Cannot be used as decorator in python < 3.10 (bpo-43682)
     def _api_method(
             http_method: _Http,
             method_group: _MethodGroup,
@@ -423,7 +456,7 @@ class API:
             @wraps(method)
             def wrapper(*args, **kwargs):
                 # Get actual args for method call.
-                self: API = args[0]
+                self: BaseAPI = args[0]
                 bound_arguments = inspect.signature(method).bind(*args, **kwargs)
                 bound_arguments.apply_defaults()
                 method_args = bound_arguments.arguments
@@ -438,18 +471,18 @@ class API:
 
                 data = {'action': action, 'json': 1}  # need json reply where it's supported.
                 req_sids = None
-                if sids is API._Sids.FROM_SELF:
+                if sids is self._Sids.FROM_SELF:
                     req_sids = self._sids
-                elif sids is API._Sids.FROM_ARG:
+                elif sids is self._Sids.FROM_ARG:
                     req_sids = method_args.pop('sids')
                 if req_sids is not None:
                     data.update(req_sids.as_dict())
                 data.update(method_args)
 
-                if http_method is API._Http.GET:
+                if http_method is self._Http.GET:
                     self._params = data
                     # _data shouldn't be used
-                elif http_method is API._Http.POST:
+                elif http_method is self._Http.POST:
                     self._params.clear()  # method may modify _params.
                     self._data = data
                 else:
@@ -459,9 +492,9 @@ class API:
                 method(**original_args)
 
                 url = self._urls[method_group]
-                if http_method is API._Http.GET:
+                if http_method is self._Http.GET:
                     return self._request(self._http.get, url, need_json, params=self._params)
-                elif http_method is API._Http.POST:
+                elif http_method is self._Http.POST:
                     return self._request(
                         self._http.post, url, need_json,
                         params=self._params, data=self._data, files=self._files
@@ -473,13 +506,19 @@ class API:
 
         return decorator
 
-    @_api_method(_Http.POST, _MethodGroup.REGISTER, 'login-json', sids=_Sids.NONE, ignore=['judge'])
-    def login(self, login: str, password: str, judge=False):
+
+class API(BaseAPI):
+    """Unprivileged API methods."""
+
+    _Http = BaseAPI._Http  # For short declarations. Is there a better way?
+    _MethodGroup = BaseAPI._MethodGroup
+    _Sids = BaseAPI._Sids
+    _api_method = BaseAPI._api_method
+
+    @_api_method(_Http.POST, _MethodGroup.REGISTER, 'login-json', sids=_Sids.NONE)
+    def login(self, login: str, password: str):
         """get sids for enter_contest method"""
-        # NOTE overwrites self._judge and client url even if login fails.
-        # Use generators like in pytest fixtures? preprocess -> yield -> postprocess
-        self._judge = judge
-        self._urls[API._MethodGroup.CLIENT] = Links.contest_root(self._base_url, judge=judge)
+        pass
 
     @_api_method(_Http.POST, _MethodGroup.REGISTER, 'enter-contest-json', sids=_Sids.FROM_ARG)
     def enter_contest(self, sids: Sids, contest_id: int):
@@ -535,10 +574,82 @@ class API:
             self._files['file'] = (file.name, open(file, 'rb'))
 
     def auth(self, creds: AuthData):
-        """get new sids"""
+        """Get new sids.
+
+        creds.judge is ignored. The API wrapper will use (un)privileged login based on its type.
+        """
         # NOTE is 1step auth possible?
-        top_level_sids = Sids.from_dict(self.login(creds.login, creds.password, creds.judge))
+        top_level_sids = Sids.from_dict(self.login(creds.login, creds.password))
         self._sids = Sids.from_dict(self.enter_contest(top_level_sids, creds.contest_id))
+
+
+class JudgeAPI(BaseAPI):
+    """Privileged API methods.
+
+    (Re)auth can be done only via EjudgeSession.
+    """
+    # TODO add token-based auth if it's implemented for privileged users.
+
+    _Http = BaseAPI._Http  # For short declarations. Is there a better way?
+    _MethodGroup = BaseAPI._MethodGroup
+    _Sids = BaseAPI._Sids
+    _api_method = BaseAPI._api_method
+
+    def __init__(self, sids=None, base_url=Links.BASE_URL):
+        super().__init__(sids, base_url)
+        self._urls[self._MethodGroup.CLIENT] = Links.judge_root(base_url)
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'contest-status-json')
+    def contest_status(self):
+        pass
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'list-runs-json')
+    def list_runs(
+            self,
+            filter_: Optional[str] = None,
+            first_run: Optional[int] = None,
+            last_run: Optional[int] = None,
+            field_mask: RunField = RunField.DEFAULT,
+    ):
+        """Get a (filtered) list of runs.
+
+        The list of submissions is filtered (if filter is present),
+        then first_run and last_run are used to return a slice of the result.
+
+        Args:
+            session: Ejudge session.
+            filter_: Optional submission filter.
+            first_run: First index of the slice.
+            last_run: Last index of the slice (inclusive).
+            field_mask: Which fields to include in the response. run_id is always present.
+
+        Some notes on slice indices:
+        - The slice is applied AFTER the filter.
+        - If the first index is higher than the second,
+          runs are returned in reverse chronological order.
+        - Indices may be negative (like in Python)
+        - If the first index is not specified, -1 is used
+        - If the last index is not specified, at most 20 runs are returned
+          (`first_run` is treated as the last index,
+          runs are returned in reverse chronological order).
+          If `first_run` is greater than the number of matches,
+          ejudge will return less than 20 runs (bug/feature?).
+        - If both indices are not set, last 20 runs are returned.
+        For more details, see ejudge source code
+        (lib/new_server_html_2.c:257-293 (at 773a153b1), lib/new_server_html.c:8602 (@c4c0ebb63))
+        """
+        self._params['field_mask'] = field_mask.value
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'run-status-json')
+    def run_status(self, run_id: Optional[int], run_uuid: Optional[str]):
+        if run_id is None and run_uuid is None:
+            raise ValueError('Either run_id or run_uuid should be provided.')
+        if run_id is not None and run_uuid is not None:
+            raise ValueError('run_id and run_uuid parameters are mutually exclusive.')
+
+    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'download-run', need_json=False)
+    def download_run(self, run_id: int):
+        pass
 
 
 # TODO add params to Page members? PAGE_NAME = (page_id, avail_for_regular_users, avail_for_judges)
@@ -576,10 +687,11 @@ class EjudgeSession:
         base_url: str
         contest_id: int
         login: str
+        judge: bool
 
         @classmethod
         def create(cls, base_url: str, auth_data: AuthData):
-            return cls(base_url, auth_data.contest_id, auth_data.login)
+            return cls(base_url, auth_data.contest_id, auth_data.login, auth_data.judge)
 
     def __init__(
             self, *,
@@ -678,7 +790,7 @@ class EjudgeSession:
         >>> info = api.contest_status()  # cookies are up to date
         """
         if self.judge:
-            return API(self.sids, base_url=self._base_url)  # !!
+            return JudgeAPI(self._sids, base_url=self._base_url)
         return API(self._sids, base_url=self._base_url)
 
     def with_auth(self, api_method, *args, **kwargs):
