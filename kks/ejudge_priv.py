@@ -1,15 +1,16 @@
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, Field
 from datetime import datetime, timezone
 from enum import Enum, Flag
 from functools import wraps
-from typing import BinaryIO, Iterable, Optional
+from typing import BinaryIO, Iterable, Optional, Union
+from urllib.parse import urlencode
 
 from kks.ejudge import MSK_TZ, PROBLEM_INFO_VERSION, \
-    BaseSubmission, ParsedRow, _CellParsers, _FieldParsers, \
-    _parse_field, _skip_field, get_server_tz
+    BaseSubmission, TableRowDataclass, _CellParsers, _FieldParsers, \
+    _skip_field, get_server_tz
 # move parsers and fields into utils module?
 from kks.errors import EjudgeError
-from kks.util.ejudge import EjudgeSession, Lang, Page, RunField, RunStatus
+from kks.util.ejudge import EjudgeSession, JudgeAPI, Lang, Links, Page, RunField, RunStatus
 from kks.util.storage import Cache, PickleStorage
 
 
@@ -22,6 +23,69 @@ def requires_judge(func):
     return wrapper
 
 
+class JSONDataclass:  # TODO modify @dataclass?
+    """Base for dataclasses which can be parsed from JSON."""
+    @staticmethod
+    def _field(*, key=None, parser=None):
+        return field(metadata={'key': key, 'parser': parser})
+
+    @staticmethod
+    def _optional_field(*, key=None, parser=None) -> Field:
+        return field(default=None, metadata={'key': key, 'parser': parser})
+
+    @staticmethod
+    def _de_opt(type_):
+        """Get argument of Optional."""
+        # Using getattr, because typing.get_origin and get_args are available only in py3.8+
+        # (3.7+ with typing-extensions)
+
+        # Optional[T] = Union[T, None]
+        if getattr(type_, '__origin__', None) is not Union:
+            return type_
+        args = getattr(type_, '__args__', ())
+        assert len(args) == 2 and type(None) in args, "Cannot parse generic `Union`s without custom parser"
+        if args[0] is type(None):
+            return args[1]
+        return args[0]
+
+    @classmethod
+    def _init_field_types(cls):
+        # Hack to speed up optional field parsing.
+        if getattr(cls, '_real_types', None):
+            return
+        real_types = {}
+        for field in fields(cls):
+            if field.init:
+                real_types[field.name] = cls._de_opt(field.type)
+        cls._real_types = real_types
+
+    @classmethod
+    def parse(cls, data, *args, **kwargs):
+        cls._init_field_types()  # TODO move to metaclass?
+        attrs = cls._parse(data, *args, **kwargs)
+        return cls(**attrs)
+
+    @classmethod
+    def _parse(cls, data):
+
+        def parse_field(field):
+            key = field.metadata.get('key') or field.name
+            value = data.get(key)
+            if value is None:
+                return None
+
+            parser = field.metadata.get('parser')
+            if not parser:
+                return cls._real_types[field.name](value)
+            return parser(value)
+
+        attrs = {
+            field.name: parse_field(field)
+            for field in fields(cls) if field.init
+        }
+        return attrs
+
+
 class ClarFilter(Enum):
     ALL = 1
     UNANSWERED = 2
@@ -30,13 +94,53 @@ class ClarFilter(Enum):
 
 
 @dataclass(frozen=True)
-class Submission(BaseSubmission):
-    user: str = field(init=False)  # Not in order
-    # TODO add more optional fields, use table header for parsing (need new base class?)
+class Submission(JSONDataclass, BaseSubmission):
+    _field = JSONDataclass._field
+    _optional_field = JSONDataclass._optional_field
 
-    def __post_init__(self):
-        super().__post_init__()
-        object.__setattr__(self, 'user', self.size_or_user)
+    id: int = _field(key='run_id')
+    uuid: Optional[str] = _optional_field(key='run_uuid')
+    sha1: Optional[str] = None
+
+    status: Optional[RunStatus] = None
+    status_str: Optional[str] = None
+
+    time: Optional[datetime] = _optional_field(key='run_time', parser=datetime.fromtimestamp)
+    nsec: Optional[int] = None  # Nanoseconds part of `time`
+    time_us: Optional[datetime] = _optional_field(key='run_time_us', parser=lambda ts: datetime.fromtimestamp(ts/10**6))
+    rel_time: Optional[int] = _optional_field(key='duration')  # From start of contest.
+
+    eoln_type: Optional[int] = None  # Some enum
+
+    user: Optional[str] = _optional_field(key='user_name')
+    user_id: Optional[int] = None
+    user_login: Optional[str] = None
+
+    prob_id: Optional[int] = None
+    problem: Optional[str] = _optional_field(key='prob_name')
+
+    compiler_id: Optional[int] = _optional_field(key='lang_id')
+    compiler: Optional[str] = _optional_field(key='lang_name')
+
+    ip: Optional[str] = None
+    ssl: Optional[bool] = None
+
+    size: Optional[int] = None
+    store_flags: Optional[int] = None  # ?
+
+    tests_passed: Optional[int] = _optional_field(key='raw_test')
+    # Ejudge sets "failed_test" or "tests_passed" field based on mode.
+    # In Kirov scoring system (used in CAOS course) raw_test is always equal to tests_passed.
+    passed_mode: Optional[int] = _skip_field()
+
+    raw_score: Optional[int] = None  # Without penalties
+    score: Optional[int] = None  # With penalties
+    score_str: Optional[str] = None  # "50=100-50", "99=100-1*1", etc.
+
+    base_url: str = Links.BASE_URL
+    source_details: Optional[str] = field(init=False, default=None)
+    source: Optional[str] = field(init=False, default=None)
+    report: Optional[str] = field(init=False, default=None)
 
     def set_status(self, session, status: RunStatus):
         # how to check success?
@@ -57,7 +161,6 @@ class Submission(BaseSubmission):
         session.post_page(Page.CHANGE_RUN_SCORE_ADJ, {'run_id': self.id, 'param': score_adj})
 
     def send_comment(self, session, comment: str, status: Optional[RunStatus] = None):
-
         if status is RunStatus.IGNORED:
             page = Page.IGNORE_WITH_COMMENT
         elif status is RunStatus.OK:
@@ -73,83 +176,85 @@ class Submission(BaseSubmission):
 
         session.post_page(page, {'run_id': self.id, 'msg_text': comment})  # how to check success?
 
+    @classmethod
+    def _parse(cls, data, base_url=Links.BASE_URL):
+        attrs = super()._parse(data)
+        attrs['base_url'] = base_url
+        return attrs
+
+    def _set_link(self, attr: str, page: Page):
+        link = (
+            Links.judge_root(self.base_url) + '?' +
+            urlencode({'action': page.value, 'run_id': self.id})
+        )
+        object.__setattr__(self, attr, link)
+
+    def __post_init__(self):
+        if self.status is RunStatus.EMPTY:
+            return
+
+        self._set_link('source_details', Page.VIEW_SOURCE)
+        self._set_link('source', Page.DOWNLOAD_SOURCE)
+        if self.status is not RunStatus.IGNORED:
+            # Ejudge keeps reports for ignored runs, but doesn't allow to see them
+            self._set_link('report', Page.VIEW_REPORT)
+
 
 @dataclass(frozen=True)
-class ClarInfo(ParsedRow):
+class ClarInfo(TableRowDataclass):
+    _field = TableRowDataclass._field
+
     id: int
     # Possible values:
     # For judge/admin: "", "N" - unanswered?, "A" - answered?, "R" - not used?
     # Unprivileged user: "U" - unanswered, "A" - answered, "N" - ?
-    flags: str = _parse_field(_CellParsers.clar_flags)
+    flags: str = _field(_CellParsers.clar_flags)
     # NOTE other time formats? (show_astr_time in lib/new_server_html_2.c:ns_write_all_clars)
-    time: datetime = _parse_field(_CellParsers.clar_time)
+    time: datetime = _field(_CellParsers.clar_time)
     ip: str
     size: int
     from_user: str
     to: str
     subject: str
-    details: str = _parse_field(_CellParsers.clar_details)
+    details: str = _field(_CellParsers.clar_details)
 
     @classmethod
-    def parse(cls, row, server_tz=timezone.utc):
-        attrs = cls._parse(row)
+    def _parse(cls, row, server_tz=timezone.utc):
+        attrs = super()._parse(row)
         attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
-        return cls(**attrs)
-
-
-def _dict_skip_field(key=None, parser=None):
-    meta = {'skip': True}
-    if key is not None:
-        meta['key'] = key
-    if parser is not None:
-        meta['parser'] = parser
-    return field(init=False, repr=False, compare=False, metadata=meta)
-
-
-def _dict_parse_field(key, parser=None):
-    return field(metadata={'key': key, 'parser': parser})
+        return attrs
 
 
 @dataclass(frozen=True)
-class User:
+class User(JSONDataclass):
     """Subset of user info from "Regular users" page."""
-    serial: int = _dict_skip_field()  # row number in the rendered table (?)
-    id: int = _dict_parse_field('user_id')
-    login: str = _dict_parse_field('user_login')
-    name: str = _dict_parse_field('user_name')
+
+    _field = JSONDataclass._field
+
+    serial: int = _skip_field()  # row number in the rendered table (?)
+    id: int = _field(key='user_id')
+    login: str = _field(key='user_login')
+    name: str = _field(key='user_name')
     is_banned: bool
     is_invisible: bool
     is_locked: bool  # ?
     is_incomplete: bool  # ?
-    is_disqualified: bool  # != is_banned?
+    is_disqualified: bool  # not the same as is_banned?
     is_privileged: bool
     is_reg_readonly: bool
-    # NOTE timestamps are not parsed. If you wish to add them to the class,
-    #      you will need to pass timezone info to `parse` (see ClarInfo for an example).
-    registration_date: datetime = _dict_skip_field('create_time', _FieldParsers.parse_optional_datetime)
-    login_date: datetime = _dict_skip_field('last_login_time', _FieldParsers.parse_optional_datetime)
+    registration_date: datetime = _field(key='create_time', parser=_FieldParsers.parse_optional_datetime)
+    login_date: Optional[datetime] = _field(key='last_login_time', parser=_FieldParsers.parse_optional_datetime)
     run_count: int
     run_size: int
     clar_count: int
     result_score: int = _skip_field()  # ?
 
-    # move to a separate base class?
-    @classmethod
-    def parse(cls, data):
-
-        def parse_field(field):
-            key = field.metadata.get('key', field.name)
-            parser = field.metadata.get('parser')
-            if not parser:
-                # NOTE will not work with Optional types
-                return field.type(data[key])
-            return parser(data[key])
-
-        attrs = {
-            field.name: parse_field(field)
-            for field in fields(cls) if field.init
-        }
-        return cls(**attrs)
+    def _parse(cls, data, server_tz=timezone.utc):
+        attrs = super()._parse(data)
+        attrs['registration_date'] = attrs['registration_date'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        if attrs['login_date'] is not None:
+            attrs['login_date'] = attrs['login_date'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        return attrs
 
 
 @dataclass
@@ -249,44 +354,16 @@ def ejudge_submissions(
 
     See JudgeAPI.list_runs for more details.
     """
-    from bs4 import BeautifulSoup
 
-    filter_status = (bool(filter_), first_run is not None, last_run is not None)
-    # FIXME filter status should be invalidated on session reauth
-    # priv_list_runs_json is stateless
-    storage = PickleStorage('storage')
-    with storage.load():
-        old_filter_status = storage.get('last_filter_status', (False, False, False))
-
-    page = None
-    # A reset is required even if one field is reset (WTF)
-    if _need_filter_reset(old_filter_status, filter_status):
-        page = session.get_page(
-            Page.MAIN_PAGE,
-            params={'action_65': 'Reset filter'}
-        )
-    with storage.load():
-        storage.set('last_filter_status', filter_status)
-
-    # page is None <=> no filters, a reset was performed last time
-    if any(filter_status) or page is None:
-        page = session.get_page(
-            Page.MAIN_PAGE,
-            params={
-                'filter_expr': filter_,
-                'filter_first_run': first_run,
-                'filter_last_run': last_run
-            }
-        )
-    soup = BeautifulSoup(page.content, 'html.parser')
-    title = soup.find('h2', string='Submissions')
-    table = title.find_next('table', {'class': 'b1'})
-    if table is None or table.find_previous('h2') is not title:
-        # Bad filter expression (other errors?)
-        return None
-    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
-        server_tz = get_server_tz(cache, session)
-    return [Submission.parse(row, server_tz) for row in table.find_all('tr')[1:]]
+    api: JudgeAPI = session.api()
+    submissions = session.with_auth(
+        api.list_runs,
+        filter_=filter_,
+        first_run=first_run,
+        last_run=last_run,
+        field_mask=field_mask
+    )['runs']
+    return [Submission.parse(sub, session.base_url) for sub in submissions]
 
 
 @requires_judge
@@ -343,7 +420,9 @@ def ejudge_clars(session, filter_=ClarFilter.UNANSWERED, first_clar=None, last_c
     table = title.find_next('table', {'class': 'b1'})
     if table is None or table.find_previous('h2') is not title:
         return None  # is this possible?
-    return [ClarInfo.parse(row) for row in table.find_all('tr')[1:]]
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
+        server_tz = get_server_tz(cache, session)
+    return [ClarInfo.parse(row, server_tz) for row in table.find_all('tr')[1:]]
 
 
 @requires_judge
@@ -368,7 +447,10 @@ def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=F
     resp = resp.json()
     if 'data' not in resp:
         return []  # TODO handle errors?
-    return [User.parse(user) for user in resp['data']]
+
+    with Cache('problem_info', compress=True, version=PROBLEM_INFO_VERSION).load() as cache:
+        server_tz = get_server_tz(cache, session)
+    return [User.parse(user, server_tz) for user in resp['data']]
 
 
 # Inconsistent naming, but it's more readable than ejudge_rejudge or something similar

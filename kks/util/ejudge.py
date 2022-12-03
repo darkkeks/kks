@@ -182,6 +182,7 @@ class Page(Enum):
     # Values of NEW_SRV_ACTION_* in include/ejudge/new_server_proto.h
     MAIN_PAGE = 2
     VIEW_SOURCE = 36
+    VIEW_REPORT = 37
     SEND_COMMENT = 64
     SET_RUN_STATUS = 67
 
@@ -217,10 +218,10 @@ class Page(Enum):
 
 class RunField(Flag):
     """Field filters for JudgeAPI.list_runs."""
-    RUN_ID = auto()
+    ID = auto()
     SIZE = auto()
     TIME = auto()
-    ABS_TIME = auto()
+    ABS_TIME = auto()  # In 'list-runs-json' is an alias of TIME
     REL_TIME = auto()
     NSEC = auto()
     USER_ID = auto()
@@ -241,12 +242,12 @@ class RunField(Flag):
     SAVED_SCORE = auto()
     SAVED_TEST = auto()
     SAVED_STATUS = auto()
-    RUN_UUID = auto()
+    UUID = auto()
     EOLN_TYPE = auto()
     STORE_FLAGS = auto()
     TOKENS = auto()
 
-    DEFAULT = RUN_ID | TIME | USER_NAME | PROB_NAME | LANG_NAME | STATUS | TEST | SCORE
+    DEFAULT = ID | TIME | USER_NAME | PROB_NAME | LANG_NAME | STATUS | TEST | SCORE
 
 
 class RunStatus(Enum):
@@ -289,8 +290,9 @@ class RunStatus(Enum):
     STYLE_ERR = 14, 'Coding style violation'
     PENDING_REVIEW = 16
     REJECTED = 17
-    SKIPPED = 18  # also used for tests
+    SKIPPED = 18  # Also used for tests
     SYNC_ERR = 19, 'Synchronization error'
+    EMPTY = 22, 'EMPTY'  # Cleared runs
     SUMMONED = 23, 'Summoned for defence'
 
     FULL_REJUDGE = 95  # ?
@@ -812,6 +814,10 @@ class EjudgeSession:
     @staticmethod
     def needs_auth(url):
         return 'SID' in parse_qs(urlsplit(url).query)
+
+    @property
+    def base_url(self):
+        return self._base_url
 
     @property
     def judge(self):

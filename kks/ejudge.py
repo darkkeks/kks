@@ -133,22 +133,11 @@ class CacheKeys:
         return f'dl_{contest}'
 
 
-def _skip_field(parser=None):
-    meta = {'skip': True}
-    if parser is not None:
-        meta['parser'] = parser
-    return field(init=False, repr=False, compare=False, metadata=meta)
-
-
-def _parse_field(parser):
-    return field(metadata={'parser': parser})
-
-
 class _FieldParsers:
     """Common parsers for dataclass fields."""
 
     @staticmethod
-    def parse_optional_datetime(value: Optional[str]):
+    def parse_optional_datetime(value: Optional[str]) -> Optional[datetime]:
         # NOTE timezone is not set
         if value is None or not value.strip():
             # Cleared/deleted submissions (judge only), empty "Login date" for users, etc.
@@ -205,8 +194,10 @@ class _CellParsers:
         return cell.text.strip()
 
     @staticmethod
-    def clar_time(cell):
-        return _FieldParsers.parse_optional_datetime(cell.text)
+    def clar_time(cell) -> datetime:
+        dt = _FieldParsers.parse_optional_datetime(cell.text)
+        assert dt is not None
+        return dt
 
     @staticmethod
     def clar_details(cell):
@@ -214,12 +205,20 @@ class _CellParsers:
         return link['href'] if link is not None else None
 
 
-class ParsedRow:
+def _skip_field(**meta):
+    return field(init=False, repr=False, compare=False, metadata={**meta, 'skip': True})
+
+
+class TableRowDataclass:
     """Base for dataclasses which can be parsed from table rows"""
 
+    @staticmethod
+    def _field(parser):
+        return field(metadata={'parser': parser})
+
     @classmethod
-    def parse(cls, row):
-        attrs = cls._parse(row)
+    def parse(cls, row, *args, **kwargs):
+        attrs = cls._parse(row, *args, **kwargs)
         return cls(**attrs)
 
     @classmethod
@@ -241,37 +240,19 @@ class ParsedRow:
         return attrs
 
 
-@dataclass(frozen=True)
-class BaseSubmission(ParsedRow):
-    id: int = _parse_field(_CellParsers.submission_id)
-    # parsing of new fields may be unstable
-    time: Optional[datetime] = _parse_field(_CellParsers.submission_time)
-    size_or_user: str = field(repr=False)  # any better options?
+# Not a dataclass. Subclasses may have different field sets or definitions.
+class BaseSubmission:
+    id: int
+    time: Optional[datetime]
+    size: int
     problem: str
     compiler: str
     status: str
-    tests_passed: Optional[int] = _parse_field(_CellParsers.submission_tests)
-    score: Optional[int] = _parse_field(_CellParsers.submission_score)
-    source_details: Optional[str] = _parse_field(_CellParsers.submission_source_details)
-    report: Optional[str] = _parse_field(_CellParsers.submission_report)
-    source: Optional[str] = field(init=False)
-
-    def __post_init__(self):
-        if self.source_details is None:
-            source_link = None
-        else:
-            source_link = self.source_details.replace(
-                f'action={Page.VIEW_SOURCE.value}',
-                f'action={Page.DOWNLOAD_SOURCE.value}'
-            )
-        object.__setattr__(self, 'source', source_link)
-
-    @classmethod
-    def parse(cls, row, server_tz=timezone.utc):
-        attrs = cls._parse(row)
-        if attrs['time']:
-            attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
-        return cls(**attrs)
+    tests_passed: Optional[int]
+    score: Optional[int]
+    source_details: Optional[str]
+    report: Optional[str]
+    source: Optional[str]
 
     def short_status(self):
         if self.status == Status.REVIEW:
@@ -305,12 +286,38 @@ class BaseSubmission(ParsedRow):
 
 
 @dataclass(frozen=True)
-class Submission(BaseSubmission):
-    size: int = field(init=False)  # Not in order
+class Submission(TableRowDataclass, BaseSubmission):
+    _field = TableRowDataclass._field
+
+    id: int = _field(_CellParsers.submission_id)
+    # parsing of new fields may be unstable
+    time: Optional[datetime] = _field(_CellParsers.submission_time)
+    size: int
+    problem: str
+    compiler: str
+    status: str
+    tests_passed: Optional[int] = _field(_CellParsers.submission_tests)
+    score: Optional[int] = _field(_CellParsers.submission_score)
+    source_details: Optional[str] = _field(_CellParsers.submission_source_details)
+    report: Optional[str] = _field(_CellParsers.submission_report)
+    source: Optional[str] = field(init=False)
 
     def __post_init__(self):
-        super().__post_init__()
-        object.__setattr__(self, 'size', int(self.size_or_user))
+        if self.source_details is None:
+            source_link = None
+        else:
+            source_link = self.source_details.replace(
+                f'action={Page.VIEW_SOURCE.value}',
+                f'action={Page.DOWNLOAD_SOURCE.value}'
+            )
+        object.__setattr__(self, 'source', source_link)
+
+    @classmethod
+    def _parse(cls, row, server_tz=timezone.utc):
+        attrs = super()._parse(row)
+        if attrs['time']:
+            attrs['time'] = attrs['time'].replace(tzinfo=server_tz).astimezone(MSK_TZ)
+        return attrs
 
 
 @dataclass
