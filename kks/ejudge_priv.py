@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, fields, Field
 from datetime import datetime, timezone
 from enum import Enum, Flag
 from functools import wraps
-from typing import BinaryIO, Iterable, Optional, Union
+from typing import BinaryIO, Iterable, List, Optional, Union
 from urllib.parse import urlencode
 
 from kks.ejudge import MSK_TZ, PROBLEM_INFO_VERSION, \
@@ -309,7 +309,7 @@ class ArchiveSettings:
     use_problem_extid: bool = False  # Use 'extid' as problem name (extid is some kind of id for ej-batch)
     use_problem_dir: bool = False  # Use 'problem_dir' as problem name (ejudge uses true by default)
     problem_dir_prefix: str = ''  # Common prefix to remove
-    runs_or_ids: Iterable = ()  # used only if run_selection is SELECTED
+    runs_or_ids: Iterable[Union[int, Submission]] = ()  # used only if run_selection is SELECTED
 
 
 def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Iterable[bool]):
@@ -320,7 +320,7 @@ def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Ite
     )
 
 
-def _run_mask(runs_or_ids: Optional[Iterable]):
+def _run_mask(runs_or_ids: Iterable[Union[int, Submission]]):
     # binmask = sum(1 << run_id for run_id in ids)
     # run_mask = f'{binmask & UINT64_MAX:x}+{(binmask >> 64) & UINT64_MAX:x}+...'
     mask = []
@@ -343,7 +343,7 @@ def ejudge_submissions(
         first_run: Optional[int] = None,
         last_run: Optional[int] = None,
         field_mask: RunField = RunField.DEFAULT | RunField.USER_LOGIN,  # always non-empty .user
-    ):
+    ) -> List[Submission]:
     """Parses (filtered) submissions table.
 
     The list of submissions is filtered,
@@ -366,7 +366,12 @@ def ejudge_submissions(
 
 
 @requires_judge
-def ejudge_clars(session, filter_=ClarFilter.UNANSWERED, first_clar=None, last_clar=None):
+def ejudge_clars(
+        session: EjudgeSession,
+        filter_: ClarFilter = ClarFilter.UNANSWERED,
+        first_clar: Optional[int] = None,
+        last_clar: Optional[int] = None,
+) -> Optional[List[ClarInfo]]:
     """Parses the list of clars.
 
     NOTE: first_clar and last_clar do not work as expected, see details below.
@@ -425,7 +430,13 @@ def ejudge_clars(session, filter_=ClarFilter.UNANSWERED, first_clar=None, last_c
 
 
 @requires_judge
-def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=False, show_only_pending=False):
+def ejudge_users(
+        session: EjudgeSession,
+        show_not_ok: bool = False,
+        show_invisible: bool = False,
+        show_banned: bool = False,
+        show_only_pending: bool = False
+) -> List[User]:
     """Gets users from the "Regular users" tab.
 
     Args:
@@ -454,19 +465,19 @@ def ejudge_users(session, show_not_ok=False, show_invisible=False, show_banned=F
 
 # Inconsistent naming, but it's more readable than ejudge_rejudge or something similar
 @requires_judge
-def rejudge_runs(session, runs_or_ids: Iterable):
+def rejudge_runs(session: EjudgeSession, runs_or_ids: Iterable[Union[int, Submission]]) -> None:
     resp = session.post_page(Page.REJUDGE_DISPLAYED, _run_mask(runs_or_ids))
     # TODO check status
 
 
 @requires_judge
-def clear_runs(session, runs_or_ids: Iterable):
+def clear_runs(session: EjudgeSession, runs_or_ids: Iterable[Union[int, Submission]]) -> None:
     resp = session.post_page(Page.CLEAR_DISPLAYED, _run_mask(runs_or_ids))
     # TODO check status
 
 
 @requires_judge
-def ejudge_archive(session, settings: ArchiveSettings, output: BinaryIO):
+def ejudge_archive(session: EjudgeSession, settings: ArchiveSettings, output: BinaryIO) -> None:
     # TODO move params construction to ArchiveSettings method?
     params = {
         'run_selection': settings.run_selection.value,

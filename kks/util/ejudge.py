@@ -608,7 +608,8 @@ class JudgeAPI(BaseAPI):
     def contest_status(self):
         pass
 
-    @_api_method(_Http.GET, _MethodGroup.CLIENT, 'list-runs-json')
+    # This should be a GET method, but filter can be too long to fit into URL.
+    @_api_method(_Http.POST, _MethodGroup.CLIENT, 'list-runs-json')
     def list_runs(
             self,
             filter_expr: Optional[str] = None,
@@ -643,7 +644,7 @@ class JudgeAPI(BaseAPI):
         For more details, see ejudge source code
         (lib/new_server_html_2.c:257-293 (at 773a153b1), lib/new_server_html.c:8602 (@c4c0ebb63))
         """
-        self._params['field_mask'] = field_mask.value
+        self._data['field_mask'] = field_mask.value
 
     @_api_method(_Http.GET, _MethodGroup.CLIENT, 'run-status-json')
     def run_status(self, run_id: Optional[int], run_uuid: Optional[str]):

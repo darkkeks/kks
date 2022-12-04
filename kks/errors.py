@@ -29,6 +29,7 @@ class APIError(EjudgeError):
     INVALID_RESPONSE = -2
     UNKNOWN = -1
 
+    DUPLICATE_RUN = 82
     INVALID_SESSION = 148
 
     def __init__(self, message, code):
