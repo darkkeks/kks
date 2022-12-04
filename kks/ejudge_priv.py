@@ -119,8 +119,8 @@ class Submission(JSONDataclass, BaseSubmission):
     prob_id: Optional[int] = None
     problem: Optional[str] = _optional_field(key='prob_name')
 
-    compiler_id: Optional[int] = _optional_field(key='lang_id')
-    compiler: Optional[str] = _optional_field(key='lang_name')
+    compiler: Optional[Lang] = _optional_field(key='lang_id')
+    compiler_name: Optional[str] = _optional_field(key='lang_name')
 
     ip: Optional[str] = None
     ssl: Optional[bool] = None
