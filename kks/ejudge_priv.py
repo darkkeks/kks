@@ -460,6 +460,12 @@ def rejudge_runs(session, runs_or_ids: Iterable):
 
 
 @requires_judge
+def clear_runs(session, runs_or_ids: Iterable):
+    resp = session.post_page(Page.CLEAR_DISPLAYED, _run_mask(runs_or_ids))
+    # TODO check status
+
+
+@requires_judge
 def ejudge_archive(session, settings: ArchiveSettings, output: BinaryIO):
     # TODO move params construction to ArchiveSettings method?
     params = {

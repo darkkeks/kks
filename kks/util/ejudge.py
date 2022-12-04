@@ -186,7 +186,7 @@ class Page(Enum):
     SEND_COMMENT = 64
     SET_RUN_STATUS = 67
 
-    REJUDGE_DISPLAYED_CONFIRM = 70
+    REJUDGE_DISPLAYED_CONFIRM = 70  # Confirmation page before REJUDGE_DISPLAYED.
     # No links from other pages. Legacy endpoints, replaced by EDIT_RUN?
     # there are more CHANGE_* actions (user/problem/flags...)
     CHANGE_RUN_PROB_ID = 77
@@ -207,6 +207,8 @@ class Page(Enum):
     SETTINGS = 143
     DOWNLOAD_ARCHIVE_FORM = 148
     DOWNLOAD_ARCHIVE = 149
+    CLEAR_DISPLAYED_CONFIRM = 177
+    CLEAR_DISPLAYED = 178
     IGNORE_WITH_COMMENT = 233
     OK_WITH_COMMENT = 237
     REJECT_WITH_COMMENT = 238
@@ -680,6 +682,8 @@ _judge_pages = [
     Page.REJUDGE_PROBLEM,
     Page.DOWNLOAD_ARCHIVE,
     Page.DOWNLOAD_ARCHIVE_FORM,
+    Page.CLEAR_DISPLAYED,
+    Page.CLEAR_DISPLAYED_CONFIRM,
 ]
 
 
