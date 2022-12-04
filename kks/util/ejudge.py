@@ -647,7 +647,7 @@ class JudgeAPI(BaseAPI):
         self._data['field_mask'] = field_mask.value
 
     @_api_method(_Http.GET, _MethodGroup.CLIENT, 'run-status-json')
-    def run_status(self, run_id: Optional[int], run_uuid: Optional[str]):
+    def run_status(self, run_id: Optional[int] = None, run_uuid: Optional[str] = None):
         if run_id is None and run_uuid is None:
             raise ValueError('Either run_id or run_uuid should be provided.')
         if run_id is not None and run_uuid is not None:
