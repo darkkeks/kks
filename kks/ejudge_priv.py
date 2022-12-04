@@ -14,6 +14,9 @@ from kks.util.ejudge import EjudgeSession, JudgeAPI, Lang, Links, Page, RunField
 from kks.util.storage import Cache, PickleStorage
 
 
+RunsOrIds = Iterable[Union[int, BaseSubmission]]
+
+
 def requires_judge(func):
     @wraps(func)
     def wrapper(session, *args, **kwargs):
@@ -309,7 +312,7 @@ class ArchiveSettings:
     use_problem_extid: bool = False  # Use 'extid' as problem name (extid is some kind of id for ej-batch)
     use_problem_dir: bool = False  # Use 'problem_dir' as problem name (ejudge uses true by default)
     problem_dir_prefix: str = ''  # Common prefix to remove
-    runs_or_ids: Iterable[Union[int, Submission]] = ()  # used only if run_selection is SELECTED
+    runs_or_ids: RunsOrIds = ()  # used only if run_selection is SELECTED
 
 
 def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Iterable[bool]):
@@ -320,7 +323,7 @@ def _need_filter_reset(old_filter_status: Iterable[bool], new_filter_status: Ite
     )
 
 
-def _run_mask(runs_or_ids: Iterable[Union[int, Submission]]):
+def _run_mask(runs_or_ids: RunsOrIds):
     # binmask = sum(1 << run_id for run_id in ids)
     # run_mask = f'{binmask & UINT64_MAX:x}+{(binmask >> 64) & UINT64_MAX:x}+...'
     mask = []
@@ -465,13 +468,13 @@ def ejudge_users(
 
 # Inconsistent naming, but it's more readable than ejudge_rejudge or something similar
 @requires_judge
-def rejudge_runs(session: EjudgeSession, runs_or_ids: Iterable[Union[int, Submission]]) -> None:
+def rejudge_runs(session: EjudgeSession, runs_or_ids: RunsOrIds) -> None:
     resp = session.post_page(Page.REJUDGE_DISPLAYED, _run_mask(runs_or_ids))
     # TODO check status
 
 
 @requires_judge
-def clear_runs(session: EjudgeSession, runs_or_ids: Iterable[Union[int, Submission]]) -> None:
+def clear_runs(session: EjudgeSession, runs_or_ids: RunsOrIds) -> None:
     resp = session.post_page(Page.CLEAR_DISPLAYED, _run_mask(runs_or_ids))
     # TODO check status
 
