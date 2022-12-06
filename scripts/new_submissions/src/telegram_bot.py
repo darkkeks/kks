@@ -248,8 +248,8 @@ class Bot:
             context.bot.send_message(cid, 'Usage: /take RUN_ID')
             return
         sub = self.db.get_submission(run_id)
-        if sub is not None:
-            context.bot.send_message(cid, 'Submission is already in the database')
+        if sub is not None and sub[1] is not None:
+            context.bot.send_message(cid, 'Submission has already been reviewed')
             return
         res = ejudge_submissions(self.session, f'id == {run_id}', field_mask=self._field_mask)
         if not res:
