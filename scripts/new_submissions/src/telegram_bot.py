@@ -220,6 +220,12 @@ class Bot:
             context.bot.send_message(cid, 'Submission is not in database')
             return
         _, reviewer, *_ = sub
+        if reviewer is None:
+            context.bot.send_message(
+                cid,
+                f'Run {run_id} was not reviewed or was not marked as reviewed'
+            )
+            return
         _, first_name, last_name = self.db.get_user(reviewer)
         full_name = f'{first_name} {last_name}' if last_name else first_name
         full_name = escape_markdown(full_name, version=2)
