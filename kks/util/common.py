@@ -45,7 +45,6 @@ def get_clang_style_string():
         BinPackParameters: false,
         AllowShortFunctionsOnASingleLine: false,
         BreakBeforeBraces: Custom,
-        InsertBraces: true,
         BraceWrapping: { AfterEnum: false, AfterStruct: false }
     }"""
 
