@@ -28,13 +28,19 @@ def requires_judge(func):
 
 class JSONDataclass:  # TODO modify @dataclass?
     """Base for dataclasses which can be parsed from JSON."""
+
+    _NO_DEFAULT = object()
+
     @staticmethod
-    def _field(*, key=None, parser=None):
-        return field(metadata={'key': key, 'parser': parser})
+    def _field(*, key=None, parser=None, default=_NO_DEFAULT):
+        f = field(metadata={'key': key, 'parser': parser})
+        if default is not JSONDataclass._NO_DEFAULT:
+            f.default = default
+        return f
 
     @staticmethod
     def _optional_field(*, key=None, parser=None) -> Field:
-        return field(default=None, metadata={'key': key, 'parser': parser})
+        return JSONDataclass._field(key=key, parser=parser, default=None)
 
     @staticmethod
     def _de_opt(type_):
@@ -70,22 +76,19 @@ class JSONDataclass:  # TODO modify @dataclass?
 
     @classmethod
     def _parse(cls, data):
-
-        def parse_field(field):
+        attrs = {}
+        for field in fields(cls):
+            if not field.init:
+                continue
             key = field.metadata.get('key') or field.name
-            value = data.get(key)
-            if value is None:
-                return None
-
+            if key not in data:
+                continue
+            value = data[key]
             parser = field.metadata.get('parser')
-            if not parser:
-                return cls._real_types[field.name](value)
-            return parser(value)
-
-        attrs = {
-            field.name: parse_field(field)
-            for field in fields(cls) if field.init
-        }
+            if parser:
+                attrs[field.name] = parser(value)
+            else:
+                attrs[field.name] = cls._real_types[field.name](value)
         return attrs
 
 
@@ -104,6 +107,9 @@ class Submission(JSONDataclass, BaseSubmission):
     id: int = _field(key='run_id')
     uuid: Optional[str] = _optional_field(key='run_uuid')
     sha1: Optional[str] = None
+
+    hidden: bool = _field(key='is_hidden', default=False)
+    marked: bool = _field(key='is_markee', default=False)
 
     status: Optional[RunStatus] = None
     status_str: Optional[str] = None  # 2-letter status, like in filter
