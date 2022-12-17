@@ -108,9 +108,9 @@ class Submission(JSONDataclass, BaseSubmission):
     status: Optional[RunStatus] = None
     status_str: Optional[str] = None  # 2-letter status, like in filter
 
-    time: Optional[datetime] = _optional_field(key='run_time', parser=datetime.fromtimestamp)
+    time: Optional[datetime] = _optional_field(key='run_time', parser=_FieldParsers.parse_utc_timestamp)
     nsec: Optional[int] = None  # Nanoseconds part of `time`
-    time_us: Optional[datetime] = _optional_field(key='run_time_us', parser=lambda ts: datetime.fromtimestamp(ts/10**6))
+    time_us: Optional[datetime] = _optional_field(key='run_time_us', parser=lambda ts: _FieldParsers.parse_utc_timestamp(ts/10**6))
     rel_time: Optional[int] = _optional_field(key='duration')  # Seconds from start of contest.
 
     eoln_type: Optional[int] = None  # Some enum

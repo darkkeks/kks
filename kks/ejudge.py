@@ -3,7 +3,7 @@ from copy import copy
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from itertools import groupby
-from typing import Optional
+from typing import Optional, Union
 from urllib.parse import parse_qs, urlsplit
 
 # import requests  # we use lazy imports to improve load time for local commands
@@ -143,6 +143,10 @@ class _FieldParsers:
             # Cleared/deleted submissions (judge only), empty "Login date" for users, etc.
             return None
         return datetime.strptime(value, TIME_FORMAT)
+
+    @staticmethod
+    def parse_utc_timestamp(ts: Union[int, float]) -> datetime:
+        return datetime.fromtimestamp(ts, timezone.utc).astimezone(MSK_TZ)
 
 
 class _CellParsers:
