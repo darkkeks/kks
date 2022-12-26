@@ -131,7 +131,12 @@ def find_tests_to_run(
             if output_file is not None:
                 found_tests.add(FileTest(input_file.stem, input_file, output_file))
             else:
-                click.secho(f'Test {format_file(input_file)} has no output', fg='yellow', err=True)
+                click.echo(
+                    click.style('Test ', fg='yellow') +
+                    format_file(input_file) +
+                    click.style(' has no output', fg='yellow'),
+                    err=True
+                )
         return found_tests
 
     if sample:
