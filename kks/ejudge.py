@@ -509,7 +509,10 @@ class FullProblem(SummaryProblem):
         problem_info = html.find('table', {'class': 'line-table-wb'})
         if problem_info is None:
             return None
-        next_block = problem_info.find_next('h3', string='Submit a solution')
+        next_block = (
+            problem_info.find_next('div', {'id': 'ej-submit-tabs'})  # 3.10.0+
+            or problem_info.find_next('h3', string='Submit a solution')  # older versions
+        )
         if next_block is None:
             next_block = problem_info.find_next('h2')
 
