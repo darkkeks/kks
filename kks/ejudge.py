@@ -40,7 +40,6 @@ GROUP_ID_BY_CONTEST = {
 
 
 PROBLEM_INFO_VERSION = 3
-TIME_FORMAT = '%Y/%m/%d %H:%M:%S'
 MSK_TZ = timezone(timedelta(hours=3))
 
 
@@ -133,6 +132,13 @@ class CacheKeys:
         return f'dl_{contest}'
 
 
+def _parse_datetime(text: str, required_parts: Optional[int] = None):
+    parts = re.findall(r'\d+', text)
+    if required_parts is not None and len(parts) < required_parts:
+        raise ValueError(f'Expected datetime with at least {required_parts} parts, but got {len(parts)}')
+    return datetime(*map(int, parts))
+
+
 class _FieldParsers:
     """Common parsers for dataclass fields."""
 
@@ -142,7 +148,7 @@ class _FieldParsers:
         if value is None or not value.strip():
             # Cleared/deleted submissions (judge only), empty "Login date" for users, etc.
             return None
-        return datetime.strptime(value, TIME_FORMAT)
+        return _parse_datetime(value, 6)
 
     @staticmethod
     def parse_utc_timestamp(ts: Union[int, float]) -> datetime:
@@ -165,7 +171,8 @@ class _CellParsers:
 
     @staticmethod
     def submission_time(cell):
-        return _FieldParsers.parse_optional_datetime(cell.text)
+        # NOTE timezone is not set
+        return _parse_datetime(cell.text, 6)
 
     @staticmethod
     def submission_tests(cell):
@@ -480,8 +487,8 @@ class Deadlines:
     @staticmethod
     def parse(text, server_tz):
         """Parse datetime string (obtained from a problem page) and convert it to UTC"""
-        # YYYY//MM/DD [hh[:mm[:ss]]]
-        dt = datetime(*map(int, re.findall(r'\d+', text)))
+        # YYYY(/|-)MM(/|-)DD [hh[:mm[:ss]]]
+        dt = _parse_datetime(text, 3)
         return dt.replace(tzinfo=server_tz).astimezone(MSK_TZ)
 
 
@@ -884,7 +891,7 @@ def ejudge_timezone(session):
             continue
         key, value, *_ = cells
         if 'Server time' in key.text:
-            server_time = datetime.strptime(value.text, TIME_FORMAT)
+            server_time = _parse_datetime(value.text, 6)
             utc_time = datetime.utcnow()
             offset_hours = round((server_time - utc_time).total_seconds() / 3600)
             break
