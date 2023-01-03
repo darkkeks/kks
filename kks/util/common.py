@@ -26,9 +26,8 @@ def config_directory():
 
 def get_clang_style_string():
     cfg = config_directory() / '.clang-format'
-    if cfg.exists():
-        with cfg.open('r') as f:
-            return f.read()
+    if cfg.is_file():
+        return 'file:' + str(cfg)
 
     return r"""{
         Language: Cpp,
