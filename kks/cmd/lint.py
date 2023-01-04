@@ -9,6 +9,7 @@ import click
 from kks.util.common import get_solution_directory, get_clang_style_string, \
                             get_clang_tidy_config, print_diff
 from kks.util.compat import subprocess
+from kks.util.config import find_target
 
 
 class SkippedError(Exception):
@@ -20,9 +21,14 @@ class SkippedError(Exception):
               help='Show lint diff. Always true for dry-run')
 @click.option('-n', '--dry-run', is_flag=True, default=False,
               help='Dont actually change any files. Uses temporary directory')
+# Not sure if fixes work as intended when applied to multiple files.
+# Also some checks (like readability-magic-numbers) just don't have any auto-fixes.
+@click.option('-f', '--fix', is_flag=True, default=False,
+              help='Apply clang-tidy fixes. Experimental, may break your code. '
+                   'Always false for dry-run. If there are compiler errors, fixes are NOT applied.')
 @click.option('-T', '-tg', '--target', default='default',
-              help='Target name for clang-tidy compiler flags')
-def lint(diff, dry_run, target):
+              help='Target name for clang-tidy compiler flags')  # Add --asan/--no-asan?
+def lint(diff, dry_run, fix, target):
     """
     Lint solution in current task directory using clang-format and clang-tidy.
 
@@ -35,6 +41,7 @@ def lint(diff, dry_run, target):
 
     directory = get_solution_directory()
 
+    # Also finds C++ generators / reference solutions. Use target.files instead?
     files = (
         list(directory.glob('*.c')) +
         list(directory.glob('*.h')) +
@@ -55,13 +62,14 @@ def lint(diff, dry_run, target):
             format_ok = format_files(files, show_diff=diff, diff_error=False)
             all_checks_passed &= format_ok
             if format_ok:
-                click.secho(f'Successfully formatted!', fg='green', err=True)
+                click.secho('Successfully formatted!', fg='green', err=True)
     except SkippedError:
         pass
     try:
-        # No auto-fixes yet (not sure if they will work as intended for multiple files).
-        # Also some checks (like readability-magic-numbers) just don't have any auto-fixes.
-        all_checks_passed &= run_clang_tidy(files, target)
+        lint_ok = run_clang_tidy(files, target, fix=fix and not dry_run)
+        all_checks_passed &= lint_ok
+        if lint_ok:
+            click.secho('Clang-tidy checks passed!', fg='green', err=True)
     except SkippedError:
         pass
     exit(0 if all_checks_passed else 1)
@@ -73,6 +81,30 @@ def _run_binary(args):
     except FileNotFoundError:
         click.secho(f"'{args[0]}' is not in PATH", fg='yellow', err=True)
         raise SkippedError()
+
+
+def _get_compiler_flags(source_files: List[Path], target_name: str):
+    target = find_target(target_name)
+    if target is None:
+        click.secho(f'No target {target_name} found', fg='red', err=True)
+        return None
+
+    has_c = any(f.name.endswith('.c') for f in source_files)
+    has_cpp = any(f.name.endswith('.cpp') for f in source_files)
+    if has_c and has_cpp:
+        # FIXME clang-tidy is skipped if solution is in C and gen/refsol is in C++
+        click.secho('Cannot lint C and C++ together', fg='red', err=True)
+        return None
+
+    compiler = target.cpp_compiler if has_cpp else target.compiler
+    std = target.cpp_std if has_cpp else target.std
+    compiler_args = [compiler, '-std='+std] + target.flags
+
+    if not target.asm64bit and any(f.suffix.lower() == '.s' for f in source_files):
+        compiler_args.append('-m32')
+
+    # Add ASAN_ARGS, filenames, libs? clang-tidy seems to work correctly without all these options
+    return compiler_args
 
 
 def format_files(files: List[Path], show_diff: bool, diff_error: bool) -> bool:
@@ -124,7 +156,7 @@ def format_files(files: List[Path], show_diff: bool, diff_error: bool) -> bool:
     return True
 
 
-def run_clang_tidy(files: List[Path], target: str):
+def run_clang_tidy(files: List[Path], target: str, fix: bool):
     """Runs clang-tidy on specified files.
 
     Args:
@@ -141,7 +173,14 @@ def run_clang_tidy(files: List[Path], target: str):
     files_string = click.style(' '.join(file_names), fg='blue', bold=True)
     click.secho('Linting files ' + files_string)
 
-    process = _run_binary(['clang-tidy', get_clang_tidy_config()] + file_names + ['--'])  # TODO add args
+    compiler_flags = _get_compiler_flags(files, target)
+    if compiler_flags is None:
+        # internal error
+        return True
+    clang_tidy_args = ['clang-tidy', get_clang_tidy_config()]
+    if fix:
+        clang_tidy_args.append('--fix')
+    process = _run_binary(clang_tidy_args + file_names + ['--'] + compiler_flags)
 
     if process.returncode not in [0, 1]:
         # killed / segfault / ???
