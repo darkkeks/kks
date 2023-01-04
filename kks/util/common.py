@@ -52,6 +52,30 @@ def get_clang_style_string():
     }"""
 
 
+def get_clang_tidy_config():
+    cfg = config_directory() / '.clang-tidy'
+    if cfg.is_file():
+        return '--config-file=' + str(cfg)
+
+    return r"""--config={
+      Checks: "-*,readability-magic-numbers,readability-identifier-naming",
+      CheckOptions: {
+        readability-magic-numbers.IgnoredIntegerValues: "1;2;3;4;10",
+        readability-identifier-naming.ConstantCase: UPPER_CASE,
+        readability-identifier-naming.EnumCase: CamelCase,
+        readability-identifier-naming.FunctionCase: lower_case,
+        readability-identifier-naming.MacroDefinitionCase: UPPER_CASE,
+        readability-identifier-naming.MemberCase: lower_case,
+        readability-identifier-naming.ParameterCase: lower_case,
+        readability-identifier-naming.StructCase: CamelCase,
+        readability-identifier-naming.TypedefCase: CamelCase,
+        readability-identifier-naming.UnionCase: CamelCase,
+        readability-identifier-naming.VariableCase: lower_case,
+      },
+      WarningsAsErrors: '*'
+    }"""
+
+
 def find_workspace(path=None):
     if path is None:
         path = Path()
