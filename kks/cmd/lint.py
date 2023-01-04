@@ -6,7 +6,8 @@ from typing import List
 
 import click
 
-from kks.util.common import get_solution_directory, get_clang_style_string, print_diff
+from kks.util.common import get_solution_directory, get_clang_style_string, \
+                            get_clang_tidy_config, print_diff
 from kks.util.compat import subprocess
 
 
@@ -58,7 +59,8 @@ def lint(diff, dry_run, target):
     except SkippedError:
         pass
     try:
-        # No auto-fixes
+        # No auto-fixes yet (not sure if they will work as intended for multiple files).
+        # Also some checks (like readability-magic-numbers) just don't have any auto-fixes.
         all_checks_passed &= run_clang_tidy(files, target)
     except SkippedError:
         pass
@@ -123,5 +125,27 @@ def format_files(files: List[Path], show_diff: bool, diff_error: bool) -> bool:
 
 
 def run_clang_tidy(files: List[Path], target: str):
-    # TODO
-    return True
+    """Runs clang-tidy on specified files.
+
+    Args:
+        files: A list of files to be checked.
+        target: Name of build target.
+
+    Returns: True if files are ok (no problems were found), False otherwise.
+
+    Raises:
+        SkippedError: clang-tidy is not in PATH.
+    """
+    file_names = [file.as_posix() for file in files]
+
+    files_string = click.style(' '.join(file_names), fg='blue', bold=True)
+    click.secho('Linting files ' + files_string)
+
+    process = _run_binary(['clang-tidy', get_clang_tidy_config()] + file_names + ['--'])  # TODO add args
+
+    if process.returncode not in [0, 1]:
+        # killed / segfault / ???
+        click.secho(f'Clang-tidy exited with code {process.returncode}', fg='red', err=True)
+        return False
+
+    return process.returncode == 0
