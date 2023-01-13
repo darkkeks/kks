@@ -1,18 +1,21 @@
 FROM python:3.11-alpine
 
-ARG KKS_REVISION
 ENV KKS_CUSTOM_DIR=/data/.kks
 
 WORKDIR /tmp
-COPY src/requirements.txt .
+COPY ./scripts/new_submissions/src/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 
-RUN pip install --no-cache-dir https://github.com/darkkeks/kks/archive/$KKS_REVISION.tar.gz
+COPY ./setup.py ./MANIFEST.in ./README.md ./kks /tmp/kks/
+COPY ./kks /tmp/kks/kks
+RUN pip install --no-cache-dir /tmp/kks && rm -r /tmp/kks
 
 WORKDIR /
 
-COPY src src
+COPY ./scripts/new_submissions/src ./src
 
 STOPSIGNAL SIGINT
+
+VOLUME "/data"
 
 CMD ["./src/telegram_bot.py"]
