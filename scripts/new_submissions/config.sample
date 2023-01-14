@@ -1,0 +1,12 @@
+telegram:
+  token: "123:ABCDEF"
+  chat_id: 12345
+
+ejudge:
+  contest: 211
+  login: ejudge  # any user with "judge" privilegies
+  password: super_secret_password
+
+# Custom DB path for non-containerized instances. If you use run.sh, don't set this key.
+# The path may be relative to this file's parent directory or absolute.
+# db_file: ./caos.db

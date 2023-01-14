@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
+import argparse
 import csv
 import re
 import logging
 import typing as t
+
+from dataclasses import dataclass
 from functools import wraps
 from io import StringIO
-from os import environ
 from pathlib import Path
 from random import randint
 from time import sleep
 from traceback import format_exc
+
+import yaml
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.error import BadRequest, RetryAfter, TelegramError
@@ -18,7 +22,7 @@ from telegram.ext import CallbackContext, CallbackQueryHandler, CommandHandler, 
 from telegram.utils.helpers import escape_markdown
 
 from kks.ejudge_priv import Submission, ejudge_submissions, ejudge_users
-from kks.util.ejudge import EjudgeSession, RunField, RunStatus
+from kks.util.ejudge import AuthData, EjudgeSession, RunField, RunStatus
 from utils.submissions import new_submissions
 from utils.db import BotDB
 
@@ -29,7 +33,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-__version__ = '2.1.0'
+# Unused
+__version__ = '3.0.0'
+
+
+DEFAULT_DB_FILE =  Path('/data/caos.db')
 
 
 STRIKETHROUGH = '~'
@@ -70,10 +78,23 @@ def abbrev_name(first_name, last_name):
     return first_name[0] + last_name[0]
 
 
+@dataclass
+class TelegramConfig:
+    token: str
+    chat_id: int
+
+
+@dataclass
+class EjudgeConfig:
+    contest: int
+    login: str
+    password: str
+
+
 class Bot:
-    def __init__(self, token, chat_id, db_path):
-        self.updater = Updater(token)
-        self.chat_id = chat_id
+    def __init__(self, tg_conf: TelegramConfig, ej_conf: EjudgeConfig, db_path: str):
+        self.updater = Updater(tg_conf.token)
+        self.chat_id = tg_conf.chat_id
         self.db = BotDB(db_path)
         self._field_mask = (
             RunField.ID |
@@ -86,7 +107,7 @@ class Bot:
             RunField.SCORE
         )
         # TODO add session lock?
-        self.session = EjudgeSession()
+        self.session = EjudgeSession(auth_data=AuthData(ej_conf.login, ej_conf.password, ej_conf.contest, judge=True), quiet=True)
 
         self.updater.dispatcher.add_handler(CallbackQueryHandler(
             self.handle_query,
@@ -98,16 +119,22 @@ class Bot:
         self.updater.dispatcher.add_handler(CommandHandler('dump', self.create_dump, Filters.chat_type.private))
 
     def start(self):
+        logger.info('Starting')
+        logger.info('Initializing the database')
         self.db.init()
         if not self.db.has_ej_users():
+            logger.info('Adding ejudge users')
             # Add invisible/banned/not-ok users to avoid unnecessary updates on submissions from these users.
             users = ejudge_users(self.session, show_not_ok=True, show_invisible=True, show_banned=True)
             with self.db.lock:
                 for user in users:
                     self.db.add_ej_user(user.id, user.name or user.login)
                 self.db.commit()
+        logger.info('Creating a cron job')
         self.updater.job_queue.run_custom(self.check_updates, {'trigger': 'cron', 'minute': 0})
+        logger.info('Start polling')
         self.updater.start_polling()
+        logger.info('Started')
         self.updater.idle()
 
     def handle_query(self, update: Update, context: CallbackContext):
@@ -372,15 +399,33 @@ class Bot:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config_file')
+    args = parser.parse_args()
+    config_file = Path(args.config_file)
+    if not config_file.exists():
+        logger.error(f'"{config_file}" does not exit')
+        return
+    if not config_file.is_file():
+        logger.error(f'"{config_file}" is not a file')
+        return
     try:
-        token = environ['EJ_SUB_TELEGRAM_TOKEN']
-        chat_id = int(environ['EJ_SUB_TELEGRAM_CHAT'])
-        db_path = environ.get('EJ_SUB_DB_FILE', Path(__file__).resolve().parent/'caos.db')
+        with config_file.open() as f:
+            config = yaml.safe_load(f)
+        tg_conf = TelegramConfig(**config['telegram'])
+        ej_conf = EjudgeConfig(**config['ejudge'])
+        if 'db_file' in config:
+            db_file = config_file.parent / config['db_file']
+        else:
+            db_file = DEFAULT_DB_FILE
     except KeyError as e:
         logger.error(f'Missing config key: "{e.args[0]}"')
         return
+    except Exception as e:
+        logger.error(f'Bad config: {e}')
+        return
 
-    bot = Bot(token, chat_id, db_path)
+    bot = Bot(tg_conf, ej_conf, db_file)
     bot.start()
 
 

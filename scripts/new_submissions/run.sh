@@ -1,15 +1,15 @@
 #!/bin/bash
+
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 ENVFILE"
+    echo "Usage: $0 CONFIG_FILE"
     exit 1
 fi
 
-ENVFILE=$1
-IMAGE=${IMAGE:-caos-submissions-bot}
+CONFIG=$(realpath "$1")
 
-docker volume create caos-submissions-data 2>/dev/null
+IMAGE=${IMAGE:-caos-submissions-bot}
 
 docker stop caos-submissions-bot &>/dev/null
 docker rm caos-submissions-bot &>/dev/null
 
-docker run -d --restart always --name caos-submissions-bot -v caos-submissions-data:/data --env-file $ENVFILE $IMAGE
+docker run -d --restart always --name caos-submissions-bot -v caos-submissions-data:/data -v $CONFIG:/data/config:ro $IMAGE /data/config

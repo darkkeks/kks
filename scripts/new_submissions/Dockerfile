@@ -18,4 +18,4 @@ STOPSIGNAL SIGINT
 
 VOLUME "/data"
 
-CMD ["./src/telegram_bot.py"]
+ENTRYPOINT ["./src/telegram_bot.py"]
