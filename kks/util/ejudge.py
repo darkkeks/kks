@@ -82,7 +82,7 @@ class Lang(Enum):
             self._realname = self._name_.replace('xx', '++').replace('_', '-')
         return self._realname
 
-    # NOTE compiler ids may change
+    # NOTE compiler ids may change. Use a dynamic enum instead? (see contest_status API method)
     gcc = 2, '.c'
     gxx = 3, '.cpp'
     python = 13, '.py'
@@ -101,6 +101,7 @@ class Lang(Enum):
     gas_32 = 66, '.S'
     gas = 67, '.S'
     rust = 70, '.rs'
+    qemu = 77, '.c'
     gas_aarch64 = 101, '.S'
     gas_armv7l = 102, '.S'
 
