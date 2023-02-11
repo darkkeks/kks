@@ -83,6 +83,7 @@ class Lang(Enum):
         return self._realname
 
     # NOTE compiler ids may change. Use a dynamic enum instead? (see contest_status API method)
+    none = 0, ''  # "short-answer" problems
     gcc = 2, '.c'
     gxx = 3, '.cpp'
     python = 13, '.py'
