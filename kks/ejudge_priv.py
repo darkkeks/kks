@@ -145,6 +145,7 @@ class Submission(JSONDataclass, BaseSubmission):
     raw_score: Optional[int] = None  # Without penalties
     score: Optional[int] = None  # With penalties
     score_str: Optional[str] = None  # "50=100-50", "99=100-1*1", etc.
+    score_adj: Optional[int] = None
 
     base_url: str = Links.BASE_URL
     source_details: Optional[str] = field(init=False, default=None)
@@ -186,9 +187,14 @@ class Submission(JSONDataclass, BaseSubmission):
         session.post_page(page, {'run_id': self.id, 'msg_text': comment})  # how to check success?
 
     @classmethod
-    def _parse(cls, data, base_url=Links.BASE_URL):
+    def _parse(cls, data, base_url=Links.BASE_URL, set_score_adj=False):
         attrs = super()._parse(data)
         attrs['base_url'] = base_url
+        if set_score_adj and 'score_adj' not in attrs:
+            # If RunField.SCORE_ADJ is not used, Submission.score_adj is None
+            # If RunField.SCORE_ADJ is used and score_adj is missing, set it to 0
+            # (ejudge doesn't write zeros)
+            attrs['score_adj'] = 0
         return attrs
 
     def _set_link(self, attr: str, page: Page):
@@ -371,7 +377,7 @@ def ejudge_submissions(
 
     api: JudgeAPI = session.api()
     submissions = session.with_auth(api.list_runs, filter_, first_run, last_run, field_mask)['runs']
-    return [Submission.parse(sub, session.base_url) for sub in submissions]
+    return [Submission.parse(sub, session.base_url, RunField.SCORE_ADJ in field_mask) for sub in submissions]
 
 
 @requires_judge
