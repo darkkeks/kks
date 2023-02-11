@@ -918,7 +918,7 @@ def get_problem_info(problem, cache, session):
                 deadlines.soft = Deadlines.parse(value.text, get_server_tz(cache, session))
             elif key.text == 'Date penalty formula:':
                 deadline, dp_value = value.text.rsplit(' ', 1)
-                if dp_value.isdigit():
+                if re.match(r'^-?[0-9]+$', dp_value):
                     # If fixed formula is used, "next soft deadline" is not rendered (ejudge 3.9.1)
                     alt_soft_deadline = Deadlines.parse(deadline, get_server_tz(cache, session))
             elif key.text == 'Deadline:':
