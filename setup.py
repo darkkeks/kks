@@ -25,6 +25,7 @@ setup(
         'html2text==2020.1.16',
         'pyyaml',
         "dataclasses;python_version<'3.7'",
+        'setuptools',
     ],
     python_requires=">=3.6",
     entry_points='''
