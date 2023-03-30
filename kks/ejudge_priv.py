@@ -182,7 +182,7 @@ class Submission(JSONDataclass, BaseSubmission):
         elif status is None:
             page = Page.SEND_COMMENT
         else:
-            raise ValueError(f'Unsupported status: {status}')  # TODO use enum for status
+            raise ValueError(f'Unsupported status: {status}')
 
         session.post_page(page, {'run_id': self.id, 'msg_text': comment})  # how to check success?
 

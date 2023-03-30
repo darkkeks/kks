@@ -16,8 +16,8 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        'Click',
-        'requests',
+        'Click>=8', # TODO 8.1 when py3.6 support is dropped
+        'requests>=2.27',  # TODO 2.28
         'configparser',
         'colorama',
         'tqdm',
