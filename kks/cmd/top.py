@@ -230,9 +230,8 @@ class TasksColumn(Column):
             click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) +
             ' '.join([
                 click.style(
-                    '{{:{}{}}}'.format(*(['>', 3] if i != len(tasks) else
-                                         ['<', 3 + max(0, len(contest) - self.contest_widths[contest])]))
-                    .format(task.table_score() or ''), fg=task.color(), bg=task.bg_color(), bold=task.bold()
+                    '{:>3}'.format(task.table_score() or '') + ' ' * (max(0, len(contest) - self.contest_widths[contest]) if i == len(tasks) else 0),
+                    fg=task.color(), bg=task.bg_color(), bold=task.bold()
                 )
                 for i, task in enumerate(tasks, 1)
             ])
