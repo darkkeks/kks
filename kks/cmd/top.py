@@ -225,21 +225,26 @@ class TasksColumn(Column):
             for contest in self.contests
         ])
 
+    def _format_contest(self, contest, tasks):
+        join_str = ' '
+        raw_len = -len(join_str)
+
+        def gen(tasks):
+            nonlocal raw_len, join_str
+            for task in tasks:
+                raw_str = '{:>3}'.format(task.table_score() or '')
+                raw_len += len(raw_str) + len(join_str)
+                yield click.style(raw_str, fg=task.color(), bg=task.bg_color(), bold=task.bold())
+
+        return join_str.join(gen(tasks)) + ' ' * max(0, self.contest_widths[contest] - raw_len)
+
     def value(self, row):
-        return ''.join([
+        return ''.join(
             click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) +
-            ' '.join([
-                click.style(
-                    '{:>3}'.format(task.table_score() or '') + ' ' * (max(0, len(contest) - self.contest_widths[contest]) if i == len(tasks) else 0),
-                    fg=task.color(), bg=task.bg_color(), bold=task.bold()
-                )
-                for i, task in enumerate(tasks, 1)
-            ])
+            self._format_contest(contest, tasks)
             for contest, tasks in groupby(row.tasks, lambda task: task.contest)
             if contest in self.contests
-            # hack because using list(tasks) two times causes second call to return empty list
-            for tasks in [list(tasks)]
-        ])
+        )
 
     def width(self):
         return sum(self.contest_widths.values()) + len(TasksColumn.DELIMITER) * len(self.contests)
@@ -291,7 +296,7 @@ def get_default_contest_count(contests, tasks_by_contest, max_width):
 
 def get_contest_widths(contests, tasks_by_contest):
     return {
-        contest: len('100') * len(tasks_by_contest[contest]) + len(tasks_by_contest[contest]) - 1
+        contest: max(len(contest), len('100') * len(tasks_by_contest[contest]) + len(tasks_by_contest[contest]) - 1)
         for contest in contests
     }
 
