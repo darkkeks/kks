@@ -230,12 +230,16 @@ class TasksColumn(Column):
             click.style(TasksColumn.DELIMITER, fg=row.color(), bold=row.bold()) +
             ' '.join([
                 click.style(
-                    '{:>3}'.format(task.table_score() or ''), fg=task.color(), bg=task.bg_color(), bold=task.bold()
+                    '{{:{}{}}}'.format(*(['>', 3] if i != len(tasks) else
+                                         ['<', 3 + max(0, len(contest) - self.contest_widths[contest])]))
+                    .format(task.table_score() or ''), fg=task.color(), bg=task.bg_color(), bold=task.bold()
                 )
-                for task in tasks
+                for i, task in enumerate(tasks, 1)
             ])
             for contest, tasks in groupby(row.tasks, lambda task: task.contest)
             if contest in self.contests
+            # hack because using list(tasks) two times causes second call to return empty list
+            for tasks in [list(tasks)]
         ])
 
     def width(self):
