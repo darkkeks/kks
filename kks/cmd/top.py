@@ -1,5 +1,6 @@
 import shutil
 import sys
+from collections import namedtuple
 from itertools import groupby
 
 import click
@@ -216,27 +217,25 @@ class TasksColumn(Column):
 
     def __init__(self, contests, tasks_by_contests):
         self.contests = contests
-        self.contest_widths = get_contest_widths(self.contests, tasks_by_contests)
+        self.contests_properties = get_contests_properties(self.contests, tasks_by_contests)
 
     def header(self):
         return ''.join([
             click.style(TasksColumn.DELIMITER, fg='white', bold=False) +
-            click.style(contest.ljust(self.contest_widths[contest], ' '), fg='white', bold=True)
+            click.style(contest.ljust(self.contests_properties[contest].width, ' '), fg='white', bold=True)
             for contest in self.contests
         ])
 
     def _format_contest(self, contest, tasks):
-        join_str = ' '
-        raw_len = -len(join_str)
-
-        def gen(tasks):
-            nonlocal raw_len, join_str
-            for task in tasks:
-                raw_str = '{:>3}'.format(task.table_score() or '')
-                raw_len += len(raw_str) + len(join_str)
-                yield click.style(raw_str, fg=task.color(), bg=task.bg_color(), bold=task.bold())
-
-        return join_str.join(gen(tasks)) + ' ' * max(0, self.contest_widths[contest] - raw_len)
+        return ' '.join(
+            click.style(
+                '{:>3}'.format(task.table_score() or ''),
+                fg=task.color(),
+                bg=task.bg_color(),
+                bold=task.bold()
+            )
+            for task in tasks
+        ) + ' ' * self.contests_properties[contest].score_padding
 
     def value(self, row):
         return ''.join(
@@ -247,7 +246,8 @@ class TasksColumn(Column):
         )
 
     def width(self):
-        return sum(self.contest_widths.values()) + len(TasksColumn.DELIMITER) * len(self.contests)
+        return sum(properties.width for properties in self.contests_properties.values()) + \
+            len(TasksColumn.DELIMITER) * len(self.contests)
 
 
 def select_contests(standings, last, contests, all_, default_count):
@@ -283,20 +283,32 @@ def get_default_contest_count(contests, tasks_by_contest, max_width):
     """По ширине пытается определить, сколько колонок можно вывести"""
 
     delimiter_width = len(CONTEST_DELIMITER)
-    contest_widths = get_contest_widths(contests, tasks_by_contest)
+    contests_properties = get_contests_properties(contests, tasks_by_contest)
 
     width_sum = 0
     for i, contest in enumerate(contests[::-1]):
-        width_sum += delimiter_width + contest_widths[contest]
+        width_sum += delimiter_width + contests_properties[contest].width
         if width_sum > max_width:
             return i
 
     return len(contests)
 
 
-def get_contest_widths(contests, tasks_by_contest):
+ContestProperties = namedtuple('ContestProperties', ('width', 'score_padding'))
+
+
+def get_filled_contest_properties(contest, tasks):
+    len_tasks = len('100') * len(tasks) + len(tasks) - 1
+    width = max(len(contest), len_tasks)
+    return ContestProperties(
+        width=width,
+        score_padding=width - len_tasks
+    )
+
+
+def get_contests_properties(contests, tasks_by_contest):
     return {
-        contest: max(len(contest), len('100') * len(tasks_by_contest[contest]) + len(tasks_by_contest[contest]) - 1)
+        contest: get_filled_contest_properties(contest, tasks_by_contest[contest])
         for contest in contests
     }
 
