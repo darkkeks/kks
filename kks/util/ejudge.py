@@ -93,6 +93,7 @@ class Lang(Enum):
     make = 25, '.tar'
     gcc_vg = 28, '.c'
     gxx_vg = 29, '.cpp'
+    clangxx_vg = 31, '.cpp'
     clang = 51, '.c'
     clangxx = 52, '.cpp'
     make_vg = 54, '.tar'
