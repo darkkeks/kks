@@ -60,7 +60,7 @@ def get_top1_score(standings, first_contest_):
                     if task.contest in contests:
                         score += int(task.score)
                 else:
-                    score += int(task.score)
+                    score += int(task.score)    
         scores.append(score)
     return max(scores)
 
