@@ -19,6 +19,7 @@ def my_score(K, year, first_contest):
     try:
         session = EjudgeSession()
         standings = ejudge_standings(session)
+        # TODO call send_standings if opted in
         user = standings.user
     except (EjudgeUnavailableError, AuthError) as err:
         click.secho(
