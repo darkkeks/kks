@@ -1,4 +1,5 @@
 import re
+
 import click
 
 from kks.ejudge import ejudge_standings
@@ -44,7 +45,7 @@ def my_score(K, year, first_contest):
     print('Your current score from homework is: ', click.style(
         str(my_score), fg=fg, bold=True))
     print('Your estimated mark from homework is: ', click.style(
-        str(real_score) + '/9.0', fg=fg, bold=True))
+        f'{real_score:.02f}/9.0', fg=fg, bold=True))
 
 
 def get_top1_score(standings, year, first_contest):
@@ -76,12 +77,13 @@ def get_my_score(standings, year, first_contest):
             else:
                 return row.score
 
-    raise ValueError("Couldn't find user in standings")
+    return 0
 
 
 def is_rated_contest(contest: str) -> bool:
     # assuming there can be split contests, like sm12.3-1, sm12_3-1, ...
     return re.match(r'^(sm|kr|ku)\d', contest) is not None
+
 
 def select_contests_starting_from_specific_contest(standings, year, first_contest):
     contests = []
