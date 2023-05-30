@@ -1,3 +1,4 @@
+import re
 import click
 
 from kks.ejudge import ejudge_standings
@@ -55,7 +56,7 @@ def get_top1_score(standings, year, first_contest):
     for row in standings.rows:
         score = 0
         for task in row.tasks:
-            if is_ranked_contest(task.contest) and task.score:
+            if is_rated_contest(task.contest) and task.score:
                 if first_contest is None or task.contest in contests:
                     score += int(task.score)
         scores.append(score)
@@ -77,9 +78,9 @@ def get_my_score(standings, year, first_contest):
     raise ValueError("Couldn't find user in standings")
 
 
-def is_ranked_contest(contest):
-    return contest.startswith('kr') or contest.startswith('sm') or contest.startswith('ku')
-
+def is_rated_contest(contest: str) -> bool:
+    # assuming there can be split contests, like sm12.3-1, sm12_3-1, ...
+    return re.match(r'^(sm|kr|ku)\d', contest) is not None
 
 def select_contests_starting_from_specific_contest(standings, year, first_contest):
     contests = []
