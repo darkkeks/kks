@@ -149,7 +149,7 @@ class Links:
     def _get_base_url(cls):
         url = environ.get('KKS_CUSTOM_URL')
         if url is None:
-            return 'https://caos.myltsev.ru'
+            return 'https://caos2023.myltsev.ru'
         # Remove path and/or trailing slash(es) from envvar
         return urlsplit(url)._replace(path='', query='', fragment='').geturl()
 
