@@ -13,7 +13,7 @@ GROUP_ID_HINT = "2022 group id (e.g. 214, 2110)"
 @click.option('-g', '--group-id', help=GROUP_ID_HINT)
 @click.option('-c', '--contest-id', type=int,
               help='''Ejudge contest id.
-              For example, https://caos.myltsev.ru/cgi-bin/new-client?contest_id=133 has contest id 133''')
+              For example, https://caos2023.myltsev.ru/cgi-bin/new-client?contest_id=133 has contest id 133''')
 @click.option('--store-password/--no-store-password', default=True,
               help='''Toggle storing plaintext password in config for auto-login.
               If disabled, only session cookies will be stored.
