@@ -33,6 +33,11 @@ for year in [20, 21]:
         f'{year}{group}': int(f'{year}{group}') for group in range(1, 11)
     })
 CONTEST_ID_BY_GROUP['free'] = 2021
+CONTEST_ID_BY_GROUP.update({
+    f'22{group}': group + 1 for group in range(1, 11)
+})
+CONTEST_ID_BY_GROUP['SPB1'] = 12
+CONTEST_ID_BY_GROUP['SPB2'] = 13
 
 GROUP_ID_BY_CONTEST = {
     contest_id: group_id for group_id, contest_id in CONTEST_ID_BY_GROUP.items()
