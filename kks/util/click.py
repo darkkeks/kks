@@ -27,8 +27,16 @@ class FlagOption(click.Option):
 
 class OptFlagOption(click.Option):
     """ Fix the help for the _opt suffix """
+    def __init__(self, *args, **kwargs):
+        # To hide '--optionname_opt' from autocompletoon
+        # Assuming that 'hidden', if present, is always in kwargs (in click 8.1 it's the 14th arg)
+        kwargs['hidden'] = True
+        super().__init__(*args, **kwargs)
+
     def get_help_record(self, ctx):
+        self.hidden = False
         help = super().get_help_record(ctx)
+        self.hidden = True
         return (help[0].replace('_opt ', '='),) + help[1:]
 
     def get_error_hint(self, ctx):
