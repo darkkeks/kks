@@ -4,7 +4,7 @@ from kks.ejudge import get_contest_id
 from kks.util.ejudge import AuthData, EjudgeSession
 
 
-GROUP_ID_HINT = "2023 group id (e.g. 224, 2210, SPB1, SPB2)"
+GROUP_ID_HINT = "2023 group id (e.g. 224, 2210, SPB1, SPB2, auditor23)"
 
 
 @click.command(short_help='Authorize and save authentication data to configuration directory')
@@ -39,7 +39,7 @@ def auth(login, password, group_id, contest_id, store_password):
         if contest_id is None:
             click.secho(
                 f"Invalid group id '{group_id}'"
-                "(should be a number from 211 to 2110)",
+                "(should be a number from 221 to 2210, or SPB1/SPB2, or auditor23)",
                 fg='red', err=True
             )
             return
