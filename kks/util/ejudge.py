@@ -901,7 +901,7 @@ class EjudgeSession:
         # TODO search only if returned page is html
         match = self._auth_issues_pattern.search(response.content)
         if match:
-            if match.group(0) == self._invalid_session_error_text:
+            if match.group(0).decode() == self._invalid_session_error_text:
                 self._auth()
                 params['SID'] = self._sids.sid
                 response = method(url, *args, **kwargs)
