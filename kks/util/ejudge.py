@@ -1,5 +1,6 @@
 import inspect
 import json
+import re
 from base64 import b64decode
 from copy import copy
 from dataclasses import asdict, dataclass
@@ -13,7 +14,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import click
 
 from kks import __version__
-from kks.errors import EjudgeUnavailableError, AuthError, APIError
+from kks.errors import AuthError, APIError, DefaultPasswordError, EjudgeUnavailableError
 from kks.util.common import deprecated
 from kks.util.storage import Config, PickleStorage
 
@@ -505,6 +506,12 @@ class API:
 
 class EjudgeSession:
 
+    _invalid_session_error_text = 'Invalid session'
+    _password_reset_error_text = 'You must set up new password!'
+    _auth_issues_pattern = re.compile(
+        '|'.join([_invalid_session_error_text, _password_reset_error_text]).encode()
+    )
+
     @dataclass(frozen=True)
     class _SessionKey:
         base_url: str
@@ -599,6 +606,9 @@ class EjudgeSession:
         if 'Permission denied' in page.text:
             raise AuthError('Permission denied (invalid username, password or contest id)')
 
+        if self._password_reset_error_text in page.text:
+            raise DefaultPasswordError()
+
         self._update_sids(page.url)
         self._store_auth_state()
 
@@ -680,11 +690,17 @@ class EjudgeSession:
 
         response = method(url, *args, **kwargs)
         _check_response(response)
-        # the requested page may contain binary data (e.g. problem attachments)
-        if b'Invalid session' in response.content:
-            self._auth()
-            params['SID'] = self._sids.sid
-            response = method(url, *args, **kwargs)
+        # the requested page may contain binary data (e.g. problem attachments), so we use .content
+        # TODO search only if returned page is html
+        match = self._auth_issues_pattern.search(response.content)
+        if match:
+            if match.group(0) == self._invalid_session_error_text:
+                self._auth()
+                params['SID'] = self._sids.sid
+                response = method(url, *args, **kwargs)
+            else:
+                # Do we need the same check for API? Does the API even require password reset?
+                raise DefaultPasswordError()
         return response
 
     def get(self, url, *args, **kwargs):
