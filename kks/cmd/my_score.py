@@ -11,8 +11,8 @@ from kks.util.stat import get_global_standings
 @click.command(short_help='Calculate your score from homeworks')
 @click.option('-b', '--barrier', 'K', type=int, default=3500,
               help='K_i param. See http://wiki.cs.hse.ru/CAOS-2022#.D0.A4.D0.BE.D1.80.D0.BC.D1.83.D0.BB.D0.B0_.D0.BE.D1.86.D0.B5.D0.BD.D0.BA.D0.B8')
-@click.option('-y', '--year', type=int, default=2022,
-              help='Show standings for the selected year')
+@click.option('-y', '--year', type=int, default=2023,
+              help='Use standings for the selected year')
 @click.option('-f', '--first-contest', type=str,
               help='Show score for all contests since the chosen one (module 4 begins with sm11)')
 def my_score(K, year, first_contest):

@@ -1,15 +1,22 @@
+from os import environ
+
 import click
 
 from kks.ejudge import Standings, TaskInfo, StandingsRow, TaskScore
 from kks.util.ejudge import AuthData
 
-KKS_STAT_API = 'https://kks.darkkeks.me/api'
 KKS_STAT_TIMEOUT = 3  # seconds
 
+def api_url_or_default(url):
+    if url is not None:
+        return url
+    return environ.get('KKS_STAT_API', 'https://kks.darkkeks.me/api')
 
-def send_standings(standings):
+def send_standings(standings, api_url=None):
     import requests
     from requests import RequestException
+
+    api_url = api_url_or_default(api_url)
 
     auth_data = AuthData.load_from_config()
     if auth_data is None:
@@ -21,15 +28,17 @@ def send_standings(standings):
     data.update(standings_to_dict(standings))
 
     try:
-        response = requests.post(f"{KKS_STAT_API}/send", json=data, timeout=KKS_STAT_TIMEOUT)
+        response = requests.post(f"{api_url}/send", json=data, timeout=KKS_STAT_TIMEOUT)
         return response.ok
     except RequestException:
         return False
 
 
-def get_global_standings(user, year):
+def get_global_standings(user, year, api_url=None):
     import requests
     from requests import RequestException
+
+    api_url = api_url_or_default(api_url)
 
     parameters = {
         'year': year,
@@ -40,7 +49,7 @@ def get_global_standings(user, year):
         parameters.update(auth_data_to_dict(auth_data))
 
     try:
-        response = requests.get(f"{KKS_STAT_API}/get", params=parameters, timeout=KKS_STAT_TIMEOUT)
+        response = requests.get(f"{api_url}/get", params=parameters, timeout=KKS_STAT_TIMEOUT)
     except RequestException as e:
         click.secho(f'Failed to receive global standings: {e}', fg='red', err=True)
         return None
