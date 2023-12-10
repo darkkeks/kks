@@ -133,6 +133,39 @@ def sync_attachments(problem, dest_dir, session):
             f.write(page.content)
 
 
+def write_genpy(task_dir):
+    gen = task_dir / 'gen.py'
+
+    if not gen.exists():
+        with gen.open('w') as file:
+            file.write('import sys\n'
+                       'import random\n'
+                       '\n'
+                       't = int(sys.argv[1])\n'
+                       'random.seed(t)\n')
+
+
+def write_cmakelists(task_dir, suffix, name):
+    if suffix not in ('.c', '.S'):
+        click.secho(f'Unsupported suffix {suffix}', fg='red', err=True)
+        return
+
+    cmakelists_path = task_dir / 'CMakeLists.txt'
+    if cmakelists_path.exists():
+        click.secho(f'File {cmakelists_path.relative_to(find_workspace())} exists, skipping',
+                    fg='red', err=True)
+        return
+
+    language = 'ASM' if suffix == '.S' else 'C'
+
+    with cmakelists_path.open('w') as f:
+        f.write(f'add_executable({name} {name}{suffix})\n'
+                f'set_target_properties({name} PROPERTIES COMPILE_FLAGS "-std=gnu11 -g -Werror -Wall -Wextra -ftrapv '
+                f'-pthread -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -m32" LINK_FLAGS "-m32 '
+                f'-lm")\n'
+                f'set_source_files_properties({name}{suffix} PROPERTIES LANGUAGE {language})\n')
+
+
 @click.command(short_help='Parse problems from ejudge', cls=OptFlagCommand)
 @click.option('--code', cls=FlagOption, is_flag=True,
               help='Download latest submitted solutions')
@@ -226,15 +259,9 @@ def sync(code, code_opt, force, filters):
         main = (task_dir / problem.short_name).with_suffix(problem.suffix())
         main.touch()
 
-        gen = task_dir / 'gen.py'
+        write_cmakelists(task_dir, problem.suffix(), problem.short_name)
 
-        if not gen.exists():
-            with gen.open('w') as file:
-                file.write('import sys\n'
-                           'import random\n'
-                           '\n'
-                           't = int(sys.argv[1])\n'
-                           'random.seed(t)\n')
+        write_genpy(task_dir)
 
         solve = task_dir / 'solve.py'
         solve.touch()
@@ -284,6 +311,6 @@ def sync(code, code_opt, force, filters):
     color = 'green' if old_problems + new_problems == total_problems else 'red'
     click.secho('Sync done!', fg='green')
     click.secho(
-        f'Synced tasks: {old_problems+new_problems}/{total_problems} ({old_problems} unchanged)',
+        f'Synced tasks: {old_problems + new_problems}/{total_problems} ({old_problems} unchanged)',
         fg=color
     )

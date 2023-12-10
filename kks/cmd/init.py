@@ -79,6 +79,8 @@ def init(force, config, config_opt):
     else:
         hidden.mkdir()
 
+    write_cmakelists(path)
+
     action = 'Updated' if old_workspace else 'Initialized'
     click.secho(f'{action} workspace in directory {path.absolute()}', fg='green', bold=True)
 
@@ -120,3 +122,38 @@ def create_config(directory, is_global, update, force):
         click.secho('Default targets are written to ', fg='green', nl=False)
         click.secho(format_file(file))
         click.secho('The config file is not updated automatically.', bold=True)
+
+
+def write_cmakelists(directory):
+    click.secho('Writing CMakeLists.txt...', fg='green')
+    path = directory / 'CMakeLists.txt'
+    if path.exists():
+        click.secho(f'{path} already exists, skipping', fg='yellow')
+        return
+
+    path.write_text('''cmake_minimum_required(VERSION 3.10)
+
+project(caos C ASM)
+
+# Function to recursively add subdirectories
+function(add_subdirectories_recursively dir)
+    if(IS_DIRECTORY ${dir})
+        file(GLOB sub_dirs RELATIVE ${dir} ${dir}/*)
+        foreach(sub_dir ${sub_dirs})
+            if(IS_DIRECTORY ${dir}/${sub_dir})
+                if(EXISTS ${dir}/${sub_dir}/CMakeLists.txt)
+                    # Prepend the relative path from the source directory to the current directory
+                    get_filename_component(full_dir "${dir}/${sub_dir}" REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+                    file(RELATIVE_PATH rel_dir "${CMAKE_CURRENT_SOURCE_DIR}" "${full_dir}")
+                    add_subdirectory(${rel_dir})
+                endif()
+                add_subdirectories_recursively(${dir}/${sub_dir})
+            endif()
+        endforeach()
+    endif()
+endfunction()
+
+
+# Call the function on the current source directory
+add_subdirectories_recursively(${CMAKE_CURRENT_SOURCE_DIR})
+''')
