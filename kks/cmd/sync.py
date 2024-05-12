@@ -158,11 +158,14 @@ def write_cmakelists(task_dir, suffix, name):
 
     language = 'ASM' if suffix == '.S' else 'C'
 
+    from kks.util.config import find_target
+    from kks.binary import ASAN_ARGS
+    target = find_target('default')
+    compile_flags = " ".join(['std=' + target.std] + target.flags + ASAN_ARGS + ['-m32'])
+
     with cmakelists_path.open('w') as f:
         f.write(f'add_executable({name} {name}{suffix})\n'
-                f'set_target_properties({name} PROPERTIES COMPILE_FLAGS "-std=gnu11 -g -Werror -Wall -Wextra -ftrapv '
-                f'-pthread -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -m32" LINK_FLAGS "-m32 '
-                f'-lm")\n'
+                f'set_target_properties({name} PROPERTIES COMPILE_FLAGS "{compile_flags}" LINK_FLAGS "-m32 -lm")\n'
                 f'set_source_files_properties({name}{suffix} PROPERTIES LANGUAGE {language})\n')
 
 
