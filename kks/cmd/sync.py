@@ -136,24 +136,26 @@ def sync_attachments(problem, dest_dir, session):
 def write_genpy(task_dir):
     gen = task_dir / 'gen.py'
 
-    if not gen.exists():
-        with gen.open('w') as file:
-            file.write('import sys\n'
-                       'import random\n'
-                       '\n'
-                       't = int(sys.argv[1])\n'
-                       'random.seed(t)\n')
+    if gen.exists():
+        return
+
+    with gen.open('w') as file:
+        file.write('import sys\n'
+                   'import random\n'
+                   '\n'
+                   't = int(sys.argv[1])\n'
+                   'random.seed(t)\n')
 
 
 def write_cmakelists(task_dir, suffix, name):
     if suffix not in ('.c', '.S'):
-        click.secho(f'Unsupported suffix {suffix}', fg='red', err=True)
+        click.secho(f'Unsupported solution language with suffix {suffix}, skipping CMakeLists.txt generation',
+                    fg='yellow', err=True)
         return
 
     cmakelists_path = task_dir / 'CMakeLists.txt'
+
     if cmakelists_path.exists():
-        click.secho(f'File {cmakelists_path.relative_to(find_workspace())} exists, skipping',
-                    fg='red', err=True)
         return
 
     language = 'ASM' if suffix == '.S' else 'C'
@@ -161,8 +163,20 @@ def write_cmakelists(task_dir, suffix, name):
     from kks.util.config import find_target
     from kks.binary import ASAN_ARGS
     target = find_target('default')
-    compile_flags = " ".join(target.flags + ASAN_ARGS + ['-m32'])
-    link_flags = " ".join(['-m32', '-lm'] + ASAN_ARGS)
+
+    compiler_flags_list = target.flags
+    link_flags_list = [f'-l{lib}' for lib in target.libs]
+
+    if not target.asm64bit:
+        compiler_flags_list.append('-m32')
+        link_flags_list.append('-m32')
+
+    if target.default_asan:
+        compiler_flags_list += ASAN_ARGS
+        link_flags_list += ASAN_ARGS
+
+    compile_flags = " ".join(compiler_flags_list)
+    link_flags = " ".join(link_flags_list)
 
     with cmakelists_path.open('w') as f:
         f.write(f'add_executable({name} {name}{suffix})\n'
@@ -263,7 +277,8 @@ def sync(code, code_opt, force, filters):
         main = (task_dir / problem.short_name).with_suffix(problem.suffix())
         main.touch()
 
-        write_cmakelists(task_dir, problem.suffix(), problem.short_name)
+        if config.options.cmakelists:
+            write_cmakelists(task_dir, problem.suffix(), problem.short_name)
 
         write_genpy(task_dir)
 

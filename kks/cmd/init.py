@@ -5,6 +5,7 @@ import click
 from kks.util.click import OptFlagCommand, FlagOption, OptFlagOption, Choice2
 from kks.util.common import find_workspace, get_hidden_dir, format_file
 from kks.util.config import target_file, global_comment
+from kks.util.storage import Config
 
 
 @click.command(cls=OptFlagCommand)
@@ -125,10 +126,15 @@ def create_config(directory, is_global, update, force):
 
 
 def write_cmakelists(directory):
+    config = Config()
+    if not config.options.cmakelists:
+        return
+
     click.secho('Writing CMakeLists.txt...', fg='green')
+
     path = directory / 'CMakeLists.txt'
+
     if path.exists():
-        click.secho(f'{path} already exists, skipping', fg='yellow')
         return
 
     path.write_text('''cmake_minimum_required(VERSION 3.10)
