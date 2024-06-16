@@ -161,11 +161,12 @@ def write_cmakelists(task_dir, suffix, name):
     from kks.util.config import find_target
     from kks.binary import ASAN_ARGS
     target = find_target('default')
-    compile_flags = " ".join(['std=' + target.std] + target.flags + ASAN_ARGS + ['-m32'])
+    compile_flags = " ".join(target.flags + ASAN_ARGS + ['-m32'])
+    link_flags = " ".join(['-m32', '-lm'] + ASAN_ARGS)
 
     with cmakelists_path.open('w') as f:
         f.write(f'add_executable({name} {name}{suffix})\n'
-                f'set_target_properties({name} PROPERTIES COMPILE_FLAGS "{compile_flags}" LINK_FLAGS "-m32 -lm")\n'
+                f'set_target_properties({name} PROPERTIES COMPILE_FLAGS "{compile_flags}" LINK_FLAGS "{link_flags}")\n'
                 f'set_source_files_properties({name}{suffix} PROPERTIES LANGUAGE {language})\n')
 
 
