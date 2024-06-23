@@ -82,7 +82,7 @@ pip3 install .
    - `global-opt-out` - отказаться от отправки статистики для глобального рейтинга
    - `save-html-statements`, `save-md-statements` (по умолчанию оба значения `true`) - выбор формата сохранения условий при синхронизации
    - `save-attachments` (по умолчанию `true`) - сохранять приложенные к условиям файлы
-   - `cmakelists` (по умолчанию `false`) - генерировать CMakeLists.txt
+   - `generate-cmakelists` (по умолчанию `false`) - генерировать CMakeLists.txt
 
   Имена переменных окружения, если они используются, должны быть в upper-case. Например, для переопределения опции `save-html-statements` используется переменная окружения `SAVE_HTML_STATEMENTS`
 
@@ -241,5 +241,5 @@ kks sync --code=all
 
 ```ini
 [Options]
-cmakelists = true
+generate-cmakelists = true
 ```

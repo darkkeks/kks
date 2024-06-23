@@ -100,7 +100,7 @@ class OptionsSection(EnvSection):
     max_kr: bool = False
     deadline_warning_days: int = 1
     sort_todo_by_deadline: bool = True
-    cmakelists: bool = False
+    generate_cmakelists: bool = False
     global_opt_out: bool
     keep_bad_credentials: bool
 

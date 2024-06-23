@@ -127,7 +127,7 @@ def create_config(directory, is_global, update, force):
 
 def write_cmakelists(directory):
     config = Config()
-    if not config.options.cmakelists:
+    if not config.options.generate_cmakelists:
         return
 
     click.secho('Writing CMakeLists.txt...', fg='green')

@@ -277,7 +277,7 @@ def sync(code, code_opt, force, filters):
         main = (task_dir / problem.short_name).with_suffix(problem.suffix())
         main.touch()
 
-        if config.options.cmakelists:
+        if config.options.generate_cmakelists:
             write_cmakelists(task_dir, problem.suffix(), problem.short_name)
 
         write_genpy(task_dir)
