@@ -82,6 +82,7 @@ pip3 install .
    - `global-opt-out` - отказаться от отправки статистики для глобального рейтинга
    - `save-html-statements`, `save-md-statements` (по умолчанию оба значения `true`) - выбор формата сохранения условий при синхронизации
    - `save-attachments` (по умолчанию `true`) - сохранять приложенные к условиям файлы
+   - `generate-cmakelists` (по умолчанию `false`) - генерировать CMakeLists.txt
 
   Имена переменных окружения, если они используются, должны быть в upper-case. Например, для переопределения опции `save-html-statements` используется переменная окружения `SAVE_HTML_STATEMENTS`
 
@@ -232,4 +233,13 @@ export KKS_CUSTOM_URL=https://caos-alt.somedomain.ru
 
 kks sync --code=all
 # ...
+```
+
+## Генерация CMakeLists.txt
+
+Для генерации `CMakeLists.txt` необходимо добавить флаг `cmakelists = true` в раздел `[Options]` файла конфигурации `~/.kks/config.ini`:
+
+```ini
+[Options]
+generate-cmakelists = true
 ```
