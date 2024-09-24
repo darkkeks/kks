@@ -84,7 +84,7 @@ def _compile_solution(workdir, files, target, verbose, options, cpp):
     compiler_args = [compiler, '-std='+std] + target.flags
 
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in files):
-        compiler_args.append('-m64')
+        compiler_args.append('-m32')
 
     return compile_gnu(
             workdir,

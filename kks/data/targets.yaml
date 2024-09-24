@@ -1,4 +1,4 @@
-__version__: 6 # You shouldn't modify the version
+__version__: 7 # You shouldn't modify the version
 
 
 default:
@@ -19,7 +19,7 @@ default:
     files: ['*.c', '*.S', '*.s', 'TASKNAME.cpp']
     libs: ['m']  # math lib
 
-    asm64bit: false
+    asm64bit: true
     default_asan: true  # If true, add asan flags. `--asan/--no-asan` overrides this value
     # NOTE `--no-asan` flag only overrides `default_asan`.
     # If you add any asan flags in a custom target, they will not be disabled by `--no-asan`

@@ -101,7 +101,7 @@ def _get_compiler_flags(source_files: List[Path], target_name: str):
     compiler_args = [compiler, '-std='+std] + target.flags
 
     if not target.asm64bit and any(f.suffix.lower() == '.s' for f in source_files):
-        compiler_args.append('-m64')
+        compiler_args.append('-m32')
 
     # Add ASAN_ARGS, filenames, libs? clang-tidy seems to work correctly without all these options
     return compiler_args

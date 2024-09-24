@@ -168,8 +168,8 @@ def write_cmakelists(task_dir, suffix, name):
     link_flags_list = [f'-l{lib}' for lib in target.libs]
 
     if not target.asm64bit:
-        compiler_flags_list.append('-m64')
-        link_flags_list.append('-m64')
+        compiler_flags_list.append('-m32')
+        link_flags_list.append('-m32')
 
     if target.default_asan:
         compiler_flags_list += ASAN_ARGS
