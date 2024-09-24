@@ -4,7 +4,7 @@ from kks.ejudge import get_contest_id
 from kks.util.ejudge import AuthData, EjudgeSession
 
 
-GROUP_ID_HINT = "2024 group id (e.g. 231, 2312)"
+GROUP_ID_HINT = "2024 group id (e.g. 231, 2312, SPb-AMI, SPb-ADAAI, auditor24)"
 
 
 @click.command(short_help='Authorize and save authentication data to configuration directory')
